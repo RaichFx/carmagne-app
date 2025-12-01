@@ -1,0 +1,9 @@
+{
+  "name": "CARMAGNE SOLU 2024",
+  "description": "Sistema integral de control de presencia, fichaje y gestión de obras.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
