@@ -80,10 +80,17 @@ function App() {
       setIsAppLoading(false);
     }, 2000); // 2 seconds splash
 
-    // Load initial data
+    // Load initial local data
     setWorkers(StorageService.getWorkers());
     setSites(StorageService.getSites());
-    setWorkerLogs(StorageService.getLogs()); // Load logs for history
+    setWorkerLogs(StorageService.getLogs()); 
+
+    // *** REAL-TIME SYNC START ***
+    // This connects the worker app to Firebase. 
+    // If Admin adds a site or a worker, it appears instantly here.
+    const unsubWorkers = StorageService.subscribeToWorkers((data) => setWorkers(data));
+    const unsubSites = StorageService.subscribeToSites((data) => setSites(data));
+    // *** REAL-TIME SYNC END ***
 
     // Check for Biometrics Support
     if (window.PublicKeyCredential) {
@@ -94,7 +101,11 @@ function App() {
         .catch(err => console.error("Bio check failed", err));
     }
     
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      unsubWorkers();
+      unsubSites();
+    };
   }, []);
 
   // Refresh logs when entering dashboard
@@ -161,12 +172,10 @@ function App() {
       defaultMode: 'HORAS'
     };
 
-    // Save Locally
+    // Save triggers firebase sync inside storageService
     const updatedWorkers = [...workers, newWorker];
     StorageService.saveWorkers(updatedWorkers);
-    setWorkers(updatedWorkers);
-
-    // Sync to Cloud (Fire and forget)
+    // Also trigger google sheets legacy sync
     await StorageService.syncWorker(newWorker);
 
     setLoading(false);
@@ -371,11 +380,10 @@ function App() {
       workMode: mode
     };
 
-    // 1. Save Locally
+    // 1. Save Locally & Firebase
     StorageService.addLog(newLog);
 
-    // 2. Sync to Cloud
-    // Try to use loaded config, otherwise fallback to whatever is available
+    // 2. Sync to Cloud (Google Sheets Legacy)
     StorageService.syncLog(newLog).then(success => {
       if (success) {
         newLog.syncedToSheets = true;

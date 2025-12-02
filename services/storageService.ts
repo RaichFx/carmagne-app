@@ -129,22 +129,33 @@ export const StorageService = {
     } catch (error) { return false; }
   },
 
-  // --- REAL-TIME LISTENERS (Para el Admin Panel) ---
+  // --- REAL-TIME LISTENERS ---
+  
+  // Escuchar Fichajes (Para Admin)
   subscribeToLogs: (callback: (logs: WorkLog[]) => void) => {
     const q = query(collection(db, "logs"), orderBy("timestamp", "desc"));
     return onSnapshot(q, (snapshot) => {
       const logs = snapshot.docs.map(doc => doc.data() as WorkLog);
-      // Update local storage to keep sync
       saveLocal(KEYS.LOGS, logs);
       callback(logs);
     });
   },
 
+  // Escuchar Trabajadores (Para todos)
   subscribeToWorkers: (callback: (workers: Worker[]) => void) => {
     return onSnapshot(collection(db, "workers"), (snapshot) => {
       const workers = snapshot.docs.map(doc => doc.data() as Worker);
       saveLocal(KEYS.WORKERS, workers);
       callback(workers);
+    });
+  },
+
+  // Escuchar Obras (Para todos)
+  subscribeToSites: (callback: (sites: Site[]) => void) => {
+    return onSnapshot(collection(db, "sites"), (snapshot) => {
+      const sites = snapshot.docs.map(doc => doc.data() as Site);
+      saveLocal(KEYS.SITES, sites);
+      callback(sites);
     });
   },
 
