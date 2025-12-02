@@ -24,15 +24,26 @@ const INITIAL_SITES: Site[] = [
   }
 ];
 
+// *** IMPORTANTE: PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT PARA QUE LOS TRABAJADORES LA TENGAN POR DEFECTO ***
+const GOOGLE_SCRIPT_URL = ''; // Ej: 'https://script.google.com/macros/s/AKfycbx.../exec'
+
 const INITIAL_CONFIG: AppConfig = {
   adminPhone: '34631400010', 
-  googleSheetUrl: '', 
+  googleSheetUrl: GOOGLE_SCRIPT_URL, 
   adminPassword: 'admin'
 };
 
 // Helpers
 const load = <T>(key: string, initial: T): T => {
   const saved = localStorage.getItem(key);
+  // Si cargamos la config, asegurarnos de que la URL del script esté presente si la hemos definido en el código
+  if (key === KEYS.CONFIG && saved) {
+    const parsed = JSON.parse(saved);
+    if (!parsed.googleSheetUrl && GOOGLE_SCRIPT_URL) {
+      parsed.googleSheetUrl = GOOGLE_SCRIPT_URL;
+    }
+    return parsed as T;
+  }
   return saved ? JSON.parse(saved) : initial;
 };
 
@@ -64,22 +75,54 @@ export const StorageService = {
   getConfig: (): AppConfig => load(KEYS.CONFIG, INITIAL_CONFIG),
   saveConfig: (config: AppConfig) => save(KEYS.CONFIG, config),
   
+  // Sincronizar Fichaje (LOG)
   syncLog: async (log: WorkLog): Promise<boolean> => {
     const config = load(KEYS.CONFIG, INITIAL_CONFIG);
-    if (!config.googleSheetUrl) return false;
+    const url = config.googleSheetUrl || GOOGLE_SCRIPT_URL; // Fallback to constant
+    
+    if (!url) return false;
 
     try {
-      await fetch(config.googleSheetUrl, {
+      await fetch(url, {
         method: 'POST',
         mode: 'no-cors', 
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(log)
+        body: JSON.stringify({
+          action: 'LOG',
+          ...log
+        })
       });
       return true;
     } catch (error) {
-      console.error("Sync Error:", error);
+      console.error("Sync Log Error:", error);
+      return false;
+    }
+  },
+
+  // Sincronizar Trabajador Nuevo (REGISTER)
+  syncWorker: async (worker: Worker): Promise<boolean> => {
+    const config = load(KEYS.CONFIG, INITIAL_CONFIG);
+    const url = config.googleSheetUrl || GOOGLE_SCRIPT_URL;https://script.google.com/macros/s/AKfycbyUKGxgBNzmL6nn0q7GAQwF83gO3tkxVJMDChAmfYGmy0zMmC8ilr6HvcVrZemU0p_suQ/exec
+
+    if (!url) return false;
+
+    try {
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'REGISTER',
+          worker: worker
+        })
+      });
+      return true;
+    } catch (error) {
+      console.error("Sync Worker Error:", error);
       return false;
     }
   },
@@ -99,8 +142,8 @@ export const StorageService = {
       l.type,
       l.dateStr,
       l.timeStr,
-      l.workMode || 'HORAS', // Default text
-      `"${(l.workReport || '').replace(/"/g, '""')}"`, // Escape quotes for CSV
+      l.workMode || 'HORAS', 
+      `"${(l.workReport || '').replace(/"/g, '""')}"`, 
       l.location.latitude,
       l.location.longitude,
       `https://www.google.com/maps?q=${l.location.latitude},${l.location.longitude}`,

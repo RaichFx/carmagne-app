@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink
 } from 'lucide-react';
 import { StorageService } from './services/storageService';
 import { LocationService } from './services/locationService';
@@ -18,7 +18,7 @@ enum Step {
   WORKER_HISTORY = 16,
   SELECT_SITE = 2,
   SELECT_ACTION = 3,
-  REPORT_EXIT = 4, // Nuevo paso para reportar al salir
+  REPORT_EXIT = 4, 
   SUCCESS = 5,
   REGISTER = 99
 }
@@ -122,7 +122,7 @@ function App() {
     }
   };
 
-  const handleRegistration = () => {
+  const handleRegistration = async () => {
     if (!regName || !regDni || !regPin) {
       setError('Nombre, DNI y PIN son obligatorios.');
       return;
@@ -135,6 +135,8 @@ function App() {
       setError('Los PINs no coinciden.');
       return;
     }
+
+    setLoading(true);
 
     const newId = `W${Math.floor(1000 + Math.random() * 9000)}`;
     const newWorker: Worker = {
@@ -149,9 +151,15 @@ function App() {
       defaultMode: 'HORAS'
     };
 
+    // Save Locally
     const updatedWorkers = [...workers, newWorker];
     StorageService.saveWorkers(updatedWorkers);
     setWorkers(updatedWorkers);
+
+    // Sync to Cloud (Fire and forget)
+    await StorageService.syncWorker(newWorker);
+
+    setLoading(false);
 
     setSelectedWorker(newWorker);
     setPinInput('');
@@ -223,13 +231,11 @@ function App() {
     }
   };
 
-  // --- MODIFIED ACTION SELECT (INTERCEPT EXIT) ---
   const handleActionSelect = async (type: LogType) => {
     setSelectedAction(type);
     setLoading(true);
     setError('');
 
-    // Pre-load location
     let loc = location;
     try {
       if (!loc) {
@@ -237,26 +243,21 @@ function App() {
         setLocation(loc);
       }
     } catch (err) {
-      // Continue without location if fails, will try again in submit
+      // Continue without location
     }
     setLoading(false);
 
-    // IF EXIT -> Go to Report Screen first
     if (type === LogType.SALIDA) {
-      // Pre-fill mode with worker default
       setExitWorkMode(selectedWorker?.defaultMode || 'HORAS');
       setExitReportText('');
       setCurrentStep(Step.REPORT_EXIT);
     } else {
-      // Normal flow for Entry/Break
       executeLogSubmission(type, undefined, 'HORAS');
     }
   };
 
-  // Voice Recognition Logic
   const toggleVoiceRecognition = () => {
     if (isListening) {
-      // Stop logic handled by end event usually, but we can force close
       setIsListening(false);
       return;
     }
@@ -292,7 +293,6 @@ function App() {
     recognition.start();
   };
 
-  // Wrapper to calculate distance and call submit
   const executeLogSubmission = async (type: LogType, report?: string, mode?: WorkMode) => {
     setLoading(true);
     try {
@@ -353,7 +353,7 @@ function App() {
       timeStr: now.toLocaleTimeString('es-ES'),
       location: loc,
       photoUrl: photoUrl,
-      sentToWhatsapp: false, // NO WHATSAPP FROM APP
+      sentToWhatsapp: false,
       syncedToSheets: false,
       distanceMeters: distance,
       locationWarning: warning,
@@ -364,17 +364,15 @@ function App() {
     // 1. Save Locally
     StorageService.addLog(newLog);
 
-    // 2. Sync to Cloud (Silent)
-    if (config.googleSheetUrl) {
-      StorageService.syncLog(newLog).then(success => {
-        if (success) {
-          newLog.syncedToSheets = true;
-          StorageService.updateLog(newLog);
-        }
-      });
-    }
+    // 2. Sync to Cloud
+    // Try to use loaded config, otherwise fallback to whatever is available
+    StorageService.syncLog(newLog).then(success => {
+      if (success) {
+        newLog.syncedToSheets = true;
+        StorageService.updateLog(newLog);
+      }
+    });
 
-    // 3. Show Success Screen (No Redirect)
     setCurrentStep(Step.SUCCESS);
     setLoading(false);
   };
@@ -570,17 +568,42 @@ function App() {
                        }`}>{log.type}</span>
                        <span className="text-white font-mono font-bold">{log.timeStr}</span>
                     </div>
-                    <p className="text-slate-400 text-sm mt-1">{log.siteName}</p>
+                    
+                    <p className="text-white font-bold text-sm mt-2">{log.siteName}</p>
+                    
                     {log.workReport && (
                       <div className="mt-2 bg-slate-900 p-2 rounded text-xs text-slate-300 italic border border-slate-700">
                         "{log.workReport}"
                       </div>
                     )}
+                    
                     {log.type === LogType.SALIDA && log.workMode && (
                       <span className="inline-block mt-2 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-900 text-blue-200 border border-blue-700">
                          {log.workMode}
                       </span>
                     )}
+
+                    {/* Ubicación y Enlace a Mapa */}
+                    <div className="mt-2 pt-2 border-t border-slate-700/50 flex justify-between items-center">
+                       <a 
+                          href={`https://www.google.com/maps?q=${log.location.latitude},${log.location.longitude}`} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-400 flex items-center gap-1 hover:text-blue-300 transition"
+                       >
+                          <MapPin size={12} /> 
+                          {log.location.address ? (
+                            <span className="truncate max-w-[150px]">{log.location.address}</span>
+                          ) : 'Ver en mapa'}
+                          <ExternalLink size={10} />
+                       </a>
+                       {log.locationWarning && (
+                         <span className="text-[10px] text-red-400 flex items-center gap-1 font-bold">
+                           <ShieldAlert size={10}/> Lejos
+                         </span>
+                       )}
+                    </div>
+
                   </div>
                 </div>
               ))}
@@ -811,7 +834,7 @@ function App() {
               onClick={handleRegistration}
               className="bg-green-600 hover:bg-green-500 text-white p-4 rounded-xl flex items-center justify-center gap-2 shadow-lg font-bold text-lg mt-2"
             >
-              <Save size={20} /> Guardar y Acceder
+              {loading ? 'Guardando...' : <><Save size={20} /> Guardar y Acceder</>}
             </button>
           </div>
         )}
