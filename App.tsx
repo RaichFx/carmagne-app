@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
@@ -9,6 +8,7 @@ import { LocationService } from './services/locationService';
 import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
+import { Logo } from './components/Logo';
 
 // App Steps
 enum Step {
@@ -27,6 +27,9 @@ enum Step {
 const MAX_DISTANCE_METERS = 500;
 
 function App() {
+  // Splash Screen State
+  const [isAppLoading, setIsAppLoading] = useState(true);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>(Step.IDENTIFY);
   
@@ -72,6 +75,11 @@ function App() {
   const [sites, setSites] = useState<Site[]>([]);
   
   useEffect(() => {
+    // Simulate App Loading / Splash Screen
+    const timer = setTimeout(() => {
+      setIsAppLoading(false);
+    }, 2000); // 2 seconds splash
+
     // Load initial data
     setWorkers(StorageService.getWorkers());
     setSites(StorageService.getSites());
@@ -85,6 +93,8 @@ function App() {
         })
         .catch(err => console.error("Bio check failed", err));
     }
+    
+    return () => clearTimeout(timer);
   }, []);
 
   // Refresh logs when entering dashboard
@@ -614,6 +624,25 @@ function App() {
     );
   };
 
+  // --- SPLASH SCREEN RENDER ---
+  if (isAppLoading) {
+    return (
+      <div className="fixed inset-0 bg-slate-900 z-[100] flex flex-col items-center justify-center animate-fadeIn">
+         <div className="w-32 h-32 mb-8 relative">
+            {/* Pulsing effect behind logo */}
+            <div className="absolute inset-0 bg-yellow-400/20 rounded-full animate-ping"></div>
+            <Logo className="relative w-full h-full object-contain" />
+         </div>
+         <h1 className="text-3xl font-black text-white tracking-tighter mb-1">CARMAGNE</h1>
+         <p className="text-yellow-400 font-bold tracking-widest text-sm">INSTAL 2024</p>
+         
+         <div className="mt-12 w-48 h-1 bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-full bg-yellow-400 animate-[loading_1.5s_ease-in-out_infinite]"></div>
+         </div>
+      </div>
+    );
+  }
+
   // Render Logic
   if (isAdmin) {
     return <AdminPanel onBack={() => setIsAdmin(false)} />;
@@ -635,7 +664,7 @@ function App() {
               <div className="flex flex-col items-center mb-6">
                  {/* Logo in Login */}
                  <div className="mb-4 bg-slate-700 p-4 rounded-full border-2 border-yellow-400">
-                   <img src="/logo.svg" alt="Logo" className="w-12 h-12 object-contain" />
+                   <Logo className="w-12 h-12 object-contain" />
                  </div>
                  <h2 className="text-xl font-bold text-white">Acceso Administrador</h2>
                  <p className="text-slate-400 text-sm text-center mt-1">Introduce la contraseña maestra</p>
@@ -667,10 +696,10 @@ function App() {
       {/* Header */}
       <header className="bg-yellow-400 text-slate-900 p-4 shadow-lg flex justify-between items-center z-20">
         <div className="flex items-center gap-3">
-          <img src="/logo.svg" alt="Carmagne" className="h-10 w-10 object-contain drop-shadow-sm" />
+          <Logo className="h-10 w-10 object-contain drop-shadow-sm" />
           <div>
             <h1 className="text-xl font-black tracking-tighter leading-none">CARMAGNE</h1>
-            <p className="text-xs font-bold opacity-80">SOLU 2024</p>
+            <p className="text-xs font-bold opacity-80">INSTAL 2024</p>
           </div>
         </div>
         <button 

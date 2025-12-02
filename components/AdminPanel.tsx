@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storageService';
 import { Worker, Site, WorkLog, AppConfig, WorkMode } from '../types';
@@ -7,6 +6,9 @@ import {
   Trash2, Plus, Save, ExternalLink, Lock, Briefcase, Phone, X, ShieldAlert, Code, Database, CloudOff, ClipboardList, Calendar, Key, FileInput, MessageSquare
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Logo } from './Logo';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -188,6 +190,97 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     return reports;
   };
 
+  const handleDownloadPDF = (summary: WorkerMonthlyReport) => {
+    const doc = new jsPDF();
+    const [year, month] = reportMonth.split('-').map(Number);
+
+    // Filter logs for this worker and month
+    const workerLogs = logs.filter(log => {
+      const d = new Date(log.timestamp);
+      return log.workerId === summary.workerId && d.getFullYear() === year && (d.getMonth() + 1) === month;
+    }).sort((a, b) => a.timestamp - b.timestamp);
+
+    // Header
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(251, 191, 36); // yellow-400
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text("CARMAGNE INSTAL 2024", 105, 20, { align: 'center' });
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text("INFORME MENSUAL DE ACTIVIDAD", 105, 30, { align: 'center' });
+
+    // Worker Info
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Trabajador: ${summary.workerName}`, 14, 50);
+    doc.text(`ID: ${summary.workerId}`, 14, 56);
+    doc.text(`Periodo: ${reportMonth}`, 160, 50);
+
+    // Stats Box
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(14, 62, 182, 25, 'FD');
+
+    doc.setFontSize(10);
+    doc.text("Horas Presencia", 20, 70);
+    doc.text("Tiempo Descanso", 70, 70);
+    doc.text("Horas Netas", 120, 70);
+    doc.text("Días Trabajados", 170, 70);
+
+    doc.setFontSize(14);
+    doc.setTextColor(30, 64, 175); // Blue
+    doc.text(msToTime(summary.totalPresenceMs), 20, 80);
+    
+    doc.setTextColor(202, 138, 4); // Yellow/Orange
+    doc.text(msToTime(summary.totalBreakMs), 70, 80);
+    
+    doc.setTextColor(21, 128, 61); // Green
+    doc.text(msToTime(summary.netWorkMs), 120, 80);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.text(summary.daysWorked.toString(), 170, 80);
+
+    // Table
+    const tableData = workerLogs.map(log => [
+      log.dateStr,
+      log.timeStr,
+      log.type.replace('_', ' '),
+      log.siteName,
+      log.workMode || 'HORAS',
+      log.workReport || '-'
+    ]);
+
+    autoTable(doc, {
+      startY: 95,
+      head: [['Fecha', 'Hora', 'Acción', 'Obra', 'Modo', 'Reporte/Notas']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      styles: { fontSize: 8 },
+      columnStyles: {
+        5: { cellWidth: 60 } // Más espacio para reporte
+      }
+    });
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for(let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(`Página ${i} de ${pageCount} - Generado el ${new Date().toLocaleDateString()}`, 105, 290, { align: 'center' });
+    }
+
+    doc.save(`Reporte_${summary.workerName.replace(/\s/g, '_')}_${reportMonth}.pdf`);
+  };
+
   const msToTime = (duration: number) => {
     const minutes = Math.floor((duration / (1000 * 60)) % 60);
     const hours = Math.floor((duration / (1000 * 60 * 60)));
@@ -206,7 +299,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       {/* Admin Header */}
       <header className="bg-slate-900 text-white p-4 sticky top-0 z-10 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <img src="/logo.svg" alt="Logo" className="w-8 h-8 object-contain" />
+          <Logo className="w-8 h-8 object-contain" />
           <h1 className="text-xl font-bold text-yellow-400">Panel Administrador</h1>
         </div>
         <button onClick={onBack} className="text-sm bg-slate-700 px-3 py-1 rounded hover:bg-slate-600">
@@ -280,7 +373,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                    </button>
                    <div className="mt-4 p-4 bg-yellow-50 text-yellow-800 text-sm rounded border border-yellow-200">
                      <p className="font-bold">Informe Mensual:</p>
-                     <p>Use la pestaña "Informes" para ver totales por horas y generar reportes para nóminas.</p>
+                     <p>Use la pestaña "Informes" para generar reportes PDF individuales para nóminas.</p>
                    </div>
                 </div>
              </div>
@@ -451,6 +544,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                          <th className="p-3 text-right">Total Presencia</th>
                          <th className="p-3 text-right">Descansos</th>
                          <th className="p-3 text-right bg-blue-100">Horas Netas</th>
+                         <th className="p-3 text-center">Acción</th>
                        </tr>
                     </thead>
                     <tbody>
@@ -461,10 +555,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                             <td className="p-3 text-right text-slate-500">{msToTime(report.totalPresenceMs)}</td>
                             <td className="p-3 text-right text-yellow-600">{msToTime(report.totalBreakMs)}</td>
                             <td className="p-3 text-right font-bold bg-blue-50 text-blue-700">{msToTime(report.netWorkMs)}</td>
+                            <td className="p-3 text-center">
+                              <button 
+                                onClick={() => handleDownloadPDF(report)}
+                                className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700 flex items-center gap-1 mx-auto"
+                              >
+                                <FileText size={12} /> PDF
+                              </button>
+                            </td>
                          </tr>
                        ))}
                        {generateMonthlyReport().length === 0 && (
-                          <tr><td colSpan={5} className="p-6 text-center text-slate-400">No hay datos para el mes seleccionado.</td></tr>
+                          <tr><td colSpan={6} className="p-6 text-center text-slate-400">No hay datos para el mes seleccionado.</td></tr>
                        )}
                     </tbody>
                  </table>

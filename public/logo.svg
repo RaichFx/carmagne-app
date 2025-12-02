@@ -5,16 +5,17 @@
       <stop offset="100%" style="stop-color:#f59e0b;stop-opacity:1" />
     </linearGradient>
   </defs>
-  <!-- Fondo con esquinas redondeadas -->
+  <!-- Fondo amarillo con esquinas redondeadas -->
   <rect width="512" height="512" rx="100" fill="url(#grad1)"/>
   
-  <!-- Icono de Construcción / Casco / Edificio abstracto -->
-  <path d="M256 120 L130 220 V400 H382 V220 L256 120 Z" fill="#0f172a"/>
-  <rect x="230" y="300" width="52" height="100" fill="#fbbf24"/>
-  <rect x="180" y="240" width="40" height="40" fill="#fbbf24" opacity="0.9"/>
-  <rect x="292" y="240" width="40" height="40" fill="#fbbf24" opacity="0.9"/>
+  <!-- Icono abstracto de construcción (Casco/Edificio) en gris oscuro -->
+  <path d="M256 130 L130 230 V410 H382 V230 L256 130 Z" fill="#0f172a"/>
   
-  <!-- Texto C (Opcional, sutil en el fondo) -->
-  <path d="M80 80 L120 80" stroke="#0f172a" stroke-width="20" stroke-linecap="round"/>
-  <path d="M80 120 L80 160" stroke="#0f172a" stroke-width="20" stroke-linecap="round"/>
+  <!-- Detalles interiores en amarillo -->
+  <rect x="230" y="310" width="52" height="100" fill="#fbbf24"/>
+  <rect x="180" y="260" width="40" height="40" fill="#fbbf24" opacity="0.9"/>
+  <rect x="292" y="260" width="40" height="40" fill="#fbbf24" opacity="0.9"/>
+  
+  <!-- Texto C estilizado -->
+  <text x="50%" y="470" font-family="Arial, sans-serif" font-size="60" font-weight="bold" fill="#0f172a" text-anchor="middle" letter-spacing="4">CARMAGNE</text>
 </svg>
