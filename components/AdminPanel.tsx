@@ -9,6 +9,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, B
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Logo } from './Logo';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface AdminPanelProps {
   onBack: () => void;
@@ -47,6 +48,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
   // Admin Password Change
   const [newAdminPassword, setNewAdminPassword] = useState('');
 
+  // Delete Confirmation State
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'worker' | 'site', id: string, name: string } | null>(null);
+
   useEffect(() => {
     // Initial Load
     refreshData();
@@ -61,9 +65,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       setWorkers(updatedWorkers);
     });
 
+    // *** FIX: Subscribe to Sites to update list on delete ***
+    const unsubscribeSites = StorageService.subscribeToSites((updatedSites) => {
+      setSites(updatedSites);
+    });
+
     return () => {
       unsubscribeLogs();
       unsubscribeWorkers();
+      unsubscribeSites();
     };
   }, []);
 
@@ -108,10 +118,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     setNewWorkerPin('');
   };
 
-  const handleDeleteWorker = (id: string) => {
-    if(!confirm('¿Seguro que desea eliminar este trabajador?')) return;
-    StorageService.deleteWorker(id);
-  }
+  const initiateDeleteWorker = (w: Worker) => {
+    setDeleteTarget({ type: 'worker', id: w.id, name: w.name });
+  };
+
+  const initiateDeleteSite = (s: Site) => {
+    setDeleteTarget({ type: 'site', id: s.id, name: s.name });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+
+    if (deleteTarget.type === 'worker') {
+      StorageService.deleteWorker(deleteTarget.id);
+    } else if (deleteTarget.type === 'site') {
+      StorageService.deleteSite(deleteTarget.id);
+    }
+    setDeleteTarget(null);
+  };
 
   const handleAddSite = () => {
     if (!newSiteName) return;
@@ -124,11 +148,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     StorageService.saveSites([...sites, newSite]);
     setNewSiteName('');
     setNewSiteAddress('');
-  };
-
-  const handleDeleteSite = (id: string) => {
-    if(!confirm('¿Seguro que desea eliminar esta obra?')) return;
-    StorageService.deleteSite(id);
   };
 
   const saveConfig = () => {
@@ -306,6 +325,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-20">
+      
+      {/* CONFIRMATION MODAL */}
+      <ConfirmationModal
+        isOpen={deleteTarget !== null}
+        title={deleteTarget?.type === 'worker' ? 'Eliminar Trabajador' : 'Eliminar Obra'}
+        message={`¿Está seguro que desea eliminar a "${deleteTarget?.name}"? Esta acción no se puede deshacer y borrará los datos asociados en la nube.`}
+        isDestructive={true}
+        confirmText="Eliminar definitivamente"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+      />
+
       {/* Admin Header */}
       <header className="bg-slate-900 text-white p-4 sticky top-0 z-10 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-2">
@@ -363,18 +394,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
              </div>
              
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-lg shadow h-80">
+                <div className="bg-white p-4 rounded-lg shadow flex flex-col">
                   <h3 className="font-bold mb-4">Actividad por Tipo</h3>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={logsByType} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
-                        {logsByType.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div className="flex-1 min-h-[300px]">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie data={logsByType} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
+                          {logsByType.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
                 <div className="bg-white p-4 rounded-lg shadow">
                    <h3 className="font-bold mb-4">Acciones Rápidas</h3>
@@ -513,7 +546,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                       </div>
                     </div>
                   </div>
-                  <button onClick={() => handleDeleteWorker(w.id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 size={20} /></button>
+                  <button onClick={() => initiateDeleteWorker(w)} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 size={20} /></button>
                 </div>
               ))}
             </div>
@@ -617,7 +650,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                        )}
                     </div>
                   </div>
-                  <button onClick={() => handleDeleteSite(s.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                  <button onClick={() => initiateDeleteSite(s)} className="text-red-500 hover:bg-red-50 p-2 rounded">
                     <Trash2 size={20} />
                   </button>
                 </div>
