@@ -8,15 +8,19 @@ const KEYS = {
 };
 
 // Initial Seed Data
-const INITIAL_WORKERS: Worker[] = [
-  { id: 'W001', name: 'Juan Pérez', qrCode: 'QR_W001', active: true, pin: '1234', defaultMode: 'HORAS' },
-  { id: 'W002', name: 'Maria Rodriguez', qrCode: 'QR_W002', active: true, pin: '0000', defaultMode: 'DESTAJO' },
-  { id: 'W003', name: 'Carlos Gomez', qrCode: 'QR_W003', active: true, pin: '5678', defaultMode: 'HORAS' },
-];
+const INITIAL_WORKERS: Worker[] = [];
 
 const INITIAL_SITES: Site[] = [
-  { id: 'S001', name: 'Obra Central: Torre A', address: 'Av. Principal 123', active: true },
-  { id: 'S002', name: 'Reforma Oficinas Norte', address: 'Calle 45, Polígono Ind.', active: true },
+  { 
+    id: 'S001', 
+    name: 'Barakaldo 106', 
+    address: '13 Av. Altos Hornos de Vizcaya', 
+    active: true,
+    coordinates: {
+      latitude: 43.30087,
+      longitude: -2.99256
+    }
+  }
 ];
 
 const INITIAL_CONFIG: AppConfig = {
