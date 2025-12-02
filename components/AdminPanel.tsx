@@ -576,27 +576,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 </div>
              </div>
 
-             {/* WhatsApp Template Config */}
-             <div>
-                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><MessageSquare size={20}/> Mensaje WhatsApp</h3>
-                
-                <div className="mb-4 bg-slate-50 p-4 rounded border border-slate-200">
-                  <label className="block text-sm font-bold mb-2">Plantilla del Mensaje</label>
-                  <textarea 
-                    className="w-full border p-2 rounded font-mono text-sm h-48"
-                    value={config.whatsappTemplate}
-                    onChange={(e) => setConfig({...config, whatsappTemplate: e.target.value})}
-                  />
-                  
-                  <div className="mt-3 text-xs text-slate-600 bg-slate-200 p-2 rounded">
-                    <strong>Variables Disponibles:</strong><br/>
-                    {'{workerName}, {workerId}, {siteName}, {action}'}<br/>
-                    {'{date}, {time}, {location}, {mapsLink}, {logId}'}<br/>
-                    <span className="text-slate-500 italic">Opcionales:</span> {'{modeLine}, {reportLine}, {distanceAlert}'}
-                  </div>
-                </div>
-             </div>
-
              <button 
               onClick={saveConfig}
               className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 flex items-center justify-center gap-2 shadow-lg"

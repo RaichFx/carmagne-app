@@ -24,23 +24,10 @@ const INITIAL_SITES: Site[] = [
   }
 ];
 
-const DEFAULT_WA_TEMPLATE = `*FICHAJE CARMAGNE 2024*
-👷 {workerName} (ID: {workerId})
-🏗️ {siteName}
-🔄 *{action}*
-📅 {date} - {time}
-📍 {location}
-{modeLine}
-{reportLine}
-{distanceAlert}
-🗺️ {mapsLink}
-🆔 {logId}`;
-
 const INITIAL_CONFIG: AppConfig = {
   adminPhone: '34631400010', 
   googleSheetUrl: '', 
-  adminPassword: 'admin',
-  whatsappTemplate: DEFAULT_WA_TEMPLATE
+  adminPassword: 'admin'
 };
 
 // Helpers

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud
 } from 'lucide-react';
 import { StorageService } from './services/storageService';
 import { LocationService } from './services/locationService';
@@ -353,7 +353,7 @@ function App() {
       timeStr: now.toLocaleTimeString('es-ES'),
       location: loc,
       photoUrl: photoUrl,
-      sentToWhatsapp: true,
+      sentToWhatsapp: false, // NO WHATSAPP FROM APP
       syncedToSheets: false,
       distanceMeters: distance,
       locationWarning: warning,
@@ -361,8 +361,10 @@ function App() {
       workMode: mode
     };
 
+    // 1. Save Locally
     StorageService.addLog(newLog);
 
+    // 2. Sync to Cloud (Silent)
     if (config.googleSheetUrl) {
       StorageService.syncLog(newLog).then(success => {
         if (success) {
@@ -372,49 +374,9 @@ function App() {
       });
     }
 
-    const mapsLink = `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`;
-    
-    // BUILD WHATSAPP MESSAGE USING TEMPLATE
-    let template = config.whatsappTemplate || `*FICHAJE CARMAGNE 2024*
-👷 {workerName} (ID: {workerId})
-🏗️ {siteName}
-🔄 *{action}*
-📅 {date} - {time}
-📍 {location}
-{modeLine}
-{reportLine}
-{distanceAlert}
-🗺️ {mapsLink}
-🆔 {logId}`;
-
-    const distanceAlert = warning ? `⚠️ *ALERTA DISTANCIA:* ${distance}m` : '';
-    const modeLine = type === LogType.SALIDA ? `🛠️ Modo: ${mode}` : '';
-    const reportLine = type === LogType.SALIDA ? `📝 Reporte: ${report || 'Sin comentarios'}` : '';
-
-    const message = template
-      .replace('{workerName}', selectedWorker.name)
-      .replace('{workerId}', selectedWorker.id)
-      .replace('{siteName}', selectedSite.name)
-      .replace('{action}', type)
-      .replace('{date}', newLog.dateStr)
-      .replace('{time}', newLog.timeStr)
-      .replace('{location}', loc.address || 'Ubicación')
-      .replace('{mapsLink}', mapsLink)
-      .replace('{logId}', newLog.id)
-      .replace('{modeLine}', modeLine)
-      .replace('{reportLine}', reportLine)
-      .replace('{distanceAlert}', distanceAlert)
-      // Cleanup empty lines if replacement was empty
-      .replace(/^\s*[\r\n]/gm, "");
-
-    const whatsappUrl = `https://wa.me/${config.adminPhone}?text=${encodeURIComponent(message)}`;
-
+    // 3. Show Success Screen (No Redirect)
     setCurrentStep(Step.SUCCESS);
     setLoading(false);
-
-    setTimeout(() => {
-      window.open(whatsappUrl, '_blank');
-    }, 1000);
   };
 
   const resetApp = () => {
@@ -1111,7 +1073,7 @@ function App() {
             </div>
             <h2 className="text-3xl font-black text-white mb-2">¡Fichaje Registrado!</h2>
             <p className="text-slate-400 mb-8 max-w-xs mx-auto">
-              Se ha guardado el registro y se está abriendo WhatsApp para el envío del reporte.
+              Se ha guardado el registro correctamente.
             </p>
             
             <div className="w-full bg-slate-800 rounded-lg p-4 mb-8 text-left border border-slate-700">
@@ -1126,9 +1088,11 @@ function App() {
                     selectedAction === LogType.SALIDA ? 'text-red-400' : 'text-yellow-400'
                  }`}>{selectedAction}</span>
                </div>
-               <div className="flex justify-between">
-                 <span className="text-slate-500">Hora:</span>
-                 <span className="text-white font-mono">{new Date().toLocaleTimeString()}</span>
+               <div className="flex justify-between items-center">
+                 <span className="text-slate-500">Estado:</span>
+                 <span className="text-blue-400 font-bold flex items-center gap-1 text-sm">
+                   <Cloud size={14} /> Guardado en Nube
+                 </span>
                </div>
             </div>
 
@@ -1143,7 +1107,7 @@ function App() {
       </main>
       
       <footer className="p-4 text-center text-slate-600 text-xs">
-        &copy; 2024 CARMAGNE SOLU. Versión 1.3.1 (Sin QR)
+        &copy; 2024 CARMAGNE SOLU. Versión 1.4.0 (Silent Sync)
       </footer>
     </div>
   );

@@ -64,5 +64,4 @@ export interface AppConfig {
   adminPhone: string;
   googleSheetUrl: string;
   adminPassword?: string;
-  whatsappTemplate?: string;
 }
