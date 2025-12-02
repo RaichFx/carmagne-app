@@ -21,8 +21,9 @@ const INITIAL_SITES: Site[] = [
   }
 ];
 
-// Google Script URL Backup
-const GOOGLE_SCRIPT_URL = ''; 
+// *** IMPORTANTE: PEGA TU URL DE APPS SCRIPT AQUÍ ENTRE LAS COMILLAS ***
+// Ejemplo: 'https://script.google.com/macros/s/AKfycbx.../exec'
+const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUKGxgBNzmL6nn0q7GAQwF83gO3tkxVJMDChAmfYGmy0zMmC8ilr6HvcVrZemU0p_suQ/exec'; 
 
 const INITIAL_CONFIG: AppConfig = {
   adminPhone: '34631400010', 
@@ -126,31 +127,56 @@ export const StorageService = {
   // --- SYNC HELPERS (Google Sheets Legacy) ---
   syncLog: async (log: WorkLog): Promise<boolean> => {
     const config = loadLocal<AppConfig>(KEYS.CONFIG, INITIAL_CONFIG);
+    // Prioridad: Configuración guardada > Constante Hardcodeada
     const url = config.googleSheetUrl || GOOGLE_SCRIPT_URL;
-    if (!url) return false;
+    
+    if (!url || url.length < 10) {
+      console.error("SYNC ERROR: No hay URL de Google Script configurada.");
+      return false;
+    }
+
     try {
+      console.log("Enviando fichaje a Sheets:", log.workerName, log.type);
       await fetch(url, {
-        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', 
+        mode: 'no-cors', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'LOG', ...log })
       });
+      console.log("Fichaje enviado correctamente (no-cors mode)");
       return true;
-    } catch (error) { return false; }
+    } catch (error) { 
+      console.error("Error enviando a Sheets:", error);
+      return false; 
+    }
   },
 
   syncWorker: async (worker: Worker): Promise<boolean> => {
-    // Save to Firebase First
-    try { await setDoc(doc(db, "workers", worker.id), worker); } catch(e){}
+    // 1. Save to Firebase First (Backup)
+    try { await setDoc(doc(db, "workers", worker.id), worker); } catch(e){ console.error("FB Worker Sync Error", e); }
 
+    // 2. Sync to Sheets
     const config = loadLocal<AppConfig>(KEYS.CONFIG, INITIAL_CONFIG);
     const url = config.googleSheetUrl || GOOGLE_SCRIPT_URL;
-    if (!url) return false;
+    
+    if (!url || url.length < 10) {
+      console.error("SYNC ERROR: No hay URL de Google Script para registrar trabajador.");
+      return false;
+    }
+
     try {
+      console.log("Registrando nuevo trabajador en Sheets:", worker.name);
       await fetch(url, {
-        method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', 
+        mode: 'no-cors', 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'REGISTER', worker: worker })
       });
       return true;
-    } catch (error) { return false; }
+    } catch (error) { 
+      console.error("Error registrando trabajador en Sheets:", error);
+      return false; 
+    }
   },
 
   // --- REAL-TIME LISTENERS ---
