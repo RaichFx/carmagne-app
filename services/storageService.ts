@@ -1,6 +1,6 @@
 import { Worker, Site, WorkLog, AppConfig } from '../types';
 import { db } from './firebase';
-import { collection, addDoc, getDocs, doc, setDoc, updateDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, setDoc, updateDoc, query, orderBy, onSnapshot, deleteDoc } from 'firebase/firestore';
 
 const KEYS = {
   WORKERS: 'carmagne_workers',
@@ -54,6 +54,18 @@ export const StorageService = {
     } catch (e) { console.error("Error syncing workers to FB", e); }
   },
 
+  deleteWorker: async (id: string) => {
+    // Local delete
+    const workers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
+    const updated = workers.filter(w => w.id !== id);
+    saveLocal(KEYS.WORKERS, updated);
+
+    // Firebase delete
+    try {
+      await deleteDoc(doc(db, "workers", id));
+    } catch (e) { console.error("Error deleting worker from FB", e); }
+  },
+
   // --- SITES ---
   getSites: (): Site[] => loadLocal(KEYS.SITES, INITIAL_SITES),
   
@@ -64,6 +76,18 @@ export const StorageService = {
         await setDoc(doc(db, "sites", s.id), s);
       });
     } catch (e) { console.error("Error syncing sites to FB", e); }
+  },
+
+  deleteSite: async (id: string) => {
+    // Local delete
+    const sites = loadLocal<Site[]>(KEYS.SITES, INITIAL_SITES);
+    const updated = sites.filter(s => s.id !== id);
+    saveLocal(KEYS.SITES, updated);
+
+    // Firebase delete
+    try {
+      await deleteDoc(doc(db, "sites", id));
+    } catch (e) { console.error("Error deleting site from FB", e); }
   },
 
   // --- LOGS (FICHAJES) ---

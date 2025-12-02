@@ -110,8 +110,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
   const handleDeleteWorker = (id: string) => {
     if(!confirm('¿Seguro que desea eliminar este trabajador?')) return;
-    const updated = workers.filter(w => w.id !== id);
-    StorageService.saveWorkers(updated);
+    StorageService.deleteWorker(id);
   }
 
   const handleAddSite = () => {
@@ -129,8 +128,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
   const handleDeleteSite = (id: string) => {
     if(!confirm('¿Seguro que desea eliminar esta obra?')) return;
-    const updated = sites.filter(s => s.id !== id);
-    StorageService.saveSites(updated);
+    StorageService.deleteSite(id);
   };
 
   const saveConfig = () => {
