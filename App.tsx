@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, QrCode, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText
 } from 'lucide-react';
 import { StorageService } from './services/storageService';
 import { LocationService } from './services/locationService';
-import { Worker, Site, WorkLog, LogType, GeoLocationData } from './types';
+import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode } from './types';
 import { AdminPanel } from './components/AdminPanel';
+import { InstallTutorial } from './components/InstallTutorial';
 
 // App Steps
 enum Step {
@@ -16,6 +17,7 @@ enum Step {
   WORKER_HISTORY = 16,
   SELECT_SITE = 2,
   SELECT_ACTION = 3,
+  REPORT_EXIT = 4, // Nuevo paso para reportar al salir
   SUCCESS = 5,
   REGISTER = 99
 }
@@ -27,6 +29,14 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentStep, setCurrentStep] = useState<Step>(Step.IDENTIFY);
   
+  // Install Tutorial State
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  
+  // Admin Login State
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [adminError, setAdminError] = useState('');
+
   // Selection State
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
@@ -34,6 +44,11 @@ function App() {
   const [location, setLocation] = useState<GeoLocationData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Exit Report State
+  const [exitReportText, setExitReportText] = useState('');
+  const [exitWorkMode, setExitWorkMode] = useState<WorkMode>('HORAS');
+  const [isListening, setIsListening] = useState(false);
 
   // Authentication State
   const [pinInput, setPinInput] = useState('');
@@ -55,9 +70,6 @@ function App() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   
-  // QR Simulation Input
-  const [qrInput, setQrInput] = useState('');
-
   useEffect(() => {
     // Load initial data
     setWorkers(StorageService.getWorkers());
@@ -81,25 +93,22 @@ function App() {
     }
   }, [currentStep]);
 
-  const handleQrScan = (code: string) => {
-    let searchId = code;
-    try {
-      const parsed = JSON.parse(code);
-      if (parsed.id_trabajador) {
-        searchId = parsed.id_trabajador;
-      }
-    } catch (e) {
-      // Not JSON
-    }
+  // Admin Login Handler
+  const handleAdminAccessRequest = () => {
+    setShowAdminLogin(true);
+    setAdminPasswordInput('');
+    setAdminError('');
+  };
 
-    const worker = workers.find(w => w.qrCode === searchId || w.id === searchId);
-    if (worker) {
-      setSelectedWorker(worker);
-      setPinInput('');
-      setCurrentStep(Step.AUTHENTICATE);
-      setError('');
+  const verifyAdminPassword = () => {
+    const config = StorageService.getConfig();
+    const storedPass = config.adminPassword || 'admin';
+    if (adminPasswordInput === storedPass) {
+      setIsAdmin(true);
+      setShowAdminLogin(false);
     } else {
-      setError('Código QR no reconocido.');
+      setAdminError('Contraseña incorrecta');
+      setAdminPasswordInput('');
     }
   };
 
@@ -135,7 +144,8 @@ function App() {
       role: regRole || 'Trabajador',
       pin: regPin,
       qrCode: `QR_${newId}`,
-      active: true
+      active: true,
+      defaultMode: 'HORAS'
     };
 
     const updatedWorkers = [...workers, newWorker];
@@ -212,11 +222,78 @@ function App() {
     }
   };
 
+  // --- MODIFIED ACTION SELECT (INTERCEPT EXIT) ---
   const handleActionSelect = async (type: LogType) => {
     setSelectedAction(type);
     setLoading(true);
     setError('');
 
+    // Pre-load location
+    let loc = location;
+    try {
+      if (!loc) {
+        loc = await LocationService.getCurrentPosition();
+        setLocation(loc);
+      }
+    } catch (err) {
+      // Continue without location if fails, will try again in submit
+    }
+    setLoading(false);
+
+    // IF EXIT -> Go to Report Screen first
+    if (type === LogType.SALIDA) {
+      // Pre-fill mode with worker default
+      setExitWorkMode(selectedWorker?.defaultMode || 'HORAS');
+      setExitReportText('');
+      setCurrentStep(Step.REPORT_EXIT);
+    } else {
+      // Normal flow for Entry/Break
+      executeLogSubmission(type, undefined, 'HORAS');
+    }
+  };
+
+  // Voice Recognition Logic
+  const toggleVoiceRecognition = () => {
+    if (isListening) {
+      // Stop logic handled by end event usually, but we can force close
+      setIsListening(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome o Safari.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    setIsListening(true);
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setExitReportText(prev => (prev ? prev + '. ' + transcript : transcript));
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error(event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
+
+  // Wrapper to calculate distance and call submit
+  const executeLogSubmission = async (type: LogType, report?: string, mode?: WorkMode) => {
+    setLoading(true);
     try {
       let loc = location;
       if (!loc) {
@@ -240,7 +317,7 @@ function App() {
         }
       }
 
-      await submitLog(loc!, type, distance, warning, undefined);
+      await submitLog(loc!, type, distance, warning, undefined, report, mode);
       
     } catch (err: any) {
       setLoading(false);
@@ -248,7 +325,15 @@ function App() {
     }
   };
 
-  const submitLog = async (loc: GeoLocationData, type: LogType, distance: number, warning: boolean, photoUrl?: string) => {
+  const submitLog = async (
+    loc: GeoLocationData, 
+    type: LogType, 
+    distance: number, 
+    warning: boolean, 
+    photoUrl?: string,
+    report?: string,
+    mode?: WorkMode
+  ) => {
     if (!selectedWorker || !selectedSite) return;
 
     setLoading(true);
@@ -270,26 +355,41 @@ function App() {
       sentToWhatsapp: true,
       syncedToSheets: false,
       distanceMeters: distance,
-      locationWarning: warning
+      locationWarning: warning,
+      workReport: report,
+      workMode: mode
     };
 
     StorageService.addLog(newLog);
 
+    if (config.googleSheetUrl) {
+      StorageService.syncLog(newLog).then(success => {
+        if (success) {
+          newLog.syncedToSheets = true;
+          StorageService.updateLog(newLog);
+        }
+      });
+    }
+
     const mapsLink = `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`;
     
     let message = `*FICHAJE CARMAGNE 2024*\n` +
-      `👷 ${selectedWorker.name} (ID: ${selectedWorker.id})\n` +
+      `👷 ${selectedWorker.name}\n` +
       `🏗️ ${selectedSite.name}\n` +
       `🔄 *${type}*\n` +
       `📅 ${newLog.dateStr} - ${newLog.timeStr}\n` +
-      `📍 ${loc.address || 'Ubicación'}\n` +
-      `🗺️ ${mapsLink}\n`;
+      `📍 ${loc.address || 'Ubicación'}\n`;
 
-    if (warning) {
-      message += `⚠️ *ALERTA:* A ${distance}m de la obra (Máx: ${MAX_DISTANCE_METERS}m)\n`;
+    if (type === LogType.SALIDA) {
+      message += `🛠️ Modo: ${mode}\n`;
+      message += `📝 Reporte: ${report || 'Sin comentarios'}\n`;
     }
 
-    message += `🆔 ${newLog.id}`;
+    if (warning) {
+      message += `⚠️ *ALERTA DISTANCIA:* ${distance}m\n`;
+    }
+    
+    message += `🗺️ ${mapsLink}`;
 
     const whatsappUrl = `https://wa.me/${config.adminPhone}?text=${encodeURIComponent(message)}`;
 
@@ -307,16 +407,13 @@ function App() {
     setSelectedSite(null);
     setSelectedAction(null);
     setLocation(null);
-    setQrInput('');
     setPinInput('');
   };
 
   // --- WORKER HELPERS ---
   const getDailyStats = (dateStr: string) => {
     if (!selectedWorker) return { totalMs: 0, logs: [] };
-    
     const targetDate = new Date(dateStr);
-    
     const dayLogs = workerLogs.filter(l => {
       if (l.workerId !== selectedWorker.id) return false;
       const logDate = new Date(l.timestamp);
@@ -450,7 +547,6 @@ function App() {
 
         <h2 className="text-2xl font-bold text-white text-center">Mi Actividad</h2>
 
-        {/* Date Selector */}
         <div className="bg-slate-800 p-4 rounded-xl flex items-center gap-3 border border-slate-700">
           <Calendar className="text-yellow-400" size={24} />
           <div className="flex-1">
@@ -464,7 +560,6 @@ function App() {
           </div>
         </div>
 
-        {/* Total Card */}
         <div className="bg-gradient-to-br from-blue-900 to-slate-900 p-6 rounded-xl border border-blue-800 text-center shadow-lg">
            <p className="text-blue-200 text-sm font-bold uppercase">Total Trabajado</p>
            <div className="flex items-end justify-center gap-2 mt-2">
@@ -474,13 +569,10 @@ function App() {
            {totalMs > 0 && <p className="text-xs text-slate-400 mt-2">Neto (sin descansos)</p>}
         </div>
 
-        {/* Timeline */}
         <div className="flex-1 overflow-y-auto custom-scrollbar mt-2">
           <h3 className="text-sm text-slate-500 font-bold uppercase mb-3">Cronología del día</h3>
           {dayLogs.length === 0 ? (
-            <div className="text-center text-slate-600 py-8 italic">
-              No hay registros para este día.
-            </div>
+            <div className="text-center text-slate-600 py-8 italic">No hay registros.</div>
           ) : (
             <div className="relative border-l-2 border-slate-700 ml-4 space-y-6 pb-4">
               {dayLogs.map((log) => (
@@ -497,12 +589,20 @@ function App() {
                           log.type === LogType.ENTRADA ? 'bg-green-900/50 text-green-400' :
                           log.type === LogType.SALIDA ? 'bg-red-900/50 text-red-400' :
                           'bg-yellow-900/50 text-yellow-400'
-                       }`}>
-                         {log.type}
-                       </span>
+                       }`}>{log.type}</span>
                        <span className="text-white font-mono font-bold">{log.timeStr}</span>
                     </div>
                     <p className="text-slate-400 text-sm mt-1">{log.siteName}</p>
+                    {log.workReport && (
+                      <div className="mt-2 bg-slate-900 p-2 rounded text-xs text-slate-300 italic border border-slate-700">
+                        "{log.workReport}"
+                      </div>
+                    )}
+                    {log.type === LogType.SALIDA && log.workMode && (
+                      <span className="inline-block mt-2 text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-blue-900 text-blue-200 border border-blue-700">
+                         {log.workMode}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -520,13 +620,62 @@ function App() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col font-sans">
+      {/* Install Tutorial Modal */}
+      {showInstallGuide && <InstallTutorial onClose={() => setShowInstallGuide(false)} />}
+      
+      {/* Admin Login Modal */}
+      {showAdminLogin && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+           <div className="bg-slate-800 w-full max-w-sm rounded-2xl border-2 border-slate-600 shadow-2xl p-6 relative">
+              <button onClick={() => setShowAdminLogin(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+                 <X size={24} />
+              </button>
+              
+              <div className="flex flex-col items-center mb-6">
+                 {/* Logo in Login */}
+                 <div className="mb-4 bg-slate-700 p-4 rounded-full border-2 border-yellow-400">
+                   <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain" />
+                 </div>
+                 <h2 className="text-xl font-bold text-white">Acceso Administrador</h2>
+                 <p className="text-slate-400 text-sm text-center mt-1">Introduce la contraseña maestra</p>
+              </div>
+
+              <input 
+                 type="password"
+                 value={adminPasswordInput}
+                 onChange={(e) => setAdminPasswordInput(e.target.value)}
+                 className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-white text-center font-bold tracking-widest text-lg mb-4 focus:border-yellow-400 focus:outline-none"
+                 placeholder="••••••"
+                 autoFocus
+              />
+
+              {adminError && (
+                 <p className="text-red-500 text-sm font-bold text-center mb-4 bg-red-900/20 p-2 rounded">{adminError}</p>
+              )}
+
+              <button 
+                 onClick={verifyAdminPassword}
+                 className="w-full bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-bold py-3 rounded-lg transition"
+              >
+                 Entrar
+              </button>
+           </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-yellow-400 text-slate-900 p-4 shadow-lg flex justify-between items-center z-20">
-        <div>
-          <h1 className="text-xl font-black tracking-tighter">CARMAGNE SOLU 2024</h1>
-          <p className="text-xs font-medium opacity-80">Control de Accesos & Obras</p>
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Carmagne" className="h-10 w-10 object-contain drop-shadow-sm" />
+          <div>
+            <h1 className="text-xl font-black tracking-tighter leading-none">CARMAGNE</h1>
+            <p className="text-xs font-bold opacity-80">SOLU 2024</p>
+          </div>
         </div>
-        <button onClick={() => setIsAdmin(true)} className="p-2 bg-slate-800 text-yellow-400 rounded-full hover:bg-slate-700">
+        <button 
+          onClick={handleAdminAccessRequest} 
+          className="p-2 bg-slate-800 text-yellow-400 rounded-full hover:bg-slate-700 transition transform hover:scale-105"
+        >
           <Lock size={18} />
         </button>
       </header>
@@ -544,9 +693,18 @@ function App() {
         {/* STEP 1: IDENTIFICATION */}
         {currentStep === Step.IDENTIFY && (
           <div className="flex flex-col gap-6 animate-fadeIn">
-            <div className="text-center py-6">
+            
+            {/* Install Button */}
+            <button 
+              onClick={() => setShowInstallGuide(true)}
+              className="mx-auto text-xs bg-slate-800 text-yellow-400 px-3 py-1 rounded-full border border-yellow-400/30 flex items-center gap-1 animate-pulse"
+            >
+              <Smartphone size={12} /> 📲 Cómo Instalar App
+            </button>
+
+            <div className="text-center py-2">
               <h2 className="text-2xl font-bold text-white mb-2">Identifícate</h2>
-              <p className="text-slate-400">Escanea tu QR o selecciona tu nombre</p>
+              <p className="text-slate-400">Selecciona tu nombre de la lista</p>
             </div>
 
             <button 
@@ -566,27 +724,7 @@ function App() {
               </div>
             </div>
 
-            {/* QR Simulation */}
-            <div className="bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col items-center gap-4">
-               <QrCode size={48} className="text-yellow-400" />
-               <div className="w-full flex gap-2">
-                 <input 
-                  type="text" 
-                  placeholder="Escanear QR (Simulación)" 
-                  className="bg-slate-900 text-white border border-slate-600 rounded p-2 text-sm w-full"
-                  value={qrInput}
-                  onChange={(e) => setQrInput(e.target.value)}
-                 />
-                 <button 
-                  onClick={() => handleQrScan(qrInput)}
-                  className="bg-yellow-400 text-slate-900 font-bold px-3 rounded text-sm hover:bg-yellow-300"
-                 >
-                   OK
-                 </button>
-               </div>
-            </div>
-
-            <div className="grid gap-3 max-h-60 overflow-y-auto custom-scrollbar">
+            <div className="grid gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar">
               {workers.filter(w => w.active).map(worker => (
                 <button
                   key={worker.id}
@@ -877,6 +1015,78 @@ function App() {
           </div>
         )}
 
+        {/* STEP 4.5: EXIT REPORT (NEW) */}
+        {currentStep === Step.REPORT_EXIT && (
+           <div className="flex flex-col gap-6 animate-fadeIn h-full">
+             <button onClick={() => setCurrentStep(Step.SELECT_ACTION)} className="text-slate-400 text-sm hover:text-white self-start flex items-center gap-1">
+               <ChevronLeft size={16} /> Volver
+             </button>
+
+             <div className="text-center">
+               <h2 className="text-2xl font-bold text-white mb-2">Resumen de Jornada</h2>
+               <p className="text-slate-400 text-sm">Completa la información antes de salir.</p>
+             </div>
+
+             {/* Mode Selector */}
+             <div className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+               <label className="block text-xs uppercase text-slate-500 font-bold mb-3">Modo de Trabajo</label>
+               <div className="flex gap-2">
+                 <button 
+                   onClick={() => setExitWorkMode('HORAS')}
+                   className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm transition border-2 ${
+                     exitWorkMode === 'HORAS' 
+                       ? 'bg-blue-600 border-blue-400 text-white' 
+                       : 'bg-slate-900 border-slate-700 text-slate-400'
+                   }`}
+                 >
+                   ⏱️ Por Horas
+                 </button>
+                 <button 
+                   onClick={() => setExitWorkMode('DESTAJO')}
+                   className={`flex-1 py-3 px-2 rounded-lg font-bold text-sm transition border-2 ${
+                     exitWorkMode === 'DESTAJO' 
+                       ? 'bg-purple-600 border-purple-400 text-white' 
+                       : 'bg-slate-900 border-slate-700 text-slate-400'
+                   }`}
+                 >
+                   🧱 A Destajo
+                 </button>
+               </div>
+             </div>
+
+             {/* Report Input */}
+             <div className="flex-1 bg-slate-800 p-4 rounded-xl border border-slate-700 flex flex-col">
+                <div className="flex justify-between items-center mb-2">
+                  <label className="text-xs uppercase text-slate-500 font-bold flex items-center gap-2">
+                    <FileText size={14}/> Parte de Trabajo
+                  </label>
+                  <button 
+                    onClick={toggleVoiceRecognition}
+                    className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold transition ${
+                       isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-700 text-slate-300'
+                    }`}
+                  >
+                    {isListening ? <><MicOff size={12}/> Detener</> : <><Mic size={12}/> Dictar voz</>}
+                  </button>
+                </div>
+                
+                <textarea 
+                  value={exitReportText}
+                  onChange={(e) => setExitReportText(e.target.value)}
+                  placeholder={isListening ? "Escuchando..." : "Escribe o dicta qué has hecho hoy..."}
+                  className="w-full flex-1 bg-slate-900 text-white p-3 rounded-lg border border-slate-600 focus:border-yellow-400 focus:outline-none resize-none"
+                />
+             </div>
+
+             <button 
+               onClick={() => executeLogSubmission(LogType.SALIDA, exitReportText, exitWorkMode)}
+               className="bg-green-600 hover:bg-green-500 text-white p-4 rounded-xl flex items-center justify-center gap-3 shadow-lg font-bold text-lg"
+             >
+               <Save size={20} /> Guardar y Salir
+             </button>
+           </div>
+        )}
+
         {/* STEP 5: SUCCESS */}
         {currentStep === Step.SUCCESS && (
           <div className="flex-1 flex flex-col items-center justify-center text-center animate-fadeIn p-6">
@@ -917,7 +1127,7 @@ function App() {
       </main>
       
       <footer className="p-4 text-center text-slate-600 text-xs">
-        &copy; 2024 CARMAGNE SOLU. Versión 1.2.0 (Worker Dashboard)
+        &copy; 2024 CARMAGNE SOLU. Versión 1.3.1 (Sin QR)
       </footer>
     </div>
   );

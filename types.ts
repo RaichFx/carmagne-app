@@ -5,6 +5,8 @@ export enum LogType {
   FIN_DESCANSO = 'FIN_DESCANSO',
 }
 
+export type WorkMode = 'HORAS' | 'DESTAJO';
+
 export interface Worker {
   id: string;
   name: string;
@@ -14,6 +16,7 @@ export interface Worker {
   dni?: string;
   role?: string;
   phone?: string;
+  defaultMode?: WorkMode; // Modo por defecto del trabajador
 }
 
 export interface Site {
@@ -51,9 +54,13 @@ export interface WorkLog {
   // Campos nuevos para Geofencing
   distanceMeters?: number; 
   locationWarning?: boolean;
+  // Campos nuevos para Reporte de Salida
+  workMode?: WorkMode;
+  workReport?: string;
 }
 
 export interface AppConfig {
   adminPhone: string;
   googleSheetUrl: string;
+  adminPassword?: string;
 }
