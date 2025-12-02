@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
@@ -373,23 +374,38 @@ function App() {
 
     const mapsLink = `https://www.google.com/maps?q=${loc.latitude},${loc.longitude}`;
     
-    let message = `*FICHAJE CARMAGNE 2024*\n` +
-      `👷 ${selectedWorker.name}\n` +
-      `🏗️ ${selectedSite.name}\n` +
-      `🔄 *${type}*\n` +
-      `📅 ${newLog.dateStr} - ${newLog.timeStr}\n` +
-      `📍 ${loc.address || 'Ubicación'}\n`;
+    // BUILD WHATSAPP MESSAGE USING TEMPLATE
+    let template = config.whatsappTemplate || `*FICHAJE CARMAGNE 2024*
+👷 {workerName} (ID: {workerId})
+🏗️ {siteName}
+🔄 *{action}*
+📅 {date} - {time}
+📍 {location}
+{modeLine}
+{reportLine}
+{distanceAlert}
+🗺️ {mapsLink}
+🆔 {logId}`;
 
-    if (type === LogType.SALIDA) {
-      message += `🛠️ Modo: ${mode}\n`;
-      message += `📝 Reporte: ${report || 'Sin comentarios'}\n`;
-    }
+    const distanceAlert = warning ? `⚠️ *ALERTA DISTANCIA:* ${distance}m` : '';
+    const modeLine = type === LogType.SALIDA ? `🛠️ Modo: ${mode}` : '';
+    const reportLine = type === LogType.SALIDA ? `📝 Reporte: ${report || 'Sin comentarios'}` : '';
 
-    if (warning) {
-      message += `⚠️ *ALERTA DISTANCIA:* ${distance}m\n`;
-    }
-    
-    message += `🗺️ ${mapsLink}`;
+    const message = template
+      .replace('{workerName}', selectedWorker.name)
+      .replace('{workerId}', selectedWorker.id)
+      .replace('{siteName}', selectedSite.name)
+      .replace('{action}', type)
+      .replace('{date}', newLog.dateStr)
+      .replace('{time}', newLog.timeStr)
+      .replace('{location}', loc.address || 'Ubicación')
+      .replace('{mapsLink}', mapsLink)
+      .replace('{logId}', newLog.id)
+      .replace('{modeLine}', modeLine)
+      .replace('{reportLine}', reportLine)
+      .replace('{distanceAlert}', distanceAlert)
+      // Cleanup empty lines if replacement was empty
+      .replace(/^\s*[\r\n]/gm, "");
 
     const whatsappUrl = `https://wa.me/${config.adminPhone}?text=${encodeURIComponent(message)}`;
 
@@ -634,7 +650,7 @@ function App() {
               <div className="flex flex-col items-center mb-6">
                  {/* Logo in Login */}
                  <div className="mb-4 bg-slate-700 p-4 rounded-full border-2 border-yellow-400">
-                   <img src="/logo.png" alt="Logo" className="w-12 h-12 object-contain" />
+                   <img src="/logo.svg" alt="Logo" className="w-12 h-12 object-contain" />
                  </div>
                  <h2 className="text-xl font-bold text-white">Acceso Administrador</h2>
                  <p className="text-slate-400 text-sm text-center mt-1">Introduce la contraseña maestra</p>
@@ -666,7 +682,7 @@ function App() {
       {/* Header */}
       <header className="bg-yellow-400 text-slate-900 p-4 shadow-lg flex justify-between items-center z-20">
         <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Carmagne" className="h-10 w-10 object-contain drop-shadow-sm" />
+          <img src="/logo.svg" alt="Carmagne" className="h-10 w-10 object-contain drop-shadow-sm" />
           <div>
             <h1 className="text-xl font-black tracking-tighter leading-none">CARMAGNE</h1>
             <p className="text-xs font-bold opacity-80">SOLU 2024</p>

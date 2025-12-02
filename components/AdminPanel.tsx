@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storageService';
 import { Worker, Site, WorkLog, AppConfig, WorkMode } from '../types';
 import { 
   Users, MapPin, Download, Settings, FileText, 
-  Trash2, Plus, Save, ExternalLink, Lock, Briefcase, Phone, X, ShieldAlert, Code, Database, CloudOff, ClipboardList, Calendar, Key, FileInput
+  Trash2, Plus, Save, ExternalLink, Lock, Briefcase, Phone, X, ShieldAlert, Code, Database, CloudOff, ClipboardList, Calendar, Key, FileInput, MessageSquare
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
@@ -205,7 +206,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       {/* Admin Header */}
       <header className="bg-slate-900 text-white p-4 sticky top-0 z-10 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Logo" className="w-8 h-8 object-contain" />
+          <img src="/logo.svg" alt="Logo" className="w-8 h-8 object-contain" />
           <h1 className="text-xl font-bold text-yellow-400">Panel Administrador</h1>
         </div>
         <button onClick={onBack} className="text-sm bg-slate-700 px-3 py-1 rounded hover:bg-slate-600">
@@ -572,6 +573,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     Pega aquí la URL "Web App" obtenida al desplegar el script en Google Sheets.
                     Esto habilitará el guardado automático en la nube.
                   </p>
+                </div>
+             </div>
+
+             {/* WhatsApp Template Config */}
+             <div>
+                <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><MessageSquare size={20}/> Mensaje WhatsApp</h3>
+                
+                <div className="mb-4 bg-slate-50 p-4 rounded border border-slate-200">
+                  <label className="block text-sm font-bold mb-2">Plantilla del Mensaje</label>
+                  <textarea 
+                    className="w-full border p-2 rounded font-mono text-sm h-48"
+                    value={config.whatsappTemplate}
+                    onChange={(e) => setConfig({...config, whatsappTemplate: e.target.value})}
+                  />
+                  
+                  <div className="mt-3 text-xs text-slate-600 bg-slate-200 p-2 rounded">
+                    <strong>Variables Disponibles:</strong><br/>
+                    {'{workerName}, {workerId}, {siteName}, {action}'}<br/>
+                    {'{date}, {time}, {location}, {mapsLink}, {logId}'}<br/>
+                    <span className="text-slate-500 italic">Opcionales:</span> {'{modeLine}, {reportLine}, {distanceAlert}'}
+                  </div>
                 </div>
              </div>
 

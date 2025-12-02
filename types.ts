@@ -1,3 +1,4 @@
+
 export enum LogType {
   ENTRADA = 'ENTRADA',
   SALIDA = 'SALIDA',
@@ -63,4 +64,5 @@ export interface AppConfig {
   adminPhone: string;
   googleSheetUrl: string;
   adminPassword?: string;
+  whatsappTemplate?: string;
 }
