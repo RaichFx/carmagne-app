@@ -45,6 +45,16 @@ export const StorageService = {
   // --- WORKERS ---
   getWorkers: (): Worker[] => loadLocal(KEYS.WORKERS, INITIAL_WORKERS),
   
+  registerNewWorker: async (worker: Worker) => {
+    // 1. Local Save
+    const workers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
+    const updated = [...workers, worker];
+    saveLocal(KEYS.WORKERS, updated);
+
+    // 2. Sync (Firebase + Sheets) via helper
+    await StorageService.syncWorker(worker);
+  },
+
   saveWorkers: async (workers: Worker[]) => {
     saveLocal(KEYS.WORKERS, workers);
     // Sync to Firebase (Update each worker doc)

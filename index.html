@@ -5,26 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Carmagne Instal 2024</title>
     
-    <!-- PWA Settings -->
-    <meta name="theme-color" content="#fbbf24" />
+    <!-- PWA Settings (Dark Blue Theme) -->
+    <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Carmagne Instal" />
+    <meta name="apple-mobile-web-app-title" content="Carmagne" />
     
-    <!-- App Icons (Updated to SVG) -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="apple-touch-icon" href="/logo.svg" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap');
-      body { font-family: 'Roboto', sans-serif; overscroll-behavior-y: none; }
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+      body { font-family: 'Inter', sans-serif; overscroll-behavior-y: none; }
+      
       /* Custom Scrollbar for dark theme */
-      .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: #1e293b; }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
+      .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+      
+      /* Glass Effect */
+      .glass-panel {
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
       @media print {
         .no-print { display: none !important; }
         .print-only { display: block !important; }
@@ -49,7 +57,7 @@
 }
 </script>
 </head>
-  <body class="bg-slate-900 text-white select-none">
+  <body class="bg-slate-950 text-slate-100 select-none antialiased">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>

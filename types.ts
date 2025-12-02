@@ -4,6 +4,7 @@ export enum LogType {
   SALIDA = 'SALIDA',
   INICIO_DESCANSO = 'INICIO_DESCANSO',
   FIN_DESCANSO = 'FIN_DESCANSO',
+  REGISTRO = 'REGISTRO',
 }
 
 export type WorkMode = 'HORAS' | 'DESTAJO';
