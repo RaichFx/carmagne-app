@@ -48,7 +48,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
   const [newAdminPassword, setNewAdminPassword] = useState('');
 
   useEffect(() => {
+    // Initial Load
     refreshData();
+
+    // *** REAL-TIME SUBSCRIPTION TO FIREBASE ***
+    // This allows the admin to see logs instantly as they happen
+    const unsubscribeLogs = StorageService.subscribeToLogs((updatedLogs) => {
+      setLogs(updatedLogs);
+    });
+
+    const unsubscribeWorkers = StorageService.subscribeToWorkers((updatedWorkers) => {
+      setWorkers(updatedWorkers);
+    });
+
+    return () => {
+      unsubscribeLogs();
+      unsubscribeWorkers();
+    };
   }, []);
 
   const refreshData = () => {
@@ -85,18 +101,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       role: 'Trabajador',
       defaultMode: newWorkerMode
     };
-    const updated = [...workers, newWorker];
-    StorageService.saveWorkers(updated);
+    // Save triggers firebase sync
+    StorageService.saveWorkers([...workers, newWorker]);
+    
     setNewWorkerName('');
     setNewWorkerPin('');
-    refreshData();
   };
 
   const handleDeleteWorker = (id: string) => {
     if(!confirm('¿Seguro que desea eliminar este trabajador?')) return;
     const updated = workers.filter(w => w.id !== id);
     StorageService.saveWorkers(updated);
-    refreshData();
   }
 
   const handleAddSite = () => {
@@ -107,18 +122,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       address: newSiteAddress,
       active: true
     };
-    const updated = [...sites, newSite];
-    StorageService.saveSites(updated);
+    StorageService.saveSites([...sites, newSite]);
     setNewSiteName('');
     setNewSiteAddress('');
-    refreshData();
   };
 
   const handleDeleteSite = (id: string) => {
     if(!confirm('¿Seguro que desea eliminar esta obra?')) return;
     const updated = sites.filter(s => s.id !== id);
     StorageService.saveSites(updated);
-    refreshData();
   };
 
   const saveConfig = () => {
@@ -372,8 +384,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                      <Download size={20} /> Exportar Excel/CSV
                    </button>
                    <div className="mt-4 p-4 bg-yellow-50 text-yellow-800 text-sm rounded border border-yellow-200">
-                     <p className="font-bold">Informe Mensual:</p>
-                     <p>Use la pestaña "Informes" para generar reportes PDF individuales para nóminas.</p>
+                     <p className="font-bold">Sincronización en la Nube:</p>
+                     <p>El sistema está conectado a Firebase. Los datos se actualizan en tiempo real.</p>
                    </div>
                 </div>
              </div>
@@ -387,20 +399,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
               <div className="flex gap-3">
                  <Database className="text-blue-500 flex-shrink-0" />
                  <div>
-                    <h3 className="text-blue-900 font-bold text-sm uppercase">Almacenamiento Local</h3>
-                    <p className="text-sm text-blue-700 mt-1">Mostrando <strong>{logs.length}</strong> registros.</p>
+                    <h3 className="text-blue-900 font-bold text-sm uppercase">Base de Datos Central</h3>
+                    <p className="text-sm text-blue-700 mt-1">Mostrando <strong>{logs.length}</strong> registros en vivo.</p>
                  </div>
               </div>
-              <button onClick={() => setShowDebug(!showDebug)} className="flex items-center gap-2 px-4 py-2 rounded text-sm font-bold border bg-white">
-                <Code size={16} /> {showDebug ? 'Ocultar JSON' : 'Ver JSON'}
-              </button>
             </div>
-
-            {showDebug && (
-              <div className="bg-slate-900 rounded-lg p-4 shadow-inner border border-slate-700">
-                <pre className="text-green-400 font-mono text-xs overflow-auto max-h-96 custom-scrollbar">{JSON.stringify(logs, null, 2)}</pre>
-              </div>
-            )}
 
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="overflow-x-auto">
@@ -418,10 +421,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {logs.slice().reverse().map(log => (
+                    {logs.map(log => (
                       <tr key={log.id} className={`border-b hover:bg-slate-50 ${log.locationWarning ? 'bg-red-50' : ''}`}>
                         <td className="p-3">
-                           {log.syncedToSheets ? <Database size={12} className="text-green-600" /> : <CloudOff size={12} className="text-slate-400" />}
+                           <Database size={12} className="text-green-600" />
                         </td>
                         <td className="p-3">
                           <div className="font-bold">{log.dateStr}</div>
@@ -652,18 +655,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Settings size={20}/> Conexiones</h3>
                 
                 <div className="mb-4">
-                  <label className="block text-sm font-bold mb-2">Número WhatsApp Admin</label>
-                  <input 
-                    type="text" 
-                    className="w-full border p-2 rounded"
-                    value={config.adminPhone}
-                    onChange={(e) => setConfig({...config, adminPhone: e.target.value})}
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Incluir prefijo país (ej: 34...)</p>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-bold mb-2 text-green-700">URL Google Sheet (Apps Script)</label>
+                  <label className="block text-sm font-bold mb-2 text-green-700">Google Sheet (Legacy)</label>
                   <input 
                     type="text" 
                     className="w-full border p-2 rounded border-green-200 bg-green-50"
@@ -671,10 +663,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     value={config.googleSheetUrl}
                     onChange={(e) => setConfig({...config, googleSheetUrl: e.target.value})}
                   />
-                  <p className="text-xs text-slate-500 mt-1">
-                    Pega aquí la URL "Web App" obtenida al desplegar el script en Google Sheets.
-                    Esto habilitará el guardado automático en la nube.
-                  </p>
                 </div>
              </div>
 
