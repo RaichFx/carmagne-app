@@ -1,4 +1,4 @@
-import { Worker, Site, WorkLog, AppConfig } from '../types';
+import { Worker, Site, WorkLog, AppConfig, LogType } from '../types';
 import { db } from './firebase';
 import { collection, addDoc, getDocs, doc, setDoc, updateDoc, query, orderBy, onSnapshot, deleteDoc } from 'firebase/firestore';
 
@@ -22,7 +22,6 @@ const INITIAL_SITES: Site[] = [
 ];
 
 // *** IMPORTANTE: PEGA TU URL DE APPS SCRIPT AQUÍ ENTRE LAS COMILLAS ***
-// Ejemplo: 'https://script.google.com/macros/s/AKfycbx.../exec'
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUKGxgBNzmL6nn0q7GAQwF83gO3tkxVJMDChAmfYGmy0zMmC8ilr6HvcVrZemU0p_suQ/exec'; 
 
 const INITIAL_CONFIG: AppConfig = {
@@ -33,11 +32,24 @@ const INITIAL_CONFIG: AppConfig = {
 
 // Helpers LocalStorage
 const loadLocal = <T>(key: string, initial: T): T => {
-  const saved = localStorage.getItem(key);
-  return saved ? JSON.parse(saved) : initial;
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : initial;
+  } catch (e) {
+    return initial;
+  }
 };
 const saveLocal = <T>(key: string, data: T): void => {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error("Error saving local", e);
+  }
+};
+
+// Helper to remove undefined values for Firebase
+const sanitizeForFirebase = (data: any) => {
+  return JSON.parse(JSON.stringify(data));
 };
 
 // Service Methods
@@ -46,22 +58,59 @@ export const StorageService = {
   getWorkers: (): Worker[] => loadLocal(KEYS.WORKERS, INITIAL_WORKERS),
   
   registerNewWorker: async (worker: Worker) => {
-    // 1. Local Save
-    const workers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
-    const updated = [...workers, worker];
-    saveLocal(KEYS.WORKERS, updated);
+    try {
+      // 1. Guardar Trabajador en Firebase (Source of Truth)
+      const cleanWorker = sanitizeForFirebase(worker);
+      await setDoc(doc(db, "workers", worker.id), cleanWorker);
 
-    // 2. Sync (Firebase + Sheets) via helper
-    await StorageService.syncWorker(worker);
+      // 2. CREAR LOG DE REGISTRO (Esto faltaba para que salga en el panel)
+      const regLog: WorkLog = {
+        id: `REG-${worker.id}-${Date.now()}`,
+        workerId: worker.id,
+        workerName: worker.name,
+        siteId: 'SYSTEM',
+        siteName: 'Alta en App',
+        type: LogType.REGISTRO,
+        timestamp: Date.now(),
+        dateStr: new Date().toLocaleDateString('es-ES'),
+        timeStr: new Date().toLocaleTimeString('es-ES'),
+        location: { latitude: 0, longitude: 0, accuracy: 0, address: 'Registro Móvil' },
+        sentToWhatsapp: false,
+        syncedToSheets: false,
+        workMode: worker.defaultMode,
+        workReport: `Alta nuevo usuario: ${worker.phone || 'Sin teléfono'}`
+      };
+
+      // 3. Guardar Log en Firebase
+      const cleanLog = sanitizeForFirebase(regLog);
+      await setDoc(doc(db, "logs", regLog.id), cleanLog);
+
+      // 4. Actualizar LocalStorage (Caché inmediata)
+      const currentWorkers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
+      saveLocal(KEYS.WORKERS, [...currentWorkers, worker]);
+
+      const currentLogs = loadLocal<WorkLog[]>(KEYS.LOGS, []);
+      saveLocal(KEYS.LOGS, [regLog, ...currentLogs]);
+
+      // 5. Sincronizar con Sheets (Legacy/Backup)
+      StorageService.syncWorkerToSheets(worker);
+
+      console.log("Registro completado exitosamente");
+
+    } catch (e: any) {
+      console.error("Error crítico en registro:", e);
+      throw new Error(`Error de base de datos: ${e.message}`);
+    }
   },
 
   saveWorkers: async (workers: Worker[]) => {
     saveLocal(KEYS.WORKERS, workers);
     // Sync to Firebase (Update each worker doc)
     try {
-      workers.forEach(async (w) => {
-        await setDoc(doc(db, "workers", w.id), w);
-      });
+      await Promise.all(workers.map(w => {
+        const cleanW = sanitizeForFirebase(w);
+        return setDoc(doc(db, "workers", w.id), cleanW);
+      }));
     } catch (e) { console.error("Error syncing workers to FB", e); }
   },
 
@@ -83,9 +132,10 @@ export const StorageService = {
   saveSites: async (sites: Site[]) => {
     saveLocal(KEYS.SITES, sites);
     try {
-      sites.forEach(async (s) => {
-        await setDoc(doc(db, "sites", s.id), s);
-      });
+      await Promise.all(sites.map(s => {
+        const cleanS = sanitizeForFirebase(s);
+        return setDoc(doc(db, "sites", s.id), cleanS);
+      }));
     } catch (e) { console.error("Error syncing sites to FB", e); }
   },
 
@@ -111,9 +161,11 @@ export const StorageService = {
 
     // 2. Save to Firebase (Real-time Cloud)
     try {
-      await setDoc(doc(db, "logs", log.id), log);
-    } catch (e) {
+      const cleanLog = sanitizeForFirebase(log);
+      await setDoc(doc(db, "logs", log.id), cleanLog);
+    } catch (e: any) {
       console.error("Firebase Add Error", e);
+      throw new Error(`Error guardando fichaje: ${e.message}`);
     }
   },
 
@@ -125,8 +177,9 @@ export const StorageService = {
 
     // Firebase Update
     try {
+      const cleanLog = sanitizeForFirebase(updatedLog);
       const logRef = doc(db, "logs", updatedLog.id);
-      await updateDoc(logRef, { ...updatedLog });
+      await updateDoc(logRef, cleanLog);
     } catch (e) { console.error("Firebase Update Error", e); }
   },
 
@@ -141,41 +194,31 @@ export const StorageService = {
     const url = config.googleSheetUrl || GOOGLE_SCRIPT_URL;
     
     if (!url || url.length < 10) {
-      console.error("SYNC ERROR: No hay URL de Google Script configurada.");
       return false;
     }
 
     try {
-      console.log("Enviando fichaje a Sheets:", log.workerName, log.type);
       await fetch(url, {
         method: 'POST', 
         mode: 'no-cors', 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'LOG', ...log })
       });
-      console.log("Fichaje enviado correctamente (no-cors mode)");
       return true;
     } catch (error) { 
-      console.error("Error enviando a Sheets:", error);
       return false; 
     }
   },
 
-  syncWorker: async (worker: Worker): Promise<boolean> => {
-    // 1. Save to Firebase First (Backup)
-    try { await setDoc(doc(db, "workers", worker.id), worker); } catch(e){ console.error("FB Worker Sync Error", e); }
-
-    // 2. Sync to Sheets
+  syncWorkerToSheets: async (worker: Worker): Promise<boolean> => {
     const config = loadLocal<AppConfig>(KEYS.CONFIG, INITIAL_CONFIG);
     const url = config.googleSheetUrl || GOOGLE_SCRIPT_URL;
     
     if (!url || url.length < 10) {
-      console.error("SYNC ERROR: No hay URL de Google Script para registrar trabajador.");
       return false;
     }
 
     try {
-      console.log("Registrando nuevo trabajador en Sheets:", worker.name);
       await fetch(url, {
         method: 'POST', 
         mode: 'no-cors', 
@@ -184,20 +227,30 @@ export const StorageService = {
       });
       return true;
     } catch (error) { 
-      console.error("Error registrando trabajador en Sheets:", error);
       return false; 
     }
+  },
+  
+  // Helper for sheets
+  syncWorker: async (worker: Worker) => {
+     return StorageService.syncWorkerToSheets(worker);
   },
 
   // --- REAL-TIME LISTENERS ---
   
-  // Escuchar Fichajes (Para Admin)
+  // Escuchar Fichajes (Para Admin y App)
   subscribeToLogs: (callback: (logs: WorkLog[]) => void) => {
-    const q = query(collection(db, "logs"), orderBy("timestamp", "desc"));
+    // Usamos query simple para evitar errores de índice, ordenamos en cliente
+    const q = collection(db, "logs");
     return onSnapshot(q, (snapshot) => {
       const logs = snapshot.docs.map(doc => doc.data() as WorkLog);
+      // Ordenar por fecha descendente
+      logs.sort((a, b) => b.timestamp - a.timestamp);
+      
       saveLocal(KEYS.LOGS, logs);
       callback(logs);
+    }, (error) => {
+       console.error("Error subscribing to logs", error);
     });
   },
 
