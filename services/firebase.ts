@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import * as firebaseApp from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 // *** IMPORTANTE: PEGA AQUÍ TUS CREDENCIALES DE FIREBASE ***
@@ -14,5 +14,5 @@ const firebaseConfig = {
 };
 
 // Inicializar Firebase
-const app = initializeApp(firebaseConfig);
+const app = firebaseApp.initializeApp(firebaseConfig);
 export const db = getFirestore(app);

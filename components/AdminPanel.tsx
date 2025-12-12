@@ -3,7 +3,7 @@ import { StorageService } from '../services/storageService';
 import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType } from '../types';
 import { 
   Users, MapPin, Download, Settings, FileText, 
-  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search
+  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { jsPDF } from 'jspdf';
@@ -72,6 +72,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     a.href = url;
     a.download = `Fichajes_CARMAGNE_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+  };
+
+  // Helper Greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 13) return "Buenos días";
+    if (hour >= 13 && hour < 21) return "Buenas tardes";
+    return "Buenas noches";
   };
 
   // LÓGICA DE FILTRADO REAL
@@ -149,7 +157,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       <ConfirmationModal isOpen={deleteTarget !== null} title="Eliminar" message="¿Seguro?" isDestructive={true} onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
 
       <header className="bg-slate-900 p-4 sticky top-0 z-10 shadow-md flex justify-between items-center border-b border-slate-800">
-        <div><h1 className="text-xl font-black text-white tracking-tight">CARMAGNE ADMIN</h1></div><button onClick={onBack} className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-4 py-2 rounded hover:bg-slate-700 transition">Volver App</button>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-black text-white tracking-tight">CARMAGNE ADMIN</h1>
+          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" />
+        </div>
+        <button onClick={onBack} className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-4 py-2 rounded hover:bg-slate-700 transition">Volver App</button>
       </header>
 
       <div className="flex overflow-x-auto bg-slate-900 border-b border-slate-800">
@@ -164,33 +176,55 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         
         {/* DASHBOARD */}
         {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
-                <h3 className="text-slate-500 text-xs uppercase font-bold tracking-wider">Total Registros</h3>
-                <p className="text-4xl font-black text-white mt-2">{logs.length}</p>
+          <div className="space-y-8 animate-fadeIn">
+             {/* Header Bienvenida */}
+             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-6">
+                <div>
+                   <h2 className="text-3xl font-black text-white tracking-tight">{getGreeting()}, Admin</h2>
+                   <p className="text-slate-400 mt-1 capitalize">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                </div>
+                <div className="hidden md:block text-right">
+                    <div className="inline-flex items-center gap-2 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800">
+                      <Clock size={16} className="text-blue-500"/>
+                      <span className="font-mono font-bold text-slate-300">
+                        {new Date().toLocaleTimeString('es-ES', {hour: '2-digit', minute:'2-digit'})}
+                      </span>
+                    </div>
+                </div>
              </div>
-             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
-                <h3 className="text-slate-500 text-xs uppercase font-bold tracking-wider">Obras Activas</h3>
-                <p className="text-4xl font-black text-blue-500 mt-2">{sites.filter(s => s.active).length}</p>
-             </div>
-             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
-                <h3 className="text-slate-500 text-xs uppercase font-bold tracking-wider">Trabajadores</h3>
-                <p className="text-4xl font-black text-emerald-500 mt-2">{workers.filter(w => w.active).length}</p>
-             </div>
-             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 col-span-1 md:col-span-2 h-80">
-                <h3 className="font-bold mb-6 text-slate-300">Actividad</h3>
-                <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={logsByType} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>{logsByType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><RechartsTooltip /></PieChart></ResponsiveContainer>
-             </div>
-             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
-               <h3 className="font-bold mb-4 text-slate-300">Acciones</h3>
-               <button onClick={handleExport} className="w-full bg-emerald-600 text-white p-4 rounded-xl font-bold mb-4 flex items-center justify-center gap-2 hover:bg-emerald-500 transition"><Download/> Exportar CSV</button>
+
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><FileText size={64}/></div>
+                    <h3 className="text-slate-500 text-xs uppercase font-bold tracking-wider relative z-10">Total Registros</h3>
+                    <p className="text-4xl font-black text-white mt-2 relative z-10">{logs.length}</p>
+                 </div>
+                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><MapPin size={64}/></div>
+                    <h3 className="text-slate-500 text-xs uppercase font-bold tracking-wider relative z-10">Obras Activas</h3>
+                    <p className="text-4xl font-black text-blue-500 mt-2 relative z-10">{sites.filter(s => s.active).length}</p>
+                 </div>
+                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><Users size={64}/></div>
+                    <h3 className="text-slate-500 text-xs uppercase font-bold tracking-wider relative z-10">Trabajadores</h3>
+                    <p className="text-4xl font-black text-emerald-500 mt-2 relative z-10">{workers.filter(w => w.active).length}</p>
+                 </div>
+                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 col-span-1 md:col-span-2 h-80">
+                    <h3 className="font-bold mb-6 text-slate-300">Actividad</h3>
+                    <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={logsByType} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>{logsByType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><RechartsTooltip /></PieChart></ResponsiveContainer>
+                 </div>
+                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
+                   <h3 className="font-bold mb-4 text-slate-300">Acciones</h3>
+                   <button onClick={handleExport} className="w-full bg-emerald-600 text-white p-4 rounded-xl font-bold mb-4 flex items-center justify-center gap-2 hover:bg-emerald-500 transition shadow-lg"><Download/> Exportar CSV</button>
+                   <p className="text-xs text-slate-500 text-center">Descarga el historial completo en formato compatible con Excel.</p>
+                 </div>
              </div>
           </div>
         )}
 
         {/* LOGS TAB - AHORA CON FILTROS VISIBLES Y FUNCIONALES */}
         {activeTab === 'logs' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fadeIn">
             
             {/* --- ZONA DE FILTROS VISIBLE --- */}
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 flex flex-col lg:flex-row gap-6 items-end shadow-lg">
@@ -318,7 +352,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
         {/* WORKERS TAB */}
         {activeTab === 'workers' && (
-          <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
+          <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 animate-fadeIn">
             <div className="flex flex-col md:flex-row gap-4 mb-8 bg-slate-950 p-6 rounded-xl border border-slate-800">
               <div className="flex-1 space-y-2">
                  <label className="text-xs font-bold uppercase text-slate-500 tracking-wide">Nombre</label>
@@ -361,7 +395,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
         {/* SITES TAB */}
         {activeTab === 'sites' && (
-           <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
+           <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 animate-fadeIn">
               <div className="flex gap-2 mb-6">
                 <input type="text" placeholder="Nombre Obra" className="flex-1 bg-slate-950 border border-slate-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none" value={newSiteName} onChange={(e)=>setNewSiteName(e.target.value)}/>
                 <input type="text" placeholder="Dirección" className="flex-1 bg-slate-950 border border-slate-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none" value={newSiteAddress} onChange={(e)=>setNewSiteAddress(e.target.value)}/>
@@ -372,14 +406,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         )}
         
         {activeTab === 'reports' && (
-           <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
+           <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 animate-fadeIn">
               <div className="flex items-center gap-4 mb-6"><label className="text-slate-400 font-bold">Mes:</label><input type="month" className="bg-slate-950 border border-slate-700 p-2 rounded text-white" value={reportMonth} onChange={(e)=>setReportMonth(e.target.value)}/></div>
               <table className="w-full text-sm text-left text-slate-300"><thead><tr className="bg-slate-950 text-slate-500 uppercase"><th>Trabajador</th><th>Días</th><th>Horas</th><th>Acción</th></tr></thead><tbody className="divide-y divide-slate-800">{generateMonthlyReport().map(r => (<tr key={r.workerId} className="hover:bg-slate-800/50"><td className="p-3 font-bold text-white">{r.workerName}</td><td className="p-3">{r.daysWorked}</td><td className="p-3 text-blue-400">{msToTime(r.netWorkMs)}</td><td className="p-3"><button onClick={() => handleDownloadPDF(r)} className="text-emerald-500 font-bold hover:underline">PDF</button></td></tr>))}</tbody></table>
            </div>
         )}
 
         {activeTab === 'config' && (
-           <div className="bg-slate-900 p-8 rounded-xl border border-slate-800 max-w-md mx-auto">
+           <div className="bg-slate-900 p-8 rounded-xl border border-slate-800 max-w-md mx-auto animate-fadeIn">
               <h3 className="font-bold mb-6 text-white text-lg">Configuración</h3>
               <div className="space-y-4">
                 <div>

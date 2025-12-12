@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing
 } from 'lucide-react';
 import { StorageService } from './services/storageService';
 import { LocationService } from './services/locationService';
@@ -111,6 +111,57 @@ function App() {
       setWorkerLogs(StorageService.getLogs());
     }
   }, [currentStep]);
+
+  // Lógica de Notificación de Retraso (8:05 AM)
+  useEffect(() => {
+    if (currentStep === Step.WORKER_DASHBOARD && selectedWorker) {
+      const checkLateEntry = () => {
+        const now = new Date();
+        const minutesOfDay = now.getHours() * 60 + now.getMinutes();
+        const limitTime = 8 * 60 + 5; // 8:05 AM en minutos
+
+        // Si es más tarde de las 8:05
+        if (minutesOfDay > limitTime) {
+          const todayStr = new Date().toLocaleDateString('es-ES');
+          
+          // Verificar si ya tiene entrada hoy
+          const hasEntryToday = workerLogs.some(l => 
+             l.workerId === selectedWorker.id && 
+             l.type === LogType.ENTRADA && 
+             l.dateStr === todayStr
+          );
+
+          if (!hasEntryToday) {
+            // Intentar enviar notificación nativa
+            if (!("Notification" in window)) {
+               // No soportado
+            } else if (Notification.permission === "granted") {
+              new Notification("⚠️ Fichaje Pendiente", {
+                body: `Hola ${selectedWorker.name.split(' ')[0]}, son más de las 8:05. Por favor registra tu entrada.`,
+                icon: "/logo.png",
+                badge: "/logo.png",
+                tag: "late-entry-alert" // Evita spam de notificaciones
+              });
+            } else if (Notification.permission !== "denied") {
+              Notification.requestPermission();
+            }
+          }
+        }
+      };
+
+      checkLateEntry(); // Ejecutar al entrar al dashboard
+      const interval = setInterval(checkLateEntry, 60000); // Chequear cada minuto si la app sigue abierta
+      return () => clearInterval(interval);
+    }
+  }, [currentStep, selectedWorker, workerLogs]);
+
+  // Dynamic Greeting Logic
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 13) return "Buenos días";
+    if (hour >= 13 && hour < 21) return "Buenas tardes";
+    return "Buenas noches";
+  };
 
   // Admin Login Handler
   const handleAdminAccessRequest = () => {
@@ -395,6 +446,19 @@ function App() {
 
   const renderWorkerDashboard = () => {
     const status = getCurrentStatus();
+    
+    // Check for late entry visual alert
+    const now = new Date();
+    const minutesOfDay = now.getHours() * 60 + now.getMinutes();
+    const limitTime = 8 * 60 + 5; 
+    const isLate = minutesOfDay > limitTime;
+    const hasEntryToday = workerLogs.some(l => 
+        l.workerId === selectedWorker?.id && 
+        l.type === LogType.ENTRADA && 
+        l.dateStr === new Date().toLocaleDateString('es-ES')
+    );
+    const showLateAlert = isLate && !hasEntryToday;
+
     return (
       <div className="flex flex-col gap-6 animate-fadeIn h-full">
         <div className="flex justify-between items-center px-2">
@@ -403,6 +467,19 @@ function App() {
             <LogOut size={18} />
           </button>
         </div>
+
+        {/* ALERTA DE RETRASO */}
+        {showLateAlert && (
+          <div className="bg-rose-950/80 border border-rose-600 rounded-2xl p-4 shadow-[0_0_20px_rgba(225,29,72,0.3)] animate-pulse flex items-center gap-4">
+             <div className="bg-rose-600 p-3 rounded-full text-white">
+                <BellRing size={24} />
+             </div>
+             <div>
+                <h3 className="text-rose-100 font-black uppercase tracking-wider text-sm">Atención Requerida</h3>
+                <p className="text-rose-200 text-xs mt-1 font-bold">Son más de las 8:05. Debes fichar la entrada inmediatamente.</p>
+             </div>
+          </div>
+        )}
 
         <div className={`relative overflow-hidden rounded-2xl p-6 shadow-xl border border-slate-700/50 ${
           status?.status === 'TRABAJANDO' ? 'bg-gradient-to-br from-slate-900 to-emerald-950/30' :
@@ -475,7 +552,10 @@ function App() {
     return (
       <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center animate-fadeIn">
          <div className="flex flex-col items-center">
-            <h1 className="text-4xl font-black text-white tracking-tighter mb-2">CARMAGNE</h1>
+            <div className="flex items-center gap-3 mb-2">
+               <h1 className="text-4xl font-black text-white tracking-tighter">CARMAGNE</h1>
+               <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" />
+            </div>
             <div className="h-1 w-24 bg-blue-600 rounded-full mb-3"></div>
             <p className="text-blue-500 font-bold tracking-[0.4em] text-sm">INSTAL 2024</p>
          </div>
@@ -493,7 +573,13 @@ function App() {
     <div className="min-h-screen bg-slate-950 flex flex-col font-sans selection:bg-blue-500/30">
       {/* Header */}
       <header className="glass-panel p-4 flex justify-between items-center sticky top-0 z-20 border-b border-slate-800">
-        <div><h1 className="text-xl font-black tracking-tight leading-none text-white">CARMAGNE</h1><p className="text-[10px] font-bold text-blue-500 tracking-[0.2em] uppercase mt-0.5">INSTAL 2024</p></div>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-xl font-black tracking-tight leading-none text-white">CARMAGNE</h1>
+            <p className="text-[10px] font-bold text-blue-500 tracking-[0.2em] uppercase mt-0.5">INSTAL 2024</p>
+          </div>
+          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" />
+        </div>
         <button onClick={handleAdminAccessRequest} className="p-2.5 bg-slate-800 text-slate-400 rounded-full border border-slate-700/50"><Lock size={16} /></button>
       </header>
 
@@ -519,8 +605,8 @@ function App() {
           <div className="flex flex-col gap-6 animate-fadeIn pt-8">
             <div className="text-center">
               <div className="bg-slate-900/50 p-5 rounded-full inline-flex mb-4 border border-slate-800"><Smartphone size={32} className="text-blue-500" /></div>
-              <h2 className="text-2xl font-bold text-white mb-2">Iniciar Sesión</h2>
-              <p className="text-slate-400 text-sm">Introduce tu teléfono para acceder.</p>
+              <h2 className="text-2xl font-bold text-white mb-2">{getGreeting()}</h2>
+              <p className="text-slate-400 text-sm">Bienvenido a Carmagne. Inicia sesión para continuar.</p>
             </div>
             <div className="bg-slate-900/80 p-6 rounded-3xl border border-slate-800 shadow-xl">
                <label className="block text-[10px] uppercase text-slate-500 font-bold mb-2 tracking-wider">Número de Teléfono</label>
@@ -582,8 +668,7 @@ function App() {
 
         {currentStep === Step.WORKER_DASHBOARD && renderWorkerDashboard()}
         {currentStep === Step.WORKER_HISTORY && renderWorkerHistory()}
-        {/* Site selection, action selection, report exit, success steps reused from previous logic but with updated classes */}
-        {/* (Omitting redundant code for brevity, assume standard steps follow same blue/slate theme) */}
+        
         {currentStep === Step.SELECT_SITE && (
             <div className="flex flex-col gap-4">
                 <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="text-slate-400 text-sm flex gap-1"><ChevronLeft size={16}/> Volver</button>
