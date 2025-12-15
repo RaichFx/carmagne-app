@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays
 } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { StorageService } from './services/storageService';
 import { LocationService } from './services/locationService';
 import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser } from './types';
@@ -496,6 +498,97 @@ function App() {
     }
   };
 
+  // Helper para calcular horas trabajadas
+  const calculateTotalWorkMs = (logs: WorkLog[]): number => {
+    // Asegurarse de que están ordenados por tiempo ascendente
+    const sortedLogs = [...logs].sort((a, b) => a.timestamp - b.timestamp);
+    let totalMs = 0;
+    let lastStartTime: number | null = null;
+    
+    // Iteramos cronológicamente
+    for (const log of sortedLogs) {
+      // Inicios de segmento de trabajo
+      if (log.type === LogType.ENTRADA || log.type === LogType.FIN_DESCANSO) {
+        lastStartTime = log.timestamp;
+      }
+      // Finales de segmento de trabajo
+      else if ((log.type === LogType.SALIDA || log.type === LogType.INICIO_DESCANSO)) {
+        if (lastStartTime !== null) {
+          totalMs += (log.timestamp - lastStartTime);
+          lastStartTime = null; // Reiniciamos hasta el siguiente evento de inicio
+        }
+      }
+    }
+    return Math.max(0, totalMs);
+  };
+
+  const handleDownloadReport = (period: 'WEEK' | 'MONTH') => {
+      if (!selectedWorker) return;
+      const doc = new jsPDF();
+      const now = new Date();
+      let startDate = new Date();
+      let title = "";
+      let filename = "";
+
+      // 1. Determine Date Range
+      if (period === 'WEEK') {
+          // Obtener lunes de la semana actual
+          const day = now.getDay();
+          const diff = now.getDate() - day + (day === 0 ? -6 : 1); 
+          startDate.setDate(diff);
+          startDate.setHours(0,0,0,0);
+          title = "Informe Semanal";
+          filename = `Semanal_${selectedWorker.name.replace(/\s/g,'_')}.pdf`;
+      } else {
+          // Obtener día 1 del mes actual
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          startDate.setHours(0,0,0,0);
+          title = "Informe Mensual";
+          filename = `Mensual_${selectedWorker.name.replace(/\s/g,'_')}.pdf`;
+      }
+
+      // 2. Filter Logs
+      const filteredLogs = workerLogs
+        .filter(l => l.workerId === selectedWorker.id && l.timestamp >= startDate.getTime())
+        .sort((a,b) => a.timestamp - b.timestamp);
+
+      if (filteredLogs.length === 0) {
+          alert("No hay registros para este periodo.");
+          return;
+      }
+
+      // 3. Generate PDF
+      doc.setFontSize(18);
+      doc.text(title, 14, 20);
+      
+      doc.setFontSize(10);
+      doc.text(`Trabajador: ${selectedWorker.name}`, 14, 30);
+      doc.text(`Generado: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, 14, 35);
+      
+      // Calculate Hours
+      const totalMs = calculateTotalWorkMs(filteredLogs);
+      const hours = Math.floor(totalMs / 3600000);
+      const minutes = Math.floor((totalMs % 3600000) / 60000);
+
+      doc.text(`Total Horas (Aprox): ${hours}h ${minutes}m`, 14, 45);
+
+      const tableData = filteredLogs.map(l => [
+          l.dateStr, 
+          l.timeStr, 
+          l.type.replace('_', ' '), 
+          l.siteName,
+          l.workReport || ''
+      ]);
+
+      autoTable(doc, {
+          startY: 50,
+          head: [['Fecha', 'Hora', 'Acción', 'Obra', 'Notas']],
+          body: tableData,
+      });
+
+      doc.save(filename);
+  };
+
   const resetApp = () => {
     setCurrentStep(Step.LOGIN_PHONE);
     setSelectedWorker(null);
@@ -610,20 +703,63 @@ function App() {
   const renderWorkerHistory = () => {
     if (!selectedWorker) return null;
 
-    // Filtramos los logs
+    // 1. Filtrar logs del trabajador
     const myLogs = workerLogs
       .filter(l => l.workerId === selectedWorker.id)
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .filter(l => {
+      .sort((a, b) => b.timestamp - a.timestamp); // Orden descendente para mostrar
+
+    // 2. Calcular totales semanales y mensuales
+    const now = new Date();
+    
+    // Semana: Lunes a Domingo
+    const currentDay = now.getDay();
+    const diff = now.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+    const monday = new Date(now);
+    monday.setDate(diff);
+    monday.setHours(0,0,0,0);
+    
+    // Mes: Día 1
+    const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    firstDayMonth.setHours(0,0,0,0);
+
+    const weekLogs = myLogs.filter(l => l.timestamp >= monday.getTime());
+    const monthLogs = myLogs.filter(l => l.timestamp >= firstDayMonth.getTime());
+
+    const totalWeekMs = calculateTotalWorkMs(weekLogs);
+    const totalMonthMs = calculateTotalWorkMs(monthLogs);
+    
+    // Helper para formato horas
+    const formatMs = (ms: number) => {
+      const h = Math.floor(ms / 3600000);
+      const m = Math.floor((ms % 3600000) / 60000);
+      return `${h}h ${m}m`;
+    };
+
+    // 3. Agrupar por días para la lista
+    const filteredList = myLogs.filter(l => {
          const lowerTerm = historySearchTerm.toLowerCase();
-         // Buscar por Nombre de Obra, Fecha, Tipo de acción o Reporte
          return (
            l.siteName.toLowerCase().includes(lowerTerm) ||
            l.dateStr.toLowerCase().includes(lowerTerm) ||
            l.type.toLowerCase().includes(lowerTerm) ||
            (l.workReport || '').toLowerCase().includes(lowerTerm)
          );
-      });
+    });
+
+    const groupedByDate: Record<string, WorkLog[]> = {};
+    filteredList.forEach(log => {
+        if (!groupedByDate[log.dateStr]) {
+            groupedByDate[log.dateStr] = [];
+        }
+        groupedByDate[log.dateStr].push(log);
+    });
+
+    // Ordenar fechas descendente
+    const sortedDates = Object.keys(groupedByDate).sort((a, b) => {
+       const [da, ma, ya] = a.split('/').map(Number);
+       const [db, mb, yb] = b.split('/').map(Number);
+       return new Date(yb, mb-1, db).getTime() - new Date(ya, ma-1, da).getTime() > 0 ? 1 : -1;
+    });
 
     const getIcon = (type: LogType) => {
        if(type === LogType.ENTRADA) return <ArrowRight size={20} className="text-emerald-500" />;
@@ -651,10 +787,30 @@ function App() {
             >
                <ChevronLeft size={20}/>
             </button>
-            <div>
+            <div className="flex-1">
                <h2 className="text-xl font-bold text-white">Mi Historial</h2>
-               <p className="text-xs text-slate-500">{myLogs.length} movimientos</p>
+               <p className="text-xs text-slate-500">Resumen y actividad reciente</p>
             </div>
+          </div>
+
+          {/* DASHBOARD RESUMEN */}
+          <div className="grid grid-cols-2 gap-3 mb-4 shrink-0">
+             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition"><CalendarDays size={40}/></div>
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Semana Actual</p>
+                <div className="flex items-end justify-between mt-2">
+                   <span className="text-2xl font-black text-white">{formatMs(totalWeekMs)}</span>
+                   <button onClick={() => handleDownloadReport('WEEK')} className="bg-slate-800 text-blue-400 hover:text-white p-2 rounded-lg transition"><Download size={16}/></button>
+                </div>
+             </div>
+             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition"><Calendar size={40}/></div>
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Mes Actual</p>
+                <div className="flex items-end justify-between mt-2">
+                   <span className="text-2xl font-black text-white">{formatMs(totalMonthMs)}</span>
+                   <button onClick={() => handleDownloadReport('MONTH')} className="bg-slate-800 text-blue-400 hover:text-white p-2 rounded-lg transition"><Download size={16}/></button>
+                </div>
+             </div>
           </div>
           
           {/* Search Bar */}
@@ -679,40 +835,58 @@ function App() {
              )}
           </div>
 
-          {/* Lista Scrollable */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pb-20 pr-1">
-             {myLogs.length === 0 ? (
-               <div className="flex flex-col items-center justify-center h-64 text-slate-600">
+          {/* Lista Scrollable Agrupada por Días */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-4 pb-20 pr-1">
+             {sortedDates.length === 0 ? (
+               <div className="flex flex-col items-center justify-center h-48 text-slate-600">
                   <History size={48} className="mb-4 opacity-30" />
                   <p className="text-sm font-medium">{historySearchTerm ? 'No hay resultados.' : 'No tienes actividad reciente.'}</p>
                </div>
              ) : (
-               myLogs.map(log => (
-                 <div key={log.id} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center group hover:border-slate-700 transition">
-                    <div className="flex items-center gap-4">
-                       <div className={`p-3 rounded-xl border border-slate-800 bg-slate-950 ${
-                          log.type === LogType.ENTRADA ? 'bg-emerald-950/30 border-emerald-900/50' :
-                          log.type === LogType.SALIDA ? 'bg-rose-950/30 border-rose-900/50' :
-                          'bg-slate-950'
-                       }`}>
-                          {getIcon(log.type)}
+               sortedDates.map(date => {
+                   const logsForDay = groupedByDate[date];
+                   const dailyTotal = calculateTotalWorkMs(logsForDay);
+
+                   return (
+                       <div key={date} className="animate-fadeIn">
+                           {/* Date Header */}
+                           <div className="flex items-center justify-between mb-2 px-1">
+                               <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">{date}</h3>
+                               <span className="text-xs font-mono font-bold text-emerald-500 bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-900/50">
+                                   Total: {formatMs(dailyTotal)}
+                               </span>
+                           </div>
+                           
+                           {/* Logs for this day */}
+                           <div className="space-y-2">
+                               {logsForDay.map(log => (
+                                 <div key={log.id} className="bg-slate-900 p-3 rounded-xl border border-slate-800 flex justify-between items-center group hover:border-slate-700 transition">
+                                    <div className="flex items-center gap-3">
+                                       <div className={`p-2 rounded-lg border border-slate-800 bg-slate-950 ${
+                                          log.type === LogType.ENTRADA ? 'bg-emerald-950/30 border-emerald-900/50' :
+                                          log.type === LogType.SALIDA ? 'bg-rose-950/30 border-rose-900/50' :
+                                          'bg-slate-950'
+                                       }`}>
+                                          {getIcon(log.type)}
+                                       </div>
+                                       <div>
+                                          <div className="flex items-center gap-2">
+                                             <h4 className="font-bold text-white text-sm">{getTypeLabel(log.type)}</h4>
+                                             {log.locationWarning && <ShieldAlert size={12} className="text-rose-500" />}
+                                          </div>
+                                          <p className="text-[10px] text-slate-400 font-medium truncate max-w-[120px]">{log.siteName}</p>
+                                       </div>
+                                    </div>
+                                    
+                                    <div className="text-right">
+                                       <p className="text-base font-black text-white leading-tight">{log.timeStr.slice(0,5)}</p>
+                                    </div>
+                                 </div>
+                               ))}
+                           </div>
                        </div>
-                       <div>
-                          <div className="flex items-center gap-2">
-                             <h4 className="font-bold text-white text-sm">{getTypeLabel(log.type)}</h4>
-                             {log.locationWarning && <ShieldAlert size={12} className="text-rose-500" />}
-                          </div>
-                          <p className="text-xs text-slate-400 font-medium">{log.siteName}</p>
-                          {log.workReport && <p className="text-[10px] text-slate-500 italic mt-0.5 truncate max-w-[140px]">{log.workReport}</p>}
-                       </div>
-                    </div>
-                    
-                    <div className="text-right">
-                       <p className="text-lg font-black text-white leading-tight">{log.timeStr}</p>
-                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{log.dateStr}</p>
-                    </div>
-                 </div>
-               ))
+                   )
+               })
              )}
           </div>
        </div>
