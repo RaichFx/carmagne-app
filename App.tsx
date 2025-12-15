@@ -8,6 +8,7 @@ import { LocationService } from './services/locationService';
 import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
+import { Camera } from './components/Camera';
 
 // App Steps
 enum Step {
@@ -17,6 +18,7 @@ enum Step {
   WORKER_HISTORY = 16,
   SELECT_SITE = 2,
   SELECT_ACTION = 3,
+  TAKE_PHOTO = 18,    // Nuevo paso para foto
   REPORT_EXIT = 4, 
   SUCCESS = 5,
   REGISTER = 99,
@@ -51,6 +53,9 @@ function App() {
   const [location, setLocation] = useState<GeoLocationData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Photo State
+  const [tempPhoto, setTempPhoto] = useState<string | undefined>(undefined);
 
   // Exit Report State
   const [exitReportText, setExitReportText] = useState('');
@@ -115,6 +120,12 @@ function App() {
   // Lógica de Notificación de Retraso (8:05 AM)
   useEffect(() => {
     if (currentStep === Step.WORKER_DASHBOARD && selectedWorker) {
+      
+      // Intentar pedir permiso inmediatamente al entrar al Dashboard
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+
       const checkLateEntry = () => {
         const now = new Date();
         const minutesOfDay = now.getHours() * 60 + now.getMinutes();
@@ -122,7 +133,7 @@ function App() {
 
         // Si es más tarde de las 8:05
         if (minutesOfDay > limitTime) {
-          const todayStr = new Date().toLocaleDateString('es-ES');
+          const todayStr = new Date().toLocaleDateString('es-ES'); // "dd/mm/yyyy"
           
           // Verificar si ya tiene entrada hoy
           const hasEntryToday = workerLogs.some(l => 
@@ -132,18 +143,39 @@ function App() {
           );
 
           if (!hasEntryToday) {
-            // Intentar enviar notificación nativa
-            if (!("Notification" in window)) {
-               // No soportado
-            } else if (Notification.permission === "granted") {
-              new Notification("⚠️ Fichaje Pendiente", {
-                body: `Hola ${selectedWorker.name.split(' ')[0]}, son más de las 8:05. Por favor registra tu entrada.`,
-                icon: "/logo.png",
-                badge: "/logo.png",
-                tag: "late-entry-alert" // Evita spam de notificaciones
-              });
-            } else if (Notification.permission !== "denied") {
-              Notification.requestPermission();
+            // Verificar si ya enviamos la notificación hoy para evitar spam
+            // Usamos una clave única compuesta por ID y fecha
+            const alertKey = `carmagne_alert_${selectedWorker.id}_${todayStr.replace(/\//g, '-')}`;
+            const alreadyNotified = localStorage.getItem(alertKey);
+
+            if (!alreadyNotified) {
+              const sendNotification = () => {
+                 try {
+                    new Notification("⚠️ Fichaje Pendiente", {
+                      body: `Hola ${selectedWorker.name.split(' ')[0]}, son más de las 8:05. Por favor registra tu entrada.`,
+                      icon: "/logo.svg",
+                      badge: "/logo.svg",
+                      tag: "late-entry-alert",
+                      vibrate: [200, 100, 200]
+                    } as any);
+                    // MARCAR COMO ENVIADO
+                    localStorage.setItem(alertKey, 'true');
+                 } catch (e) {
+                   console.error("Error sending notification", e);
+                 }
+              };
+
+              if (!("Notification" in window)) {
+                 // No soportado
+              } else if (Notification.permission === "granted") {
+                sendNotification();
+              } else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                  if (permission === "granted") {
+                    sendNotification();
+                  }
+                });
+              }
             }
           }
         }
@@ -325,22 +357,43 @@ function App() {
     setSelectedAction(type);
     setLoading(true);
     setError('');
+    setTempPhoto(undefined); // Limpiar foto anterior
 
-    let loc = location;
+    // Pre-cargar localización
     try {
-      if (!loc) {
-        loc = await LocationService.getCurrentPosition();
+      if (!location) {
+        const loc = await LocationService.getCurrentPosition();
         setLocation(loc);
       }
     } catch (err) { }
+
     setLoading(false);
 
-    if (type === LogType.SALIDA) {
+    // Lógica para foto obligatoria en Entrada/Salida
+    if (type === LogType.ENTRADA || type === LogType.SALIDA) {
+      setCurrentStep(Step.TAKE_PHOTO);
+    } else {
+      // Para descansos u otros, no pedimos foto
+      executeLogSubmission(type, undefined, 'HORAS');
+    }
+  };
+
+  const handlePhotoCaptured = (imageData: string) => {
+    setTempPhoto(imageData);
+    
+    // Si es Entrada, registramos directamente
+    if (selectedAction === LogType.ENTRADA) {
+      executeLogSubmission(selectedAction, undefined, 'HORAS', imageData);
+    }
+    // Si es Salida, vamos al reporte (llevando la foto en el estado)
+    else if (selectedAction === LogType.SALIDA) {
       setExitWorkMode(selectedWorker?.defaultMode || 'HORAS');
       setExitReportText('');
       setCurrentStep(Step.REPORT_EXIT);
-    } else {
-      executeLogSubmission(type, undefined, 'HORAS');
+    }
+    // Fallback
+    else {
+      executeLogSubmission(selectedAction!, undefined, 'HORAS', imageData);
     }
   };
 
@@ -367,7 +420,7 @@ function App() {
     recognition.start();
   };
 
-  const executeLogSubmission = async (type: LogType, report?: string, mode?: WorkMode) => {
+  const executeLogSubmission = async (type: LogType, report?: string, mode?: WorkMode, photoOverride?: string) => {
     setLoading(true);
     try {
       let loc = location;
@@ -384,7 +437,11 @@ function App() {
         );
         if (distance > MAX_DISTANCE_METERS) warning = true;
       }
-      await submitLog(loc!, type, distance, warning, undefined, report, mode);
+      
+      // Usar la foto pasada por argumento o la del estado
+      const finalPhoto = photoOverride || tempPhoto;
+      
+      await submitLog(loc!, type, distance, warning, finalPhoto, report, mode);
     } catch (err: any) {
       setLoading(false);
       setError('Error GPS. Verifica permisos.');
@@ -439,7 +496,26 @@ function App() {
     setLocation(null);
     setPinInput('');
     setLoginPhone('');
+    setTempPhoto(undefined);
     setError('');
+  };
+
+  const getCurrentStatus = () => {
+    if (!selectedWorker) return null;
+    const myLogs = workerLogs
+      .filter(l => l.workerId === selectedWorker.id)
+      .sort((a, b) => b.timestamp - a.timestamp);
+    
+    if (myLogs.length === 0) return { status: 'SIN ACTIVIDAD', site: '-', since: 0 };
+    
+    const last = myLogs[0];
+    if (last.type === LogType.ENTRADA || last.type === LogType.FIN_DESCANSO) {
+      return { status: 'TRABAJANDO', site: last.siteName, since: last.timestamp };
+    } else if (last.type === LogType.INICIO_DESCANSO) {
+      return { status: 'EN DESCANSO', site: last.siteName, since: last.timestamp };
+    } else {
+      return { status: 'FUERA', site: '-', since: last.timestamp };
+    }
   };
 
   // --- RENDERERS ---
@@ -536,17 +612,6 @@ function App() {
     );
   };
 
-  const getCurrentStatus = () => {
-    if (!selectedWorker) return null;
-    const myLogs = workerLogs.filter(l => l.workerId === selectedWorker.id && l.type !== LogType.REGISTRO).sort((a,b) => b.timestamp - a.timestamp);
-    if (myLogs.length === 0) return { status: 'FUERA', site: '-', since: null };
-    const lastLog = myLogs[0];
-    const isToday = new Date(lastLog.timestamp).toDateString() === new Date().toDateString();
-    if (lastLog.type === LogType.ENTRADA || lastLog.type === LogType.FIN_DESCANSO) return { status: 'TRABAJANDO', site: lastLog.siteName, since: lastLog.timestamp, isToday };
-    if (lastLog.type === LogType.INICIO_DESCANSO) return { status: 'EN DESCANSO', site: lastLog.siteName, since: lastLog.timestamp, isToday };
-    return { status: 'FUERA', site: '-', since: lastLog.timestamp, isToday };
-  };
-
   // --- SPLASH SCREEN ---
   if (isAppLoading) {
     return (
@@ -554,7 +619,7 @@ function App() {
          <div className="flex flex-col items-center">
             <div className="flex items-center gap-3 mb-2">
                <h1 className="text-4xl font-black text-white tracking-tighter">CARMAGNE</h1>
-               <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" />
+               <img src="/logo.svg" alt="Logo" className="h-10 w-auto object-contain" />
             </div>
             <div className="h-1 w-24 bg-blue-600 rounded-full mb-3"></div>
             <p className="text-blue-500 font-bold tracking-[0.4em] text-sm">INSTAL 2024</p>
@@ -578,7 +643,7 @@ function App() {
             <h1 className="text-xl font-black tracking-tight leading-none text-white">CARMAGNE</h1>
             <p className="text-[10px] font-bold text-blue-500 tracking-[0.2em] uppercase mt-0.5">INSTAL 2024</p>
           </div>
-          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" />
+          <img src="/logo.svg" alt="Logo" className="h-8 w-auto object-contain" />
         </div>
         <button onClick={handleAdminAccessRequest} className="p-2.5 bg-slate-800 text-slate-400 rounded-full border border-slate-700/50"><Lock size={16} /></button>
       </header>
@@ -698,11 +763,26 @@ function App() {
             </div>
         )}
 
+        {currentStep === Step.TAKE_PHOTO && (
+           <Camera 
+             onCapture={handlePhotoCaptured}
+             onCancel={() => setCurrentStep(Step.SELECT_ACTION)}
+           />
+        )}
+
         {currentStep === Step.REPORT_EXIT && (
             <div className="flex flex-col gap-4">
                 <h2 className="text-white text-xl font-bold text-center">Reporte Salida</h2>
+                {tempPhoto && (
+                  <div className="w-full h-32 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 relative">
+                     <img src={tempPhoto} alt="Evidencia" className="w-full h-full object-cover opacity-70"/>
+                     <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Foto adjunta</span>
+                     </div>
+                  </div>
+                )}
                 <textarea value={exitReportText} onChange={(e) => setExitReportText(e.target.value)} className="bg-slate-900 text-white p-4 rounded-xl border border-slate-800 min-h-[150px]" placeholder="Detalles..."></textarea>
-                <button onClick={() => executeLogSubmission(LogType.SALIDA, exitReportText, exitWorkMode)} className="bg-emerald-600 p-4 rounded-xl text-white font-bold">Confirmar Salida</button>
+                <button onClick={() => executeLogSubmission(LogType.SALIDA, exitReportText, exitWorkMode, tempPhoto)} className="bg-emerald-600 p-4 rounded-xl text-white font-bold">Confirmar Salida</button>
             </div>
         )}
         

@@ -159,7 +159,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
       <header className="bg-slate-900 p-4 sticky top-0 z-10 shadow-md flex justify-between items-center border-b border-slate-800">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-black text-white tracking-tight">CARMAGNE ADMIN</h1>
-          <img src="/logo.png" alt="Logo" className="h-8 w-auto object-contain" />
+          <img src="/logo.svg" alt="Logo" className="h-8 w-auto object-contain" />
         </div>
         <button onClick={onBack} className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-4 py-2 rounded hover:bg-slate-700 transition">Volver App</button>
       </header>
