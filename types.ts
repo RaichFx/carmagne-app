@@ -32,6 +32,14 @@ export interface Site {
   };
 }
 
+export interface AdminUser {
+  id: string;
+  username: string;
+  password: string; // En una app real esto debería ser un hash
+  active: boolean;
+  createdAt: number;
+}
+
 export interface GeoLocationData {
   latitude: number;
   longitude: number;

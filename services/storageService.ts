@@ -1,4 +1,4 @@
-import { Worker, Site, WorkLog, AppConfig, LogType } from '../types';
+import { Worker, Site, WorkLog, AppConfig, LogType, AdminUser } from '../types';
 import { db } from './firebase';
 import { collection, addDoc, getDocs, doc, setDoc, updateDoc, query, orderBy, onSnapshot, deleteDoc } from 'firebase/firestore';
 
@@ -7,6 +7,7 @@ const KEYS = {
   SITES: 'carmagne_sites',
   LOGS: 'carmagne_logs',
   CONFIG: 'carmagne_config',
+  ADMINS: 'carmagne_admins',
 };
 
 // Initial Seed Data
@@ -20,6 +21,7 @@ const INITIAL_SITES: Site[] = [
     coordinates: { latitude: 43.30087, longitude: -2.99256 }
   }
 ];
+const INITIAL_ADMINS: AdminUser[] = [];
 
 // *** IMPORTANTE: PEGA TU URL DE APPS SCRIPT AQUÍ ENTRE LAS COMILLAS ***
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyUKGxgBNzmL6nn0q7GAQwF83gO3tkxVJMDChAmfYGmy0zMmC8ilr6HvcVrZemU0p_suQ/exec'; 
@@ -139,6 +141,19 @@ export const StorageService = {
     } catch (e) { console.error("Error syncing sites to FB", e); }
   },
 
+  updateSite: async (updatedSite: Site) => {
+    // Local Update
+    const sites = loadLocal<Site[]>(KEYS.SITES, INITIAL_SITES);
+    const updatedSites = sites.map(s => s.id === updatedSite.id ? updatedSite : s);
+    saveLocal(KEYS.SITES, updatedSites);
+
+    // Firebase Update
+    try {
+      const cleanSite = sanitizeForFirebase(updatedSite);
+      await setDoc(doc(db, "sites", updatedSite.id), cleanSite);
+    } catch (e) { console.error("Error updating site in FB", e); }
+  },
+
   deleteSite: async (id: string) => {
     // Local delete
     const sites = loadLocal<Site[]>(KEYS.SITES, INITIAL_SITES);
@@ -149,6 +164,33 @@ export const StorageService = {
     try {
       await deleteDoc(doc(db, "sites", id));
     } catch (e) { console.error("Error deleting site from FB", e); }
+  },
+
+  // --- ADMIN USERS (NEW) ---
+  getAdmins: (): AdminUser[] => loadLocal(KEYS.ADMINS, INITIAL_ADMINS),
+
+  addAdmin: async (admin: AdminUser) => {
+    // Local Update
+    const admins = loadLocal<AdminUser[]>(KEYS.ADMINS, INITIAL_ADMINS);
+    saveLocal(KEYS.ADMINS, [...admins, admin]);
+
+    // Firebase Update
+    try {
+      const cleanAdmin = sanitizeForFirebase(admin);
+      await setDoc(doc(db, "admins", admin.id), cleanAdmin);
+    } catch(e) { console.error("Error saving admin to FB", e); }
+  },
+
+  deleteAdmin: async (id: string) => {
+    // Local Update
+    const admins = loadLocal<AdminUser[]>(KEYS.ADMINS, INITIAL_ADMINS);
+    const updated = admins.filter(a => a.id !== id);
+    saveLocal(KEYS.ADMINS, updated);
+
+    // Firebase Update
+    try {
+      await deleteDoc(doc(db, "admins", id));
+    } catch(e) { console.error("Error deleting admin from FB", e); }
   },
 
   // --- LOGS (FICHAJES) ---
@@ -260,6 +302,15 @@ export const StorageService = {
       const workers = snapshot.docs.map(doc => doc.data() as Worker);
       saveLocal(KEYS.WORKERS, workers);
       callback(workers);
+    });
+  },
+
+  // Escuchar Admins (Solo AdminPanel)
+  subscribeToAdmins: (callback: (admins: AdminUser[]) => void) => {
+    return onSnapshot(collection(db, "admins"), (snapshot) => {
+       const admins = snapshot.docs.map(doc => doc.data() as AdminUser);
+       saveLocal(KEYS.ADMINS, admins);
+       callback(admins);
     });
   },
 

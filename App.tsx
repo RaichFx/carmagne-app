@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search
 } from 'lucide-react';
 import { StorageService } from './services/storageService';
 import { LocationService } from './services/locationService';
-import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode } from './types';
+import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
 
@@ -32,6 +32,9 @@ function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
 
   const [isAdmin, setIsAdmin] = useState(false);
+  // Guardamos el admin actual. Si es null pero isAdmin es true, es el MASTER ADMIN.
+  const [currentAdminUser, setCurrentAdminUser] = useState<AdminUser | null>(null);
+
   const [currentStep, setCurrentStep] = useState<Step>(Step.LOGIN_PHONE);
   
   // Install Tutorial State
@@ -39,6 +42,7 @@ function App() {
   
   // Admin Login State
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [adminUsernameInput, setAdminUsernameInput] = useState(''); 
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
   const [adminError, setAdminError] = useState('');
 
@@ -71,13 +75,14 @@ function App() {
   const [regPinConfirm, setRegPinConfirm] = useState('');
 
   // History State
-  const [historyDate, setHistoryDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [workerLogs, setWorkerLogs] = useState<WorkLog[]>([]);
+  const [historySearchTerm, setHistorySearchTerm] = useState('');
 
   // Data
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsAppLoading(false);
@@ -86,10 +91,12 @@ function App() {
     setWorkers(StorageService.getWorkers());
     setSites(StorageService.getSites());
     setWorkerLogs(StorageService.getLogs()); 
+    setAdmins(StorageService.getAdmins());
 
     const unsubWorkers = StorageService.subscribeToWorkers((data) => setWorkers(data));
     const unsubSites = StorageService.subscribeToSites((data) => setSites(data));
     const unsubLogs = StorageService.subscribeToLogs((data) => setWorkerLogs(data));
+    const unsubAdmins = StorageService.subscribeToAdmins((data) => setAdmins(data));
 
     if (window.PublicKeyCredential) {
       window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
@@ -104,12 +111,14 @@ function App() {
       unsubWorkers();
       unsubSites();
       unsubLogs();
+      unsubAdmins();
     };
   }, []);
 
   useEffect(() => {
     if (currentStep === Step.WORKER_DASHBOARD || currentStep === Step.WORKER_HISTORY) {
       setWorkerLogs(StorageService.getLogs());
+      setHistorySearchTerm(''); // Reset search when entering history via dashboard
     }
   }, [currentStep]);
 
@@ -194,20 +203,43 @@ function App() {
   // Admin Login Handler
   const handleAdminAccessRequest = () => {
     setShowAdminLogin(true);
+    setAdminUsernameInput('');
     setAdminPasswordInput('');
     setAdminError('');
   };
 
   const verifyAdminPassword = () => {
     const config = StorageService.getConfig();
-    const storedPass = config.adminPassword || 'admin';
-    if (adminPasswordInput === storedPass) {
+    const masterPass = config.adminPassword || 'admin';
+    
+    // Check 1: Legacy Master Password (User can be anything or empty, as long as password matches master)
+    // OR user types "admin" explicitly.
+    const isMaster = adminPasswordInput === masterPass;
+
+    // Check 2: New Admin Accounts (User AND Password must match)
+    const foundAdmin = admins.find(a => 
+      a.active &&
+      a.username.trim().toLowerCase() === adminUsernameInput.trim().toLowerCase() && 
+      a.password === adminPasswordInput
+    );
+
+    if (isMaster) {
       setIsAdmin(true);
+      setCurrentAdminUser(null); // Null indicates Master Admin
+      setShowAdminLogin(false);
+    } else if (foundAdmin) {
+      setIsAdmin(true);
+      setCurrentAdminUser(foundAdmin); // Specific Admin User
       setShowAdminLogin(false);
     } else {
-      setAdminError('Contraseña incorrecta');
+      setAdminError('Credenciales incorrectas');
       setAdminPasswordInput('');
     }
+  };
+
+  const handleAdminLogout = () => {
+    setIsAdmin(false);
+    setCurrentAdminUser(null);
   };
 
   // --- LÓGICA LOGIN POR TELÉFONO ---
@@ -576,13 +608,113 @@ function App() {
   };
 
   const renderWorkerHistory = () => {
-    // ... (Reusing logic)
-    // Simulación visual para abreviar XML:
+    if (!selectedWorker) return null;
+
+    // Filtramos los logs
+    const myLogs = workerLogs
+      .filter(l => l.workerId === selectedWorker.id)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .filter(l => {
+         const lowerTerm = historySearchTerm.toLowerCase();
+         // Buscar por Nombre de Obra, Fecha, Tipo de acción o Reporte
+         return (
+           l.siteName.toLowerCase().includes(lowerTerm) ||
+           l.dateStr.toLowerCase().includes(lowerTerm) ||
+           l.type.toLowerCase().includes(lowerTerm) ||
+           (l.workReport || '').toLowerCase().includes(lowerTerm)
+         );
+      });
+
+    const getIcon = (type: LogType) => {
+       if(type === LogType.ENTRADA) return <ArrowRight size={20} className="text-emerald-500" />;
+       if(type === LogType.SALIDA) return <LogOut size={20} className="text-rose-500" />;
+       if(type === LogType.INICIO_DESCANSO) return <Coffee size={20} className="text-amber-500" />;
+       if(type === LogType.FIN_DESCANSO) return <Briefcase size={20} className="text-blue-500" />;
+       return <FileText size={20} className="text-slate-500" />;
+    };
+
+    const getTypeLabel = (type: LogType) => {
+       if(type === LogType.ENTRADA) return "Entrada";
+       if(type === LogType.SALIDA) return "Salida";
+       if(type === LogType.INICIO_DESCANSO) return "Pausa";
+       if(type === LogType.FIN_DESCANSO) return "Vuelta";
+       return "Registro";
+    };
+
     return (
-       <div className="flex flex-col gap-4 animate-fadeIn h-full">
-          <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="text-slate-400 text-sm flex gap-1"><ChevronLeft size={16}/> Volver</button>
-          <h2 className="text-2xl font-bold text-white text-center">Historial</h2>
-          <p className="text-center text-slate-500 text-sm">Consulta tus fichajes anteriores aquí.</p>
+       <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
+          {/* Header simple */}
+          <div className="flex items-center gap-4 mb-4 shrink-0">
+            <button 
+               onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} 
+               className="bg-slate-900 p-3 rounded-xl text-slate-400 hover:text-white border border-slate-800 transition"
+            >
+               <ChevronLeft size={20}/>
+            </button>
+            <div>
+               <h2 className="text-xl font-bold text-white">Mi Historial</h2>
+               <p className="text-xs text-slate-500">{myLogs.length} movimientos</p>
+            </div>
+          </div>
+          
+          {/* Search Bar */}
+          <div className="mb-4 relative shrink-0">
+             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+               <Search size={18} />
+             </div>
+             <input 
+               type="text" 
+               placeholder="Buscar por obra, fecha..." 
+               className="w-full bg-slate-900 border border-slate-800 text-white rounded-xl pl-10 pr-4 py-3 text-sm focus:border-blue-500 outline-none placeholder:text-slate-600 transition"
+               value={historySearchTerm}
+               onChange={(e) => setHistorySearchTerm(e.target.value)}
+             />
+             {historySearchTerm && (
+               <button 
+                 onClick={() => setHistorySearchTerm('')}
+                 className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white"
+               >
+                 <X size={16} />
+               </button>
+             )}
+          </div>
+
+          {/* Lista Scrollable */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 pb-20 pr-1">
+             {myLogs.length === 0 ? (
+               <div className="flex flex-col items-center justify-center h-64 text-slate-600">
+                  <History size={48} className="mb-4 opacity-30" />
+                  <p className="text-sm font-medium">{historySearchTerm ? 'No hay resultados.' : 'No tienes actividad reciente.'}</p>
+               </div>
+             ) : (
+               myLogs.map(log => (
+                 <div key={log.id} className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center group hover:border-slate-700 transition">
+                    <div className="flex items-center gap-4">
+                       <div className={`p-3 rounded-xl border border-slate-800 bg-slate-950 ${
+                          log.type === LogType.ENTRADA ? 'bg-emerald-950/30 border-emerald-900/50' :
+                          log.type === LogType.SALIDA ? 'bg-rose-950/30 border-rose-900/50' :
+                          'bg-slate-950'
+                       }`}>
+                          {getIcon(log.type)}
+                       </div>
+                       <div>
+                          <div className="flex items-center gap-2">
+                             <h4 className="font-bold text-white text-sm">{getTypeLabel(log.type)}</h4>
+                             {log.locationWarning && <ShieldAlert size={12} className="text-rose-500" />}
+                          </div>
+                          <p className="text-xs text-slate-400 font-medium">{log.siteName}</p>
+                          {log.workReport && <p className="text-[10px] text-slate-500 italic mt-0.5 truncate max-w-[140px]">{log.workReport}</p>}
+                       </div>
+                    </div>
+                    
+                    <div className="text-right">
+                       <p className="text-lg font-black text-white leading-tight">{log.timeStr}</p>
+                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{log.dateStr}</p>
+                    </div>
+                 </div>
+               ))
+             )}
+          </div>
        </div>
     );
   };
@@ -605,7 +737,7 @@ function App() {
 
   // Render Admin
   if (isAdmin) {
-    return <AdminPanel onBack={() => setIsAdmin(false)} />;
+    return <AdminPanel onBack={handleAdminLogout} currentUser={currentAdminUser} />;
   }
 
   // Main Render
@@ -630,7 +762,24 @@ function App() {
            <div className="bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-800 p-8 relative">
               <button onClick={() => setShowAdminLogin(false)} className="absolute top-4 right-4 text-slate-500"><X size={20} /></button>
               <h2 className="text-xl font-bold text-white text-center mb-6">Acceso Admin</h2>
-              <input type="password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center text-xl mb-6 focus:border-blue-500 outline-none" placeholder="••••••" autoFocus/>
+              
+              <input 
+                type="text" 
+                value={adminUsernameInput} 
+                onChange={(e) => setAdminUsernameInput(e.target.value)} 
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center text-xl mb-4 focus:border-blue-500 outline-none" 
+                placeholder="Usuario" 
+                autoFocus
+              />
+
+              <input 
+                type="password" 
+                value={adminPasswordInput} 
+                onChange={(e) => setAdminPasswordInput(e.target.value)} 
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center text-xl mb-6 focus:border-blue-500 outline-none" 
+                placeholder="••••••" 
+              />
+              
               {adminError && <div className="text-rose-500 text-xs text-center mb-4">{adminError}</div>}
               <button onClick={verifyAdminPassword} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl">ENTRAR</button>
            </div>
@@ -638,7 +787,7 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col p-4 max-w-md mx-auto w-full relative">
+      <main className="flex-1 flex flex-col p-4 max-w-md mx-auto w-full relative h-[calc(100vh-80px)]">
         {error && <div className="mb-6 p-4 bg-rose-950/80 border border-rose-900 text-rose-200 rounded-xl flex items-center gap-3"><ShieldAlert size={20} /><span className="text-xs font-bold">{error}</span></div>}
 
         {currentStep === Step.LOGIN_PHONE && (

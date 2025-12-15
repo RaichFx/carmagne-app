@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/storageService';
-import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType } from '../types';
+import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType, AdminUser } from '../types';
 import { 
   Users, MapPin, Download, Settings, FileText, 
-  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock
+  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { jsPDF } from 'jspdf';
@@ -12,6 +12,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 
 interface AdminPanelProps {
   onBack: () => void;
+  currentUser: AdminUser | null; // Null means "Super Admin" (Master Password)
 }
 
 interface WorkerMonthlyReport {
@@ -23,11 +24,12 @@ interface WorkerMonthlyReport {
   daysWorked: number;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'logs' | 'reports' | 'workers' | 'sites' | 'config'>('dashboard');
+export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'logs' | 'reports' | 'workers' | 'sites' | 'admins' | 'config'>('dashboard');
   const [logs, setLogs] = useState<WorkLog[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [config, setConfig] = useState<AppConfig>(StorageService.getConfig());
 
   const [reportMonth, setReportMonth] = useState<string>(new Date().toISOString().slice(0, 7));
@@ -35,31 +37,51 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
   const [newWorkerName, setNewWorkerName] = useState('');
   const [newWorkerPin, setNewWorkerPin] = useState('');
   const [newWorkerMode, setNewWorkerMode] = useState<WorkMode>('HORAS');
+  
   const [newSiteName, setNewSiteName] = useState('');
   const [newSiteAddress, setNewSiteAddress] = useState('');
+  
+  // Editing State for Sites
+  const [editingSiteId, setEditingSiteId] = useState<string | null>(null);
+
+  const [newAdminUser, setNewAdminUser] = useState('');
+  const [newAdminPass, setNewAdminPass] = useState('');
+  
   const [newAdminPassword, setNewAdminPassword] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'worker' | 'site', id: string, name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'worker' | 'site' | 'admin', id: string, name: string } | null>(null);
+  
+  // Estado para confirmación de contraseña maestra
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
   // ESTADOS DE FILTRO
   const [filterWorker, setFilterWorker] = useState<string>('ALL');
   const [filterDate, setFilterDate] = useState<string>(''); // Fecha específica YYYY-MM-DD
   const [filterType, setFilterType] = useState<string>('ALL');
+  
+  // ESTADO BÚSQUEDA TRABAJADORES
+  const [workerSearch, setWorkerSearch] = useState('');
+  
+  // Logic for Admin Permissions
+  const isSuperAdmin = currentUser === null;
 
   useEffect(() => {
     // Carga inicial
     setLogs(StorageService.getLogs());
     setWorkers(StorageService.getWorkers());
     setSites(StorageService.getSites());
+    setAdmins(StorageService.getAdmins());
     
     // Suscripciones
     const unsubscribeLogs = StorageService.subscribeToLogs((updatedLogs) => setLogs(updatedLogs));
     const unsubscribeWorkers = StorageService.subscribeToWorkers((updatedWorkers) => setWorkers(updatedWorkers));
     const unsubscribeSites = StorageService.subscribeToSites((updatedSites) => setSites(updatedSites));
+    const unsubscribeAdmins = StorageService.subscribeToAdmins((updatedAdmins) => setAdmins(updatedAdmins));
 
     return () => {
       unsubscribeLogs();
       unsubscribeWorkers();
       unsubscribeSites();
+      unsubscribeAdmins();
     };
   }, []);
 
@@ -107,16 +129,118 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
     });
   };
 
+  const getWeeklyHours = () => {
+    const curr = new Date();
+    const day = curr.getDay();
+    const diff = curr.getDate() - day + (day === 0 ? -6 : 1); // Monday
+    const monday = new Date(curr.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+
+    const weekLogs = logs.filter(l => l.timestamp >= monday.getTime());
+    let totalMs = 0;
+
+    workers.forEach(w => {
+        const wLogs = weekLogs.filter(l => l.workerId === w.id).sort((a,b) => a.timestamp - b.timestamp);
+        let entryTime = 0;
+        let breakStartTime = 0;
+
+        wLogs.forEach(log => {
+            if (log.type === LogType.ENTRADA) entryTime = log.timestamp;
+            else if (log.type === LogType.SALIDA && entryTime !== 0) {
+                totalMs += (log.timestamp - entryTime);
+                entryTime = 0;
+            }
+            // Subtract breaks
+            if (log.type === LogType.INICIO_DESCANSO) breakStartTime = log.timestamp;
+            else if (log.type === LogType.FIN_DESCANSO && breakStartTime !== 0) {
+                totalMs -= (log.timestamp - breakStartTime);
+                breakStartTime = 0;
+            }
+        });
+    });
+
+    return (totalMs / 3600000).toFixed(1);
+  };
+
   const handleAddWorker = () => {
       if (!newWorkerName || !newWorkerPin) { alert("Nombre y PIN obligatorios"); return; }
       const newWorker: Worker = { id: `W${Math.floor(Math.random()*10000)}`, name: newWorkerName, qrCode: `QR_${Date.now()}`, active: true, pin: newWorkerPin, role: 'Trabajador', defaultMode: newWorkerMode };
       StorageService.registerNewWorker(newWorker); setNewWorkerName(''); setNewWorkerPin('');
   };
+  
+  const handleAddAdmin = () => {
+      if (!newAdminUser || !newAdminPass) { alert("Usuario y contraseña obligatorios"); return; }
+      const newAdmin: AdminUser = { id: `ADM${Math.floor(Math.random()*10000)}`, username: newAdminUser, password: newAdminPass, active: true, createdAt: Date.now() };
+      StorageService.addAdmin(newAdmin); setNewAdminUser(''); setNewAdminPass('');
+  };
+
   const initiateDeleteWorker = (w: Worker) => setDeleteTarget({ type: 'worker', id: w.id, name: w.name });
   const initiateDeleteSite = (s: Site) => setDeleteTarget({ type: 'site', id: s.id, name: s.name });
-  const confirmDelete = () => { if (!deleteTarget) return; if (deleteTarget.type === 'worker') StorageService.deleteWorker(deleteTarget.id); else if (deleteTarget.type === 'site') StorageService.deleteSite(deleteTarget.id); setDeleteTarget(null); };
-  const handleAddSite = () => { if (!newSiteName) return; const newSite: Site = { id: `S${Math.floor(Math.random()*10000)}`, name: newSiteName, address: newSiteAddress, active: true }; StorageService.saveSites([...sites, newSite]); setNewSiteName(''); setNewSiteAddress(''); };
-  const saveConfig = () => { const updatedConfig = { ...config }; if (newAdminPassword) updatedConfig.adminPassword = newAdminPassword; StorageService.saveConfig(updatedConfig); setConfig(updatedConfig); setNewAdminPassword(''); alert('Guardado'); };
+  const initiateDeleteAdmin = (a: AdminUser) => setDeleteTarget({ type: 'admin', id: a.id, name: a.username });
+
+  const confirmDelete = () => { 
+      if (!deleteTarget) return; 
+      if (deleteTarget.type === 'worker') StorageService.deleteWorker(deleteTarget.id); 
+      else if (deleteTarget.type === 'site') StorageService.deleteSite(deleteTarget.id); 
+      else if (deleteTarget.type === 'admin') StorageService.deleteAdmin(deleteTarget.id);
+      setDeleteTarget(null); 
+  };
+
+  const handleSaveSite = () => { 
+      if (!newSiteName) return;
+      
+      if (editingSiteId) {
+        // Edit Mode
+        const siteToUpdate = sites.find(s => s.id === editingSiteId);
+        if (siteToUpdate) {
+            const updatedSite: Site = {
+                ...siteToUpdate,
+                name: newSiteName,
+                address: newSiteAddress
+            };
+            StorageService.updateSite(updatedSite);
+        }
+        setEditingSiteId(null);
+      } else {
+        // Add Mode
+        const newSite: Site = { id: `S${Math.floor(Math.random()*10000)}`, name: newSiteName, address: newSiteAddress, active: true }; 
+        StorageService.saveSites([...sites, newSite]);
+      }
+      
+      setNewSiteName(''); 
+      setNewSiteAddress(''); 
+  };
+
+  const startEditSite = (site: Site) => {
+      setEditingSiteId(site.id);
+      setNewSiteName(site.name);
+      setNewSiteAddress(site.address);
+  };
+
+  const cancelEditSite = () => {
+      setEditingSiteId(null);
+      setNewSiteName('');
+      setNewSiteAddress('');
+  };
+
+  // Config Saving Logic
+  const attemptSaveConfig = () => {
+    if (newAdminPassword) {
+      setShowPasswordConfirm(true);
+    } else {
+      executeSaveConfig();
+    }
+  };
+
+  const executeSaveConfig = () => {
+    const updatedConfig = { ...config };
+    if (newAdminPassword) updatedConfig.adminPassword = newAdminPassword;
+    StorageService.saveConfig(updatedConfig);
+    setConfig(updatedConfig);
+    setNewAdminPassword('');
+    setShowPasswordConfirm(false);
+    alert('Guardado correctamente');
+  };
   
   const generateMonthlyReport = (): WorkerMonthlyReport[] => {
       const [year, month] = reportMonth.split('-').map(Number);
@@ -151,21 +275,56 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
   const logsByType = [{ name: 'Entrada', value: logs.filter(l => l.type === LogType.ENTRADA).length }, { name: 'Salida', value: logs.filter(l => l.type === LogType.SALIDA).length }, { name: 'Registros', value: logs.filter(l => l.type === LogType.REGISTRO).length }];
   const COLORS = ['#3b82f6', '#10b981', '#94a3b8'];
 
+  // Tabs Configuration based on permissions
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: FileText }, 
+    { id: 'logs', label: 'Registros', icon: Database }, 
+    { id: 'reports', label: 'Informes', icon: ClipboardList }, 
+    { id: 'workers', label: 'Personal', icon: Users }, 
+    { id: 'sites', label: 'Obras', icon: MapPin },
+    // Only Show Admin Tab if Super Admin (currentUser is null)
+    ...(isSuperAdmin ? [{ id: 'admins', label: 'Admins', icon: Shield }] : []),
+    { id: 'config', label: 'Config', icon: Settings }
+  ];
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 font-sans">
       
+      {/* Modal de eliminación */}
       <ConfirmationModal isOpen={deleteTarget !== null} title="Eliminar" message="¿Seguro?" isDestructive={true} onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
+      
+      {/* Modal de confirmación de contraseña maestra */}
+      <ConfirmationModal 
+        isOpen={showPasswordConfirm} 
+        title="Cambiar Contraseña Maestra" 
+        message="Estás a punto de cambiar la contraseña de acceso global (Legacy). Asegúrate de recordarla para evitar perder el acceso en emergencias." 
+        confirmText="Cambiar Contraseña"
+        isDestructive={true} 
+        onCancel={() => setShowPasswordConfirm(false)} 
+        onConfirm={executeSaveConfig} 
+      />
 
       <header className="bg-slate-900 p-4 sticky top-0 z-10 shadow-md flex justify-between items-center border-b border-slate-800">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-black text-white tracking-tight">CARMAGNE ADMIN</h1>
           <img src="/logo.svg" alt="Logo" className="h-8 w-auto object-contain" />
         </div>
-        <button onClick={onBack} className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-4 py-2 rounded hover:bg-slate-700 transition">Volver App</button>
+        <div className="flex items-center gap-4">
+           {/* Admin Avatar & Name */}
+           <div className="hidden md:flex items-center gap-3 bg-slate-950 pr-4 pl-1 py-1 rounded-full border border-slate-800">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-gradient-to-br from-blue-600 to-indigo-600 shadow-lg">
+                 {currentUser ? currentUser.username.substring(0,2).toUpperCase() : 'S'}
+              </div>
+              <span className="text-sm font-medium text-slate-300">
+                 {currentUser ? currentUser.username : 'Super Admin'}
+              </span>
+           </div>
+           <button onClick={onBack} className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-4 py-2 rounded hover:bg-slate-700 transition">Salir</button>
+        </div>
       </header>
 
       <div className="flex overflow-x-auto bg-slate-900 border-b border-slate-800">
-        {[{ id: 'dashboard', label: 'Dashboard', icon: FileText }, { id: 'logs', label: 'Registros', icon: Database }, { id: 'reports', label: 'Informes', icon: ClipboardList }, { id: 'workers', label: 'Personal', icon: Users }, { id: 'sites', label: 'Obras', icon: MapPin }, { id: 'config', label: 'Config', icon: Settings }].map(tab => (
+        {tabs.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`flex-1 min-w-[100px] py-4 flex flex-col items-center gap-1 text-sm font-medium transition-colors ${activeTab === tab.id ? 'text-blue-500 border-b-2 border-blue-500 bg-slate-800' : 'text-slate-500 hover:text-slate-300'}`}>
             <tab.icon size={20} />{tab.label}
           </button>
@@ -177,10 +336,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         {/* DASHBOARD */}
         {activeTab === 'dashboard' && (
           <div className="space-y-8 animate-fadeIn">
-             {/* Header Bienvenida */}
+             {/* Header Bienvenida Personalizado */}
              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-800 pb-6">
                 <div>
-                   <h2 className="text-3xl font-black text-white tracking-tight">{getGreeting()}, Admin</h2>
+                   <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-2">
+                     {getGreeting()}, <span className="text-blue-500">{currentUser ? currentUser.username : 'Super Admin'}</span>
+                   </h2>
                    <p className="text-slate-400 mt-1 capitalize">{new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
                 </div>
                 <div className="hidden md:block text-right">
@@ -209,6 +370,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                     <h3 className="text-slate-500 text-xs uppercase font-bold tracking-wider relative z-10">Trabajadores</h3>
                     <p className="text-4xl font-black text-emerald-500 mt-2 relative z-10">{workers.filter(w => w.active).length}</p>
                  </div>
+
+                 {/* New Weekly Hours Card */}
+                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition"><Clock size={64}/></div>
+                    <h3 className="text-slate-500 text-xs uppercase font-bold tracking-wider relative z-10">Horas Semanales</h3>
+                    <p className="text-4xl font-black text-amber-500 mt-2 relative z-10">{getWeeklyHours()}h</p>
+                    <p className="text-xs text-slate-500 mt-1 relative z-10">Total acumulado esta semana</p>
+                 </div>
+
                  <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 col-span-1 md:col-span-2 h-80">
                     <h3 className="font-bold mb-6 text-slate-300">Actividad</h3>
                     <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={logsByType} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>{logsByType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><RechartsTooltip /></PieChart></ResponsiveContainer>
@@ -353,6 +523,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
         {/* WORKERS TAB */}
         {activeTab === 'workers' && (
           <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 animate-fadeIn">
+            
+            {/* Nuevo Trabajador Form */}
             <div className="flex flex-col md:flex-row gap-4 mb-8 bg-slate-950 p-6 rounded-xl border border-slate-800">
               <div className="flex-1 space-y-2">
                  <label className="text-xs font-bold uppercase text-slate-500 tracking-wide">Nombre</label>
@@ -373,8 +545,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                 <button onClick={handleAddWorker} className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-500 flex items-center justify-center font-bold shadow-lg transition"><Plus size={20} /></button>
               </div>
             </div>
+
+            {/* Buscador de Trabajadores */}
+            <div className="mb-6 relative">
+                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <Search size={20} />
+                 </div>
+                 <input 
+                    type="text" 
+                    placeholder="Buscar trabajador por nombre..." 
+                    className="w-full bg-slate-950 border border-slate-700 pl-10 p-3 rounded-lg text-white focus:border-blue-500 outline-none transition-colors"
+                    value={workerSearch}
+                    onChange={(e) => setWorkerSearch(e.target.value)}
+                 />
+            </div>
+
             <div className="grid gap-4">
-              {workers.map(w => (
+              {workers
+                .filter(w => w.name.toLowerCase().includes(workerSearch.toLowerCase()))
+                .map(w => (
                 <div key={w.id} className="flex flex-col md:flex-row items-center justify-between p-4 border border-slate-800 rounded-xl hover:bg-slate-800/50 transition gap-4 bg-slate-900">
                   <div className="flex items-center gap-4">
                     <div className="bg-slate-800 p-3 rounded-full hidden md:block text-slate-500"><Users size={20}/></div>
@@ -389,6 +578,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
                   <button onClick={() => initiateDeleteWorker(w)} className="text-slate-500 hover:text-rose-500 p-2 hover:bg-rose-900/20 rounded-lg transition"><Trash2 size={20} /></button>
                 </div>
               ))}
+              
+              {workers.filter(w => w.name.toLowerCase().includes(workerSearch.toLowerCase())).length === 0 && (
+                  <div className="text-center p-8 text-slate-500 italic">No se encontraron trabajadores con ese nombre.</div>
+              )}
             </div>
           </div>
         )}
@@ -399,9 +592,87 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
               <div className="flex gap-2 mb-6">
                 <input type="text" placeholder="Nombre Obra" className="flex-1 bg-slate-950 border border-slate-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none" value={newSiteName} onChange={(e)=>setNewSiteName(e.target.value)}/>
                 <input type="text" placeholder="Dirección" className="flex-1 bg-slate-950 border border-slate-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none" value={newSiteAddress} onChange={(e)=>setNewSiteAddress(e.target.value)}/>
-                <button onClick={handleAddSite} className="bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-500"><Plus/></button>
+                
+                {/* Botón Guardar / Añadir */}
+                <button 
+                  onClick={handleSaveSite} 
+                  className={`p-3 rounded-lg text-white transition flex items-center justify-center ${editingSiteId ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-blue-600 hover:bg-blue-500'}`}
+                  title={editingSiteId ? "Guardar cambios" : "Añadir obra"}
+                >
+                  {editingSiteId ? <Save size={20}/> : <Plus size={20}/>}
+                </button>
+
+                {/* Botón Cancelar (Solo en modo edición) */}
+                {editingSiteId && (
+                  <button 
+                    onClick={cancelEditSite}
+                    className="bg-slate-800 text-slate-400 p-3 rounded-lg hover:bg-slate-700 border border-slate-700"
+                    title="Cancelar edición"
+                  >
+                    <X size={20}/>
+                  </button>
+                )}
               </div>
-              <div className="grid gap-4">{sites.map(s => (<div key={s.id} className="flex justify-between p-5 border border-slate-800 rounded-xl hover:bg-slate-800/30 transition"><div><h3 className="font-bold text-white">{s.name}</h3><p className="text-xs text-slate-400">{s.address}</p></div><button onClick={() => initiateDeleteSite(s)} className="text-slate-500 hover:text-rose-500"><Trash2/></button></div>))}</div>
+
+              <div className="grid gap-4">
+                {sites.map(s => (
+                  <div key={s.id} className={`flex justify-between p-5 border rounded-xl transition ${editingSiteId === s.id ? 'bg-slate-800/80 border-blue-500/50' : 'border-slate-800 hover:bg-slate-800/30'}`}>
+                    <div>
+                      <h3 className="font-bold text-white flex items-center gap-2">
+                        {s.name}
+                        {editingSiteId === s.id && <span className="text-[10px] bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded uppercase tracking-wider">Editando</span>}
+                      </h3>
+                      <p className="text-xs text-slate-400">{s.address}</p>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                       <button onClick={() => startEditSite(s)} className="text-slate-500 hover:text-blue-400 p-2 hover:bg-blue-900/20 rounded-lg transition" title="Editar">
+                         <Pencil size={18}/>
+                       </button>
+                       <button onClick={() => initiateDeleteSite(s)} className="text-slate-500 hover:text-rose-500 p-2 hover:bg-rose-900/20 rounded-lg transition" title="Eliminar">
+                         <Trash2 size={18}/>
+                       </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+           </div>
+        )}
+        
+        {/* ADMINS TAB - Only Visible for Super Admin */}
+        {activeTab === 'admins' && isSuperAdmin && (
+           <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 animate-fadeIn">
+              <h3 className="font-bold mb-6 text-white text-lg">Cuentas de Administrador</h3>
+              
+              <div className="flex flex-col md:flex-row gap-2 mb-8 bg-slate-950 p-6 rounded-xl border border-slate-800">
+                <div className="flex-1 space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-wide">Usuario</label>
+                    <input type="text" placeholder="Nuevo Admin User" className="w-full bg-slate-900 border border-slate-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none" value={newAdminUser} onChange={(e)=>setNewAdminUser(e.target.value)}/>
+                </div>
+                <div className="flex-1 space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-wide">Contraseña</label>
+                    <input type="text" placeholder="Contraseña" className="w-full bg-slate-900 border border-slate-700 p-3 rounded-lg text-white focus:border-blue-500 outline-none" value={newAdminPass} onChange={(e)=>setNewAdminPass(e.target.value)}/>
+                </div>
+                <div className="flex items-end">
+                    <button onClick={handleAddAdmin} className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-500 flex items-center justify-center font-bold shadow-lg transition"><Plus size={20}/></button>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                  {admins.map(a => (
+                    <div key={a.id} className="flex justify-between items-center p-5 border border-slate-800 rounded-xl hover:bg-slate-800/30 transition">
+                        <div className="flex items-center gap-4">
+                            <div className="bg-slate-800 p-3 rounded-full text-blue-500"><Shield size={20}/></div>
+                            <div>
+                                <h3 className="font-bold text-white">{a.username}</h3>
+                                <p className="text-xs text-slate-500">Creado: {new Date(a.createdAt).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <button onClick={() => initiateDeleteAdmin(a)} className="text-slate-500 hover:text-rose-500 p-2 hover:bg-rose-900/20 rounded-lg transition"><Trash2 size={20}/></button>
+                    </div>
+                  ))}
+                  {admins.length === 0 && <p className="text-slate-500 italic text-center p-8">No hay admins adicionales configurados. Se usa solo la contraseña maestra.</p>}
+              </div>
            </div>
         )}
         
@@ -414,13 +685,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack }) => {
 
         {activeTab === 'config' && (
            <div className="bg-slate-900 p-8 rounded-xl border border-slate-800 max-w-md mx-auto animate-fadeIn">
-              <h3 className="font-bold mb-6 text-white text-lg">Configuración</h3>
+              <h3 className="font-bold mb-6 text-white text-lg">Configuración General</h3>
               <div className="space-y-4">
-                <div>
+                {isSuperAdmin && (
+                  <div>
+                    <label className="block text-xs font-bold mb-2 text-slate-500 uppercase">Contraseña Maestra (Legacy)</label>
+                    <input type="text" className="w-full bg-slate-950 border border-slate-700 p-3 rounded-lg text-white" value={newAdminPassword} placeholder="Dejar vacío para no cambiar" onChange={(e)=>setNewAdminPassword(e.target.value)}/>
+                    <p className="text-[10px] text-slate-500 mt-1">Esta contraseña funciona siempre, independientemente de los usuarios creados.</p>
+                  </div>
+                )}
+                <div className="pt-4 border-t border-slate-800">
                   <label className="block text-xs font-bold mb-2 text-slate-500 uppercase">Google Sheet URL</label>
                   <input type="text" className="w-full bg-slate-950 border border-slate-700 p-3 rounded-lg text-white font-mono text-xs" value={config.googleSheetUrl} onChange={(e)=>setConfig({...config, googleSheetUrl: e.target.value})}/>
                 </div>
-                <button onClick={saveConfig} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-500">Guardar Cambios</button>
+                <button onClick={attemptSaveConfig} className="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-500 mt-4">Guardar Cambios</button>
               </div>
            </div>
         )}
