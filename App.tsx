@@ -8,7 +8,6 @@ import { LocationService } from './services/locationService';
 import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
-import { Camera } from './components/Camera';
 
 // App Steps
 enum Step {
@@ -18,7 +17,7 @@ enum Step {
   WORKER_HISTORY = 16,
   SELECT_SITE = 2,
   SELECT_ACTION = 3,
-  TAKE_PHOTO = 18,    // Nuevo paso para foto
+  // TAKE_PHOTO removed
   REPORT_EXIT = 4, 
   SUCCESS = 5,
   REGISTER = 99,
@@ -53,9 +52,6 @@ function App() {
   const [location, setLocation] = useState<GeoLocationData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Photo State
-  const [tempPhoto, setTempPhoto] = useState<string | undefined>(undefined);
 
   // Exit Report State
   const [exitReportText, setExitReportText] = useState('');
@@ -357,8 +353,7 @@ function App() {
     setSelectedAction(type);
     setLoading(true);
     setError('');
-    setTempPhoto(undefined); // Limpiar foto anterior
-
+    
     // Pre-cargar localización
     try {
       if (!location) {
@@ -369,31 +364,15 @@ function App() {
 
     setLoading(false);
 
-    // Lógica para foto obligatoria en Entrada/Salida
-    if (type === LogType.ENTRADA || type === LogType.SALIDA) {
-      setCurrentStep(Step.TAKE_PHOTO);
-    } else {
-      // Para descansos u otros, no pedimos foto
-      executeLogSubmission(type, undefined, 'HORAS');
-    }
-  };
-
-  const handlePhotoCaptured = (imageData: string) => {
-    setTempPhoto(imageData);
-    
-    // Si es Entrada, registramos directamente
-    if (selectedAction === LogType.ENTRADA) {
-      executeLogSubmission(selectedAction, undefined, 'HORAS', imageData);
-    }
-    // Si es Salida, vamos al reporte (llevando la foto en el estado)
-    else if (selectedAction === LogType.SALIDA) {
+    // Lógica SIN CÁMARA
+    if (type === LogType.SALIDA) {
+      // Si es Salida, vamos al reporte
       setExitWorkMode(selectedWorker?.defaultMode || 'HORAS');
       setExitReportText('');
       setCurrentStep(Step.REPORT_EXIT);
-    }
-    // Fallback
-    else {
-      executeLogSubmission(selectedAction!, undefined, 'HORAS', imageData);
+    } else {
+      // Para Entrada o Descansos, registramos directamente
+      executeLogSubmission(type, undefined, 'HORAS');
     }
   };
 
@@ -420,7 +399,7 @@ function App() {
     recognition.start();
   };
 
-  const executeLogSubmission = async (type: LogType, report?: string, mode?: WorkMode, photoOverride?: string) => {
+  const executeLogSubmission = async (type: LogType, report?: string, mode?: WorkMode) => {
     setLoading(true);
     try {
       let loc = location;
@@ -438,10 +417,7 @@ function App() {
         if (distance > MAX_DISTANCE_METERS) warning = true;
       }
       
-      // Usar la foto pasada por argumento o la del estado
-      const finalPhoto = photoOverride || tempPhoto;
-      
-      await submitLog(loc!, type, distance, warning, finalPhoto, report, mode);
+      await submitLog(loc!, type, distance, warning, undefined, report, mode);
     } catch (err: any) {
       setLoading(false);
       setError('Error GPS. Verifica permisos.');
@@ -462,7 +438,7 @@ function App() {
       dateStr: new Date().toLocaleDateString('es-ES'),
       timeStr: new Date().toLocaleTimeString('es-ES'),
       location: loc,
-      photoUrl: photoUrl,
+      photoUrl: photoUrl, // Will be undefined
       sentToWhatsapp: false,
       syncedToSheets: false,
       distanceMeters: distance,
@@ -496,7 +472,6 @@ function App() {
     setLocation(null);
     setPinInput('');
     setLoginPhone('');
-    setTempPhoto(undefined);
     setError('');
   };
 
@@ -763,26 +738,11 @@ function App() {
             </div>
         )}
 
-        {currentStep === Step.TAKE_PHOTO && (
-           <Camera 
-             onCapture={handlePhotoCaptured}
-             onCancel={() => setCurrentStep(Step.SELECT_ACTION)}
-           />
-        )}
-
         {currentStep === Step.REPORT_EXIT && (
             <div className="flex flex-col gap-4">
                 <h2 className="text-white text-xl font-bold text-center">Reporte Salida</h2>
-                {tempPhoto && (
-                  <div className="w-full h-32 bg-slate-800 rounded-xl overflow-hidden border border-slate-700 relative">
-                     <img src={tempPhoto} alt="Evidencia" className="w-full h-full object-cover opacity-70"/>
-                     <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="bg-black/50 text-white text-xs px-2 py-1 rounded">Foto adjunta</span>
-                     </div>
-                  </div>
-                )}
                 <textarea value={exitReportText} onChange={(e) => setExitReportText(e.target.value)} className="bg-slate-900 text-white p-4 rounded-xl border border-slate-800 min-h-[150px]" placeholder="Detalles..."></textarea>
-                <button onClick={() => executeLogSubmission(LogType.SALIDA, exitReportText, exitWorkMode, tempPhoto)} className="bg-emerald-600 p-4 rounded-xl text-white font-bold">Confirmar Salida</button>
+                <button onClick={() => executeLogSubmission(LogType.SALIDA, exitReportText, exitWorkMode)} className="bg-emerald-600 p-4 rounded-xl text-white font-bold">Confirmar Salida</button>
             </div>
         )}
         
