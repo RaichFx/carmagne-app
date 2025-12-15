@@ -3,7 +3,7 @@ import { StorageService } from '../services/storageService';
 import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType, AdminUser } from '../types';
 import { 
   Users, MapPin, Download, Settings, FileText, 
-  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil
+  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { jsPDF } from 'jspdf';
@@ -60,6 +60,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   
   // ESTADO BÚSQUEDA TRABAJADORES
   const [workerSearch, setWorkerSearch] = useState('');
+  const [showPins, setShowPins] = useState(false); // Estado para mostrar/ocultar PINs
   
   // Logic for Admin Permissions
   const isSuperAdmin = currentUser === null;
@@ -307,7 +308,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       <header className="bg-slate-900 p-4 sticky top-0 z-10 shadow-md flex justify-between items-center border-b border-slate-800">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-black text-white tracking-tight">CARMAGNE ADMIN</h1>
-          <img src="/logo.svg" alt="Logo" className="h-8 w-auto object-contain" />
+          <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-1.5 rounded-lg shadow-lg shadow-blue-500/30">
+              <Zap size={20} className="fill-white/20" />
+          </div>
         </div>
         <div className="flex items-center gap-4">
            {/* Admin Avatar & Name */}
@@ -379,9 +382,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                     <p className="text-xs text-slate-500 mt-1 relative z-10">Total acumulado esta semana</p>
                  </div>
 
-                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 col-span-1 md:col-span-2 h-80">
+                 <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 col-span-1 md:col-span-2 h-80 flex flex-col">
                     <h3 className="font-bold mb-6 text-slate-300">Actividad</h3>
-                    <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={logsByType} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>{logsByType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}</Pie><RechartsTooltip /></PieChart></ResponsiveContainer>
+                    <div className="flex-1 w-full min-h-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={logsByType} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" label>
+                            {logsByType.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                          </Pie>
+                          <RechartsTooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                  </div>
                  <div className="bg-slate-900 p-6 rounded-xl border border-slate-800">
                    <h3 className="font-bold mb-4 text-slate-300">Acciones</h3>
@@ -547,17 +559,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             </div>
 
             {/* Buscador de Trabajadores */}
-            <div className="mb-6 relative">
-                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                    <Search size={20} />
+            <div className="mb-6 flex gap-4">
+                 <div className="relative flex-1">
+                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                        <Search size={20} />
+                     </div>
+                     <input 
+                        type="text" 
+                        placeholder="Buscar trabajador por nombre..." 
+                        className="w-full bg-slate-950 border border-slate-700 pl-10 p-3 rounded-lg text-white focus:border-blue-500 outline-none transition-colors"
+                        value={workerSearch}
+                        onChange={(e) => setWorkerSearch(e.target.value)}
+                     />
                  </div>
-                 <input 
-                    type="text" 
-                    placeholder="Buscar trabajador por nombre..." 
-                    className="w-full bg-slate-950 border border-slate-700 pl-10 p-3 rounded-lg text-white focus:border-blue-500 outline-none transition-colors"
-                    value={workerSearch}
-                    onChange={(e) => setWorkerSearch(e.target.value)}
-                 />
+                 <button 
+                   onClick={() => setShowPins(!showPins)}
+                   className={`p-3 rounded-lg border transition flex items-center gap-2 ${showPins ? 'bg-amber-900/30 border-amber-500/50 text-amber-400' : 'bg-slate-950 border-slate-700 text-slate-400'}`}
+                 >
+                    {showPins ? <EyeOff size={20}/> : <Eye size={20}/>}
+                    <span className="text-xs font-bold uppercase hidden md:inline">{showPins ? 'Ocultar PINs' : 'Ver PINs'}</span>
+                 </button>
             </div>
 
             <div className="grid gap-4">
@@ -572,6 +593,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                       <div className="flex flex-col gap-1 mt-1">
                          <div className="flex gap-2 text-xs"><span className="bg-slate-800 px-2 py-0.5 rounded text-slate-500 font-mono">ID: {w.id}</span><span className={`px-2 py-0.5 rounded font-bold uppercase ${w.defaultMode === 'DESTAJO' ? 'bg-purple-900/30 text-purple-400' : 'bg-blue-900/30 text-blue-400'}`}>{w.defaultMode || 'HORAS'}</span></div>
                          {w.phone && <span className="text-xs text-slate-500 flex items-center gap-1"><Phone size={10}/> {w.phone}</span>}
+                         
+                         {/* PIN DISPLAY */}
+                         <div className="flex items-center gap-2 mt-1">
+                           <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">PIN:</span>
+                           <span className={`font-mono font-bold ${showPins ? 'text-white bg-slate-800 px-2 rounded' : 'text-slate-600'}`}>
+                              {showPins ? w.pin : '••••'}
+                           </span>
+                         </div>
                       </div>
                     </div>
                   </div>

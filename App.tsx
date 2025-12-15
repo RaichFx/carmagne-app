@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays, Zap
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -160,8 +160,8 @@ function App() {
                  try {
                     new Notification("⚠️ Fichaje Pendiente", {
                       body: `Hola ${selectedWorker.name.split(' ')[0]}, son más de las 8:05. Por favor registra tu entrada.`,
-                      icon: "/logo.svg",
-                      badge: "/logo.svg",
+                      icon: "/logo.png",
+                      badge: "/logo.png",
                       tag: "late-entry-alert",
                       vibrate: [200, 100, 200]
                     } as any);
@@ -900,7 +900,9 @@ function App() {
          <div className="flex flex-col items-center">
             <div className="flex items-center gap-3 mb-2">
                <h1 className="text-4xl font-black text-white tracking-tighter">CARMAGNE</h1>
-               <img src="/logo.svg" alt="Logo" className="h-10 w-auto object-contain" />
+               <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-2 rounded-xl shadow-lg shadow-blue-500/30">
+                  <Zap size={32} className="fill-white/20" />
+               </div>
             </div>
             <div className="h-1 w-24 bg-blue-600 rounded-full mb-3"></div>
             <p className="text-blue-500 font-bold tracking-[0.4em] text-sm">INSTAL 2024</p>
@@ -924,7 +926,9 @@ function App() {
             <h1 className="text-xl font-black tracking-tight leading-none text-white">CARMAGNE</h1>
             <p className="text-[10px] font-bold text-blue-500 tracking-[0.2em] uppercase mt-0.5">INSTAL 2024</p>
           </div>
-          <img src="/logo.svg" alt="Logo" className="h-8 w-auto object-contain" />
+          <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-1.5 rounded-lg shadow-lg shadow-blue-500/30">
+             <Zap size={20} className="fill-white/20" />
+          </div>
         </div>
         <button onClick={handleAdminAccessRequest} className="p-2.5 bg-slate-800 text-slate-400 rounded-full border border-slate-700/50"><Lock size={16} /></button>
       </header>
