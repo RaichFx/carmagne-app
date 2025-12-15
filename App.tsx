@@ -10,6 +10,7 @@ import { LocationService } from './services/locationService';
 import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
+import { ConfirmationModal } from './components/ConfirmationModal';
 
 // App Steps
 enum Step {
@@ -58,6 +59,12 @@ function App() {
   const [location, setLocation] = useState<GeoLocationData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Action Confirmation State
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    action: LogType | null;
+  }>({ isOpen: false, action: null });
 
   // Exit Report State
   const [exitReportText, setExitReportText] = useState('');
@@ -383,8 +390,22 @@ function App() {
     }
   };
 
-  const handleActionSelect = async (type: LogType) => {
-    setSelectedAction(type);
+  const handleActionSelect = (type: LogType) => {
+    // En lugar de ejecutar inmediatamente, abrimos el modal de confirmación
+    setConfirmState({
+      isOpen: true,
+      action: type
+    });
+  };
+
+  const handleConfirmAction = async () => {
+    const type = confirmState.action;
+    if (!type) return;
+
+    // Cerramos el modal
+    setConfirmState({ isOpen: false, action: null });
+    
+    // Ejecutamos la lógica original
     setLoading(true);
     setError('');
     
@@ -615,6 +636,17 @@ function App() {
       return { status: 'EN DESCANSO', site: last.siteName, since: last.timestamp };
     } else {
       return { status: 'FUERA', site: '-', since: last.timestamp };
+    }
+  };
+
+  const getConfirmationMessage = (type: LogType | null) => {
+    if (!type) return "";
+    switch(type) {
+      case LogType.ENTRADA: return "Vas a registrar tu ENTRADA. ¿Es correcto?";
+      case LogType.SALIDA: return "Vas a registrar tu SALIDA. ¿Es correcto?";
+      case LogType.INICIO_DESCANSO: return "Vas a iniciar tu PAUSA/DESCANSO. ¿Es correcto?";
+      case LogType.FIN_DESCANSO: return "Vas a terminar tu descanso y VOLVER al trabajo. ¿Es correcto?";
+      default: return "¿Confirmar acción?";
     }
   };
 
@@ -919,6 +951,17 @@ function App() {
   // Main Render
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col font-sans selection:bg-blue-500/30">
+      
+      {/* Confirmation Modal */}
+      <ConfirmationModal 
+        isOpen={confirmState.isOpen}
+        title="Confirmar Acción"
+        message={getConfirmationMessage(confirmState.action)}
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmState({ isOpen: false, action: null })}
+        isDestructive={confirmState.action === LogType.SALIDA}
+      />
+
       {/* Header */}
       <header className="glass-panel p-4 flex justify-between items-center sticky top-0 z-20 border-b border-slate-800">
         <div className="flex items-center gap-3">
