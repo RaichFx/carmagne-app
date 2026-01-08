@@ -35,6 +35,55 @@ const INITIAL_SITES: Site[] = [
 ];
 const INITIAL_CONFIG: AppConfig = { adminPhone: '34631400010', googleSheetUrl: '', adminPassword: 'admin' };
 
+/**
+ * Función de clonación profunda segura que elimina referencias circulares
+ * y maneja objetos específicos de Firebase como Timestamps.
+ */
+const safeClone = (obj: any) => {
+  if (obj === null || typeof obj !== 'object') return obj;
+  
+  const cache = new WeakSet();
+  
+  const deepCopy = (item: any): any => {
+    if (item === null || typeof item !== 'object') return item;
+    
+    // Manejo de Firebase Timestamps (comunes en doc.data())
+    if (item && typeof item.toDate === 'function') {
+      return item.toDate().getTime(); 
+    }
+    
+    if (item instanceof Date) return item.getTime();
+    
+    // Prevención de circularidad
+    if (cache.has(item)) return undefined;
+    cache.add(item);
+    
+    if (Array.isArray(item)) {
+      return item.map(deepCopy).filter(v => v !== undefined);
+    }
+    
+    // Solo clonamos objetos planos para evitar instancias complejas
+    const prototype = Object.getPrototypeOf(item);
+    if (prototype !== null && prototype !== Object.prototype) {
+      if (typeof item.toJSON === 'function') {
+        return deepCopy(item.toJSON());
+      }
+      return undefined;
+    }
+
+    const copy: any = {};
+    Object.keys(item).forEach(key => {
+      const value = deepCopy(item[key]);
+      if (value !== undefined) {
+        copy[key] = value;
+      }
+    });
+    return copy;
+  };
+  
+  return deepCopy(obj);
+};
+
 const loadLocal = <T>(key: string, initial: T): T => {
   try {
     const saved = localStorage.getItem(key);
@@ -44,33 +93,11 @@ const loadLocal = <T>(key: string, initial: T): T => {
 
 const saveLocal = <T>(key: string, data: T): void => {
   try {
-    // Usamos un reemplazo para evitar errores circulares en el guardado local
-    const cache = new Set();
-    const safeJson = JSON.stringify(data, (key, value) => {
-      if (typeof value === 'object' && value !== null) {
-        if (cache.has(value)) return;
-        cache.add(value);
-      }
-      return value;
-    });
-    localStorage.setItem(key, safeJson);
+    const cleaned = safeClone(data);
+    localStorage.setItem(key, JSON.stringify(cleaned));
   } catch (e) { 
-    console.error("Error saving local", e); 
+    console.error("Error saving local storage data:", e); 
   }
-};
-
-// Función robusta para limpiar datos antes de enviarlos a Firestore
-const sanitizeForFirebase = (data: any) => {
-  if (!data) return data;
-  const cache = new Set();
-  const serialized = JSON.stringify(data, (key, value) => {
-    if (typeof value === 'object' && value !== null) {
-      if (cache.has(value)) return; // Evita circularidad
-      cache.add(value);
-    }
-    return value;
-  });
-  return JSON.parse(serialized);
 };
 
 export const StorageService = {
@@ -79,15 +106,17 @@ export const StorageService = {
   
   addTool: async (tool: ToolRecord) => {
     const tools = loadLocal<ToolRecord[]>(KEYS.TOOLS, []);
-    saveLocal(KEYS.TOOLS, [tool, ...tools]);
+    const updated = [tool, ...tools];
+    saveLocal(KEYS.TOOLS, updated);
     try {
-      await setDoc(doc(db, "tools", tool.id), sanitizeForFirebase(tool));
+      await setDoc(doc(db, "tools", tool.id), safeClone(tool));
     } catch (e) { console.warn("Firebase Tool Sync failed", e); }
   },
 
   deleteTool: async (id: string) => {
     const tools = loadLocal<ToolRecord[]>(KEYS.TOOLS, []);
-    saveLocal(KEYS.TOOLS, tools.filter(t => t.id !== id));
+    const updated = tools.filter(t => t.id !== id);
+    saveLocal(KEYS.TOOLS, updated);
     try {
       await deleteDoc(doc(db, "tools", id));
     } catch (e) { console.warn("Error deleting tool from FB", e); }
@@ -98,9 +127,9 @@ export const StorageService = {
     try {
       return onSnapshot(collection(db, "tools"), (snapshot) => {
         const tools = snapshot.docs.map(doc => doc.data() as ToolRecord);
-        tools.sort((a, b) => b.timestamp - a.timestamp);
-        saveLocal(KEYS.TOOLS, tools);
-        callback(tools);
+        const sortedTools = [...tools].sort((a, b) => b.timestamp - a.timestamp);
+        saveLocal(KEYS.TOOLS, sortedTools);
+        callback(sortedTools);
       }, (error) => { console.warn("Firestore Tools access denied", error.message); });
     } catch (e) { return () => {}; }
   },
@@ -111,13 +140,13 @@ export const StorageService = {
     const currentWorkers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
     saveLocal(KEYS.WORKERS, [...currentWorkers, worker]);
     try {
-      await setDoc(doc(db, "workers", worker.id), sanitizeForFirebase(worker));
+      await setDoc(doc(db, "workers", worker.id), safeClone(worker));
     } catch (e) { console.warn("Firebase Worker Sync failed", e); }
   },
   saveWorkers: async (workers: Worker[]) => {
     saveLocal(KEYS.WORKERS, workers);
     try { 
-      await Promise.all(workers.map(w => setDoc(doc(db, "workers", w.id), sanitizeForFirebase(w)))); 
+      await Promise.all(workers.map(w => setDoc(doc(db, "workers", w.id), safeClone(w)))); 
     } catch (e) { }
   },
   deleteWorker: async (id: string) => {
@@ -140,12 +169,12 @@ export const StorageService = {
   getSites: (): Site[] => loadLocal(KEYS.SITES, INITIAL_SITES),
   saveSites: async (sites: Site[]) => {
     saveLocal(KEYS.SITES, sites);
-    try { await Promise.all(sites.map(s => setDoc(doc(db, "sites", s.id), sanitizeForFirebase(s)))); } catch (e) { }
+    try { await Promise.all(sites.map(s => setDoc(doc(db, "sites", s.id), safeClone(s)))); } catch (e) { }
   },
   updateSite: async (updatedSite: Site) => {
     const sites = loadLocal<Site[]>(KEYS.SITES, INITIAL_SITES);
     saveLocal(KEYS.SITES, sites.map(s => s.id === updatedSite.id ? updatedSite : s));
-    try { await setDoc(doc(db, "sites", updatedSite.id), sanitizeForFirebase(updatedSite)); } catch (e) { }
+    try { await setDoc(doc(db, "sites", updatedSite.id), safeClone(updatedSite)); } catch (e) { }
   },
   deleteSite: async (id: string) => {
     const sites = loadLocal<Site[]>(KEYS.SITES, INITIAL_SITES);
@@ -168,7 +197,7 @@ export const StorageService = {
   addAdmin: async (admin: AdminUser) => {
     const admins = loadLocal<AdminUser[]>(KEYS.ADMINS, []);
     saveLocal(KEYS.ADMINS, [...admins, admin]);
-    try { await setDoc(doc(db, "admins", admin.id), sanitizeForFirebase(admin)); } catch(e) { }
+    try { await setDoc(doc(db, "admins", admin.id), safeClone(admin)); } catch(e) { }
   },
   deleteAdmin: async (id: string) => {
     const admins = loadLocal<AdminUser[]>(KEYS.ADMINS, []);
@@ -191,21 +220,21 @@ export const StorageService = {
   addLog: async (log: WorkLog) => {
     const logs = loadLocal<WorkLog[]>(KEYS.LOGS, []);
     saveLocal(KEYS.LOGS, [log, ...logs]);
-    try { await setDoc(doc(db, "logs", log.id), sanitizeForFirebase(log)); } catch (e) { }
+    try { await setDoc(doc(db, "logs", log.id), safeClone(log)); } catch (e) { }
   },
   updateLog: async (updatedLog: WorkLog) => {
     const logs = loadLocal<WorkLog[]>(KEYS.LOGS, []);
     saveLocal(KEYS.LOGS, logs.map(l => l.id === updatedLog.id ? updatedLog : l));
-    try { await updateDoc(doc(db, "logs", updatedLog.id), sanitizeForFirebase(updatedLog)); } catch (e) { }
+    try { await updateDoc(doc(db, "logs", updatedLog.id), safeClone(updatedLog)); } catch (e) { }
   },
   subscribeToLogs: (callback: (logs: WorkLog[]) => void) => {
     callback(loadLocal(KEYS.LOGS, []));
     try {
       return onSnapshot(collection(db, "logs"), (snapshot) => {
         const logs = snapshot.docs.map(doc => doc.data() as WorkLog);
-        logs.sort((a, b) => b.timestamp - a.timestamp);
-        saveLocal(KEYS.LOGS, logs);
-        callback(logs);
+        const sortedLogs = [...logs].sort((a, b) => b.timestamp - a.timestamp);
+        saveLocal(KEYS.LOGS, sortedLogs);
+        callback(sortedLogs);
       }, (error) => { console.warn("Firestore Logs access denied", error.message); });
     } catch (e) { return () => {}; }
   },
@@ -218,10 +247,11 @@ export const StorageService = {
     const config = loadLocal<AppConfig>(KEYS.CONFIG, INITIAL_CONFIG);
     if (!config.googleSheetUrl) return false;
     try {
+      const cleanedLog = safeClone(log);
       await fetch(config.googleSheetUrl, { 
         method: 'POST', 
         mode: 'no-cors', 
-        body: JSON.stringify({ action: 'LOG', ...sanitizeForFirebase(log) }) 
+        body: JSON.stringify({ action: 'LOG', ...cleanedLog }) 
       });
       return true;
     } catch (error) { return false; }

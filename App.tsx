@@ -33,6 +33,24 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
+// Componente para manejar el logo de rayo estilizado sin recuadro
+// Ajustado: lg mucho más grande, sm más pequeño
+const AppLogo = ({ className, size = "md" }: { className?: string, size?: "sm" | "md" | "lg" }) => {
+  const iconSize = size === "sm" ? 22 : size === "md" ? 64 : 160;
+  const blurScale = size === "lg" ? "scale-[2.5]" : "scale-150";
+  
+  return (
+    <div className={`relative flex items-center justify-center ${className}`}>
+      <div className={`absolute inset-0 bg-blue-500/10 blur-3xl rounded-full ${blurScale} animate-pulse`}></div>
+      <Zap 
+        size={iconSize} 
+        className="text-blue-500 fill-blue-500/30 relative z-10 drop-shadow-[0_0_20px_rgba(59,130,246,0.6)]"
+        strokeWidth={2.5}
+      />
+    </div>
+  );
+};
+
 function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -125,7 +143,7 @@ function App() {
     // Period Filter Logic
     if (historyPeriod === 'WEEK') {
       const pickedDate = new Date(selectedDate);
-      const day = pickedDate.getDay(); // 0 (Sun) to 6 (Sat)
+      const day = pickedDate.getDay(); 
       const diffToMonday = pickedDate.getDate() - day + (day === 0 ? -6 : 1);
       const startOfWeek = new Date(pickedDate.setDate(diffToMonday));
       startOfWeek.setHours(0, 0, 0, 0);
@@ -142,7 +160,6 @@ function App() {
       list = list.filter(l => l.timestamp >= startOfMonth.getTime() && l.timestamp <= endOfMonth.getTime());
     }
 
-    // Search Filter
     if (historySearch) {
       const query = historySearch.toLowerCase();
       list = list.filter(l => 
@@ -173,7 +190,7 @@ function App() {
     }
 
     doc.setFontSize(18);
-    doc.text("CARMAGNE SOLU 2024", 105, 15, { align: 'center' });
+    doc.text("CARMAGNE INSTAL SL 2024", 105, 15, { align: 'center' });
     doc.setFontSize(12);
     doc.text(title, 105, 25, { align: 'center' });
     doc.setFontSize(10);
@@ -192,7 +209,7 @@ function App() {
       startY: 40,
       head: [['Fecha', 'Hora', 'Acción', 'Obra', 'Modo', 'Reporte']],
       body: tableData,
-      headStyles: { fillStyle: 'DF', fillColor: [15, 23, 42], textColor: [255, 255, 255] },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] },
       alternateRowStyles: { fillColor: [245, 245, 245] },
       styles: { fontSize: 8 }
     });
@@ -288,7 +305,24 @@ function App() {
         distance = LocationService.calculateDistance(loc.latitude, loc.longitude, selectedSite.coordinates.latitude, selectedSite.coordinates.longitude);
         if (distance > MAX_DISTANCE_METERS) warning = true;
       }
-      const newLog: WorkLog = { id: `LOG-${Date.now()}`, workerId: selectedWorker!.id, workerName: selectedWorker!.name, siteId: selectedSite!.id, siteName: selectedSite!.name, type, timestamp: Date.now(), dateStr: new Date().toLocaleDateString('es-ES'), timeStr: new Date().toLocaleTimeString('es-ES'), location: loc, sentToWhatsapp: false, syncedToSheets: false, distanceMeters: distance, locationWarning: warning, workReport: report, workMode: mode };
+      const newLog: WorkLog = { 
+        id: `LOG-${Date.now()}`, 
+        workerId: selectedWorker!.id, 
+        workerName: selectedWorker!.name, 
+        siteId: selectedSite!.id, 
+        siteName: selectedSite!.name, 
+        type, 
+        timestamp: Date.now(), 
+        dateStr: new Date().toLocaleDateString('es-ES'), 
+        timeStr: new Date().toLocaleTimeString('es-ES'), 
+        location: loc, 
+        sentToWhatsapp: false, 
+        syncedToSheets: false, 
+        distanceMeters: distance, 
+        locationWarning: warning, 
+        workReport: report, 
+        workMode: mode
+      };
       await StorageService.addLog(newLog); setCurrentStep(Step.SUCCESS);
     } catch (err) { setError('Error de GPS o Conexión.'); } finally { setLoading(false); }
   };
@@ -375,10 +409,10 @@ function App() {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
           <div className="text-center">
-            <div className="inline-flex mb-4">
-              <img src="./logo.png" alt="Carmagne Logo" className="w-48 h-48 object-contain" />
+            <div className="inline-flex mb-8">
+              <AppLogo size="lg" />
             </div>
-            <h2 className="text-3xl font-black text-white tracking-tighter">Carmagne Solu</h2>
+            <h2 className="text-3xl font-black text-white tracking-tighter">CARMAGNE INSTAL SL</h2>
             <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p>
           </div>
           <div className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800">
@@ -524,7 +558,6 @@ function App() {
                  ))}
               </div>
 
-              {/* Specific Period Pickers */}
               {historyPeriod === 'MONTH' && (
                 <div className="animate-slideDown relative">
                   <select 
@@ -678,10 +711,10 @@ function App() {
 
   if (isAppLoading) return (
     <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center p-8">
-       <div className="mb-6 animate-pulse">
-         <img src="./logo.png" alt="Carmagne Logo" className="w-48 h-48 object-contain" />
+       <div className="mb-8 animate-pulse">
+         <AppLogo size="lg" />
        </div>
-       <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Carmagne</h1>
+       <h1 className="text-3xl font-black text-white tracking-tighter uppercase">CARMAGNE INSTAL SL</h1>
     </div>
   );
 
@@ -710,7 +743,7 @@ function App() {
 
       {showAdminLogin && (
         <div className="fixed inset-0 z-[110] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-w-sm shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] w-full max-sm shadow-2xl">
             <h3 className="text-xl font-black text-white mb-4 text-center">Admin Access</h3>
             <div className="space-y-3">
               <input type="text" placeholder="Usuario" className="w-full bg-slate-950 border border-slate-800 p-4 rounded-xl text-white outline-none focus:border-blue-500" value={adminUsernameInput} onChange={(e)=>setAdminUsernameInput(e.target.value)}/>
@@ -724,9 +757,9 @@ function App() {
       )}
 
       <header className="p-4 flex justify-between items-center border-b border-slate-900 bg-slate-950 z-40 h-16 shrink-0">
-        <div className="flex items-center gap-2">
-           <img src="./logo.png" alt="Logo" className="w-10 h-10 object-contain" />
-           <h1 className="text-sm font-black tracking-tighter uppercase text-white">Carmagne</h1>
+        <div className="flex items-center gap-4">
+           <AppLogo size="sm" />
+           <h1 className="text-[11px] font-black tracking-tighter uppercase text-white">CARMAGNE INSTAL SL</h1>
         </div>
         <button onClick={() => setShowAdminLogin(true)} className="p-2.5 bg-slate-900 text-slate-500 rounded-xl border border-slate-800 active:text-white"><Lock size={16} /></button>
       </header>
@@ -738,7 +771,7 @@ function App() {
       </main>
 
       <footer className="h-10 flex items-center justify-center text-slate-800 text-[8px] font-black tracking-[0.5em] uppercase border-t border-slate-900 shrink-0">
-        Carmagne Solu 2024 • Build 5.1
+        CARMAGNE INSTAL SL 2024 • Build 5.3
       </footer>
     </div>
   );

@@ -4,7 +4,7 @@ import { StorageService } from '../services/storageService';
 import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType, AdminUser, ToolRecord } from '../types';
 import { 
   Users, MapPin, Download, Settings, FileText, 
-  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap, Wrench, ChevronDown
+  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap, Wrench, ChevronDown, Camera as CameraIcon
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { jsPDF } from 'jspdf';
@@ -24,6 +24,18 @@ interface WorkerMonthlyReport {
   netWorkMs: number;
   daysWorked: number;
 }
+
+const AdminLogo = ({ className, size = 32 }: { className?: string, size?: number }) => {
+  return (
+    <div className={`relative flex items-center justify-center ${className}`}>
+        <Zap 
+          size={size} 
+          className="text-blue-500 fill-blue-500/20 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]"
+          strokeWidth={2.5}
+        />
+    </div>
+  );
+};
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'logs' | 'reports' | 'workers' | 'sites' | 'admins' | 'config' | 'tools'>('dashboard');
@@ -268,7 +280,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
       <header className="bg-slate-900 p-4 sticky top-0 z-10 shadow-md flex justify-between items-center border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <img src="./logo.png" alt="Logo" className="w-10 h-10 object-contain" />
+          <AdminLogo size={32} className="object-contain" />
           <h1 className="text-xl font-black text-white tracking-tight">CARMAGNE ADMIN</h1>
         </div>
         <div className="flex items-center gap-4">
@@ -321,7 +333,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                <div className="space-y-2"><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Calendar size={14} /> Fecha</label><input type="date" className="w-full bg-slate-950 border border-slate-700 text-white p-3 rounded-lg focus:border-blue-500 outline-none [color-scheme:dark]" value={filterDate} onChange={(e) => setFilterDate(e.target.value)}/></div>
                <div className="space-y-2"><label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><Filter size={14} /> Tipo</label><select className="w-full bg-slate-950 border border-slate-700 text-white p-3 rounded-lg appearance-none focus:border-blue-500 outline-none" value={filterType} onChange={(e) => setFilterType(e.target.value)}><option value="ALL">Todas las acciones</option><option value={LogType.ENTRADA}>Entrada</option><option value={LogType.SALIDA}>Salida</option><option value="DESCANSO">Descansos</option></select></div>
             </div>
-            <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-xl overflow-x-auto"><table className="w-full text-sm text-left text-slate-300"><thead className="bg-slate-950 text-slate-500 uppercase font-black text-[10px] border-b border-slate-800"><tr><th className="p-4">Fecha/Hora</th><th className="p-4">Trabajador</th><th className="p-4">Obra</th><th className="p-4">Acción</th><th className="p-4">Ubicación</th></tr></thead><tbody className="divide-y divide-slate-800">{getFilteredLogs().map(log => (<tr key={log.id} className="hover:bg-slate-800/50"><td className="p-4"><div>{log.dateStr}</div><div className="text-[10px] text-slate-500">{log.timeStr}</div></td><td className="p-4 font-black text-white">{log.workerName}</td><td className="p-4 text-slate-400">{log.siteName}</td><td className="p-4"><span className={`px-2 py-1 rounded-[4px] text-[10px] font-black uppercase tracking-widest border ${log.type === LogType.ENTRADA ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900/50' : 'bg-rose-950/30 text-rose-400 border-rose-900/50'}`}>{log.type}</span></td><td className="p-4">{log.location.latitude !== 0 ? (<a href={`https://www.google.com/maps?q=${log.location.latitude},${log.location.longitude}`} target="_blank" className="text-blue-400 flex items-center gap-1 text-[10px] font-black uppercase"><MapPin size={12}/> Ver GPS</a>) : <span className="text-xs text-slate-600">Sistema</span>}</td></tr>))}</tbody></table></div>
+            <div className="bg-slate-900 rounded-xl overflow-hidden border border-slate-800 shadow-xl overflow-x-auto"><table className="w-full text-sm text-left text-slate-300"><thead className="bg-slate-950 text-slate-500 uppercase font-black text-[10px] border-b border-slate-800"><tr><th className="p-4">Fecha/Hora</th><th className="p-4">Trabajador</th><th className="p-4">Obra</th><th className="p-4">Acción</th><th className="p-4">Ubicación</th></tr></thead><tbody className="divide-y divide-slate-800">{getFilteredLogs().map(log => (<tr key={log.id} className="hover:bg-slate-800/50"><td className="p-4"><div>{log.dateStr}</div><div className="text-[10px] text-slate-500">{log.timeStr}</div></td><td className="p-4 font-black text-white">{log.workerName}</td><td className="p-4 text-slate-400">{log.siteName}</td><td className="p-4"><div className="flex flex-col gap-2"><span className={`px-2 py-1 rounded-[4px] text-[10px] font-black uppercase tracking-widest border text-center ${log.type === LogType.ENTRADA ? 'bg-emerald-950/30 text-emerald-400 border-emerald-900/50' : 'bg-rose-950/30 text-rose-400 border-rose-900/50'}`}>{log.type}</span></div></td><td className="p-4">{log.location.latitude !== 0 ? (<a href={`https://www.google.com/maps?q=${log.location.latitude},${log.location.longitude}`} target="_blank" className="text-blue-400 flex items-center gap-1 text-[10px] font-black uppercase"><MapPin size={12}/> Ver GPS</a>) : <span className="text-xs text-slate-600">Sistema</span>}</td></tr>))}</tbody></table></div>
           </div>
         )}
 
