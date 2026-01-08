@@ -33,20 +33,31 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
-// Componente para manejar el logo de rayo estilizado sin recuadro
-// Ajustado: lg mucho más grande, sm más pequeño
+// Componente de Logo Minimalista: Solo el rayo sólido
 const AppLogo = ({ className, size = "md" }: { className?: string, size?: "sm" | "md" | "lg" }) => {
-  const iconSize = size === "sm" ? 22 : size === "md" ? 64 : 160;
-  const blurScale = size === "lg" ? "scale-[2.5]" : "scale-150";
+  const iconSize = size === "sm" ? 22 : size === "md" ? 64 : 140;
   
   return (
     <div className={`relative flex items-center justify-center ${className}`}>
-      <div className={`absolute inset-0 bg-blue-500/10 blur-3xl rounded-full ${blurScale} animate-pulse`}></div>
-      <Zap 
-        size={iconSize} 
-        className="text-blue-500 fill-blue-500/30 relative z-10 drop-shadow-[0_0_20px_rgba(59,130,246,0.6)]"
-        strokeWidth={2.5}
-      />
+      {/* Rayo estilizado sólido */}
+      <div className="relative z-10 flex items-center justify-center">
+        <svg 
+          width={iconSize} 
+          height={iconSize} 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className="text-blue-500"
+        >
+          <path 
+            d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" 
+            fill="currentColor" 
+          />
+        </svg>
+      </div>
     </div>
   );
 };
@@ -771,7 +782,7 @@ function App() {
       </main>
 
       <footer className="h-10 flex items-center justify-center text-slate-800 text-[8px] font-black tracking-[0.5em] uppercase border-t border-slate-900 shrink-0">
-        CARMAGNE INSTAL SL 2024 • Build 5.3
+        CARMAGNE INSTAL SL 2024 • Build 5.6
       </footer>
     </div>
   );

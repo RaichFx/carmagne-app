@@ -4,7 +4,7 @@ import { StorageService } from '../services/storageService';
 import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType, AdminUser, ToolRecord } from '../types';
 import { 
   Users, MapPin, Download, Settings, FileText, 
-  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap, Wrench, ChevronDown, Camera as CameraIcon
+  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap, Wrench, ChevronDown
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { jsPDF } from 'jspdf';
@@ -28,11 +28,23 @@ interface WorkerMonthlyReport {
 const AdminLogo = ({ className, size = 32 }: { className?: string, size?: number }) => {
   return (
     <div className={`relative flex items-center justify-center ${className}`}>
-        <Zap 
-          size={size} 
-          className="text-blue-500 fill-blue-500/20 drop-shadow-[0_0_10px_rgba(59,130,246,0.4)]"
-          strokeWidth={2.5}
-        />
+        {/* Rayo sólido sin degradado */}
+        <svg 
+          width={size} 
+          height={size} 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="2.5" 
+          strokeLinecap="round" 
+          strokeLinejoin="round" 
+          className="text-blue-500 relative z-10"
+        >
+          <path 
+            d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" 
+            fill="currentColor" 
+          />
+        </svg>
     </div>
   );
 };
