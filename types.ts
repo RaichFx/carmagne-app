@@ -18,7 +18,7 @@ export interface Worker {
   dni?: string;
   role?: string;
   phone?: string;
-  defaultMode?: WorkMode; // Modo por defecto del trabajador
+  defaultMode?: WorkMode;
 }
 
 export interface Site {
@@ -35,7 +35,7 @@ export interface Site {
 export interface AdminUser {
   id: string;
   username: string;
-  password: string; // En una app real esto debería ser un hash
+  password: string;
   active: boolean;
   createdAt: number;
 }
@@ -45,6 +45,18 @@ export interface GeoLocationData {
   longitude: number;
   accuracy: number;
   address?: string;
+}
+
+export interface ToolRecord {
+  id: string;
+  workerId: string;
+  workerName: string;
+  toolName: string;
+  brand: string;
+  model: string;
+  timestamp: number;
+  dateStr: string;
+  timeStr: string;
 }
 
 export interface WorkLog {
@@ -61,10 +73,8 @@ export interface WorkLog {
   photoUrl?: string;
   sentToWhatsapp: boolean;
   syncedToSheets: boolean;
-  // Campos nuevos para Geofencing
   distanceMeters?: number; 
   locationWarning?: boolean;
-  // Campos nuevos para Reporte de Salida
   workMode?: WorkMode;
   workReport?: string;
 }
