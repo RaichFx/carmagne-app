@@ -143,7 +143,7 @@ function App() {
     const formattedPhone = processSpanishPhone(loginPhone);
     
     if(!isPhoneValidSpain(formattedPhone)) { 
-      setError("Introduce un número de España válido (+34)"); 
+      setError("Solo se permiten números de España (+34)"); 
       return; 
     }
 
@@ -152,7 +152,7 @@ function App() {
     if (worker) {
       if (!worker.active) { setError("Cuenta desactivada."); return; }
       setSelectedWorker(worker); setPinInput(''); setError(''); setCurrentStep(Step.AUTHENTICATE);
-    } else if(confirm("¿Este número no está registrado. ¿Quieres crear una cuenta nueva?")) {
+    } else if(confirm("Este número no está registrado. ¿Quieres crear una cuenta nueva?")) {
       setRegPhone(formattedPhone); setError(''); setCurrentStep(Step.REGISTER);
     }
   };
@@ -161,7 +161,7 @@ function App() {
     const formattedRegPhone = processSpanishPhone(regPhone);
 
     if (!regName || !regDni || !regPin || !formattedRegPhone) { setError('Todos los campos son obligatorios.'); return; }
-    if (!isPhoneValidSpain(formattedRegPhone)) { setError('Solo se admiten números de España (+34)'); return; }
+    if (!isPhoneValidSpain(formattedRegPhone)) { setError('Solo se permiten números de España (+34)'); return; }
     if (regPin !== regPinConfirm) { setError('Los PINs no coinciden.'); return; }
     
     setLoading(true);
@@ -389,12 +389,11 @@ function App() {
           <div className="text-center">
             <div className="bg-blue-600 p-6 rounded-[2.5rem] inline-flex mb-8 shadow-xl shadow-blue-900/40"><Zap size={48} className="text-white fill-white/20" /></div>
             <h2 className="text-4xl font-black text-white mb-2 tracking-tighter">Carmagne Instal</h2>
-            <p className="text-slate-500 text-sm font-medium">Solo números de España (+34)</p>
+            <p className="text-slate-500 text-sm font-medium">Gestión y Control de Presencia</p>
           </div>
           <div className="bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800">
-             <label className="block text-[10px] uppercase text-slate-500 font-black mb-4 tracking-widest">Teléfono Corporativo</label>
+             <label className="block text-[10px] uppercase text-slate-500 font-black mb-4 tracking-widest text-center">Teléfono Corporativo</label>
              <input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-5 text-2xl font-black focus:border-blue-500 outline-none text-center tracking-widest" placeholder="600 000 000"/>
-             <p className="text-center text-[10px] text-slate-600 mt-4 uppercase font-bold tracking-widest">Se añadirá +34 automáticamente</p>
              <button onClick={handlePhoneLogin} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-900/30 transition-all uppercase tracking-widest text-xs mt-8 flex items-center justify-center gap-3 active:scale-95">Comenzar <ArrowRight size={18} /></button>
           </div>
           <button onClick={() => setShowAdminLogin(true)} className="text-slate-700 text-[10px] font-black uppercase tracking-widest text-center mt-4">Acceso Administración</button>
@@ -520,8 +519,8 @@ function App() {
               <input type="text" placeholder="Nombre completo" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white focus:border-blue-500 outline-none" value={regName} onChange={(e)=>setRegName(e.target.value)}/>
               <input type="text" placeholder="DNI / NIE" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white focus:border-blue-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/>
               <div className="space-y-2">
-                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Teléfono (España)</label>
-                 <input type="tel" placeholder="600 000 000" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white focus:border-blue-500 outline-none font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/>
+                 <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Teléfono</label>
+                 <input type="tel" placeholder="Número de España" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white focus:border-blue-500 outline-none font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <input type="password" placeholder="PIN (4)" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white text-center tracking-[1em] focus:border-blue-500 outline-none" value={regPin} onChange={(e)=>setRegPin(e.target.value.replace(/\D/g,''))}/>
@@ -592,7 +591,7 @@ function App() {
       </main>
 
       <footer className="p-6 text-center text-slate-800 text-[10px] font-black tracking-[0.5em] uppercase border-t border-slate-900">
-        Carmagne Solu 2024 • V4.1
+        Carmagne Solu 2024 • V4.2
       </footer>
     </div>
   );
