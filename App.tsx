@@ -375,7 +375,9 @@ function App() {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
           <div className="text-center">
-            <div className="bg-blue-600 p-5 rounded-[2rem] inline-flex mb-4 shadow-xl"><Zap size={40} className="text-white fill-white/20" /></div>
+            <div className="inline-flex mb-4">
+              <img src="./logo.png" alt="Carmagne Logo" className="w-48 h-48 object-contain" />
+            </div>
             <h2 className="text-3xl font-black text-white tracking-tighter">Carmagne Solu</h2>
             <p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p>
           </div>
@@ -675,8 +677,10 @@ function App() {
   };
 
   if (isAppLoading) return (
-    <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center">
-       <div className="bg-blue-600 p-8 rounded-[3rem] mb-6 animate-pulse"><Zap size={64} className="text-white fill-white/20" /></div>
+    <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center p-8">
+       <div className="mb-6 animate-pulse">
+         <img src="./logo.png" alt="Carmagne Logo" className="w-48 h-48 object-contain" />
+       </div>
        <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Carmagne</h1>
     </div>
   );
@@ -721,7 +725,7 @@ function App() {
 
       <header className="p-4 flex justify-between items-center border-b border-slate-900 bg-slate-950 z-40 h-16 shrink-0">
         <div className="flex items-center gap-2">
-           <div className="bg-blue-600 p-1.5 rounded-lg"><Zap size={16} className="text-white" /></div>
+           <img src="./logo.png" alt="Logo" className="w-10 h-10 object-contain" />
            <h1 className="text-sm font-black tracking-tighter uppercase text-white">Carmagne</h1>
         </div>
         <button onClick={() => setShowAdminLogin(true)} className="p-2.5 bg-slate-900 text-slate-500 rounded-xl border border-slate-800 active:text-white"><Lock size={16} /></button>
@@ -734,7 +738,7 @@ function App() {
       </main>
 
       <footer className="h-10 flex items-center justify-center text-slate-800 text-[8px] font-black tracking-[0.5em] uppercase border-t border-slate-900 shrink-0">
-        Carmagne Solu 2024 • Build 5.0
+        Carmagne Solu 2024 • Build 5.1
       </footer>
     </div>
   );

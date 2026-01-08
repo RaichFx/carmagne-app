@@ -268,8 +268,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
       <header className="bg-slate-900 p-4 sticky top-0 z-10 shadow-md flex justify-between items-center border-b border-slate-800">
         <div className="flex items-center gap-3">
+          <img src="./logo.png" alt="Logo" className="w-10 h-10 object-contain" />
           <h1 className="text-xl font-black text-white tracking-tight">CARMAGNE ADMIN</h1>
-          <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-1.5 rounded-lg shadow-lg shadow-blue-500/30"><Zap size={20} className="fill-white/20" /></div>
         </div>
         <div className="flex items-center gap-4">
            <div className="hidden md:flex items-center gap-3 bg-slate-950 pr-4 pl-1 py-1 rounded-full border border-slate-800">
