@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays, Zap, Wrench, Package, Info, Plus, Trash2, Timer
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays, Zap, Wrench, Package, Info, Plus, Trash2, Timer, Filter, ChevronDown
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -28,6 +28,10 @@ enum Step {
 }
 
 const MAX_DISTANCE_METERS = 500;
+const MONTH_NAMES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+];
 
 function App() {
   const [isAppLoading, setIsAppLoading] = useState(true);
@@ -41,18 +45,22 @@ function App() {
   const [loginPhone, setLoginPhone] = useState('');
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [selectedSite, setSelectedSite] = useState<Site | null>(null);
-  const [selectedAction, setSelectedAction] = useState<LogType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirmState, setConfirmState] = useState<{isOpen: boolean; action: LogType | null;}>({ isOpen: false, action: null });
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  // History states
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyPeriod, setHistoryPeriod] = useState<'ALL' | 'WEEK' | 'MONTH'>('ALL');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
   const [allTools, setAllTools] = useState<ToolRecord[]>([]);
   const [newToolName, setNewToolName] = useState('');
   const [newToolBrand, setNewToolBrand] = useState('');
   const [newToolModel, setNewToolModel] = useState('');
-  const [toolSearchTerm, setToolSearchTerm] = useState('');
 
   const [exitReportText, setExitReportText] = useState('');
   const [exitWorkMode, setExitWorkMode] = useState<WorkMode>('HORAS');
@@ -60,7 +68,6 @@ function App() {
   const [regName, setRegName] = useState('');
   const [regDni, setRegDni] = useState('');
   const [regPhone, setRegPhone] = useState('');
-  const [regRole, setRegRole] = useState('');
   const [regPin, setRegPin] = useState('');
   const [regPinConfirm, setRegPinConfirm] = useState('');
   const [workerLogs, setWorkerLogs] = useState<WorkLog[]>([]);
@@ -111,6 +118,88 @@ function App() {
     return { type: 'INACTIVO', site: null, startTime: null };
   }, [workerLogs, selectedWorker]);
 
+  const filteredHistory = useMemo(() => {
+    if (!selectedWorker) return [];
+    let list = workerLogs.filter(l => l.workerId === selectedWorker.id);
+    
+    // Period Filter Logic
+    if (historyPeriod === 'WEEK') {
+      const pickedDate = new Date(selectedDate);
+      const day = pickedDate.getDay(); // 0 (Sun) to 6 (Sat)
+      const diffToMonday = pickedDate.getDate() - day + (day === 0 ? -6 : 1);
+      const startOfWeek = new Date(pickedDate.setDate(diffToMonday));
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+      
+      list = list.filter(l => l.timestamp >= startOfWeek.getTime() && l.timestamp <= endOfWeek.getTime());
+    } else if (historyPeriod === 'MONTH') {
+      const year = new Date().getFullYear();
+      const startOfMonth = new Date(year, selectedMonth, 1);
+      const endOfMonth = new Date(year, selectedMonth + 1, 0, 23, 59, 59, 999);
+      list = list.filter(l => l.timestamp >= startOfMonth.getTime() && l.timestamp <= endOfMonth.getTime());
+    }
+
+    // Search Filter
+    if (historySearch) {
+      const query = historySearch.toLowerCase();
+      list = list.filter(l => 
+        l.siteName.toLowerCase().includes(query) || 
+        (l.workReport || '').toLowerCase().includes(query)
+      );
+    }
+    
+    return list;
+  }, [workerLogs, selectedWorker, historyPeriod, historySearch, selectedMonth, selectedDate]);
+
+  const handleDownloadPDF = () => {
+    if (filteredHistory.length === 0) return;
+    const doc = new jsPDF();
+    const title = `Informe de Actividad - ${selectedWorker?.name}`;
+    
+    let periodLabel = 'Historial Completo';
+    if (historyPeriod === 'WEEK') {
+      const pickedDate = new Date(selectedDate);
+      const day = pickedDate.getDay();
+      const diffToMonday = pickedDate.getDate() - day + (day === 0 ? -6 : 1);
+      const start = new Date(pickedDate.setDate(diffToMonday));
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      periodLabel = `Semana del ${start.toLocaleDateString()} al ${end.toLocaleDateString()}`;
+    } else if (historyPeriod === 'MONTH') {
+      periodLabel = `Mes de ${MONTH_NAMES[selectedMonth]} ${new Date().getFullYear()}`;
+    }
+
+    doc.setFontSize(18);
+    doc.text("CARMAGNE SOLU 2024", 105, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(title, 105, 25, { align: 'center' });
+    doc.setFontSize(10);
+    doc.text(`${periodLabel} | Generado el: ${new Date().toLocaleDateString()}`, 105, 32, { align: 'center' });
+
+    const tableData = filteredHistory.map(log => [
+      log.dateStr,
+      log.timeStr,
+      log.type,
+      log.siteName,
+      log.workMode || 'HORAS',
+      log.workReport || '-'
+    ]);
+
+    autoTable(doc, {
+      startY: 40,
+      head: [['Fecha', 'Hora', 'Acción', 'Obra', 'Modo', 'Reporte']],
+      body: tableData,
+      headStyles: { fillStyle: 'DF', fillColor: [15, 23, 42], textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+      styles: { fontSize: 8 }
+    });
+
+    doc.save(`Historial_${selectedWorker?.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`);
+  };
+
   const formatElapsed = (startTime: number) => {
     const diff = currentTime.getTime() - startTime;
     const hours = Math.floor(diff / 3600000);
@@ -153,11 +242,30 @@ function App() {
   };
 
   const handleActionSelect = (type: LogType) => {
-    // Validar si la acción es permitida según el estado actual
+    const currentSiteName = workerStatus?.site;
+    const targetSiteName = selectedSite?.name;
+
     if (type === LogType.ENTRADA && workerStatus?.type !== 'INACTIVO') {
-        setError("Ya tienes una entrada activa. Debes fichar SALIDA primero.");
+        setError(`Aún tienes una entrada activa en ${currentSiteName}. Debes fichar salida allí primero.`);
         return;
     }
+
+    if (type === LogType.SALIDA) {
+        if (workerStatus?.type === 'INACTIVO') {
+            setError("No tienes ninguna entrada activa registrada.");
+            return;
+        }
+        if (currentSiteName !== targetSiteName) {
+            setError(`No puedes fichar salida en ${targetSiteName} porque tu entrada activa es en ${currentSiteName}.`);
+            return;
+        }
+    }
+
+    if ((type === LogType.INICIO_DESCANSO || type === LogType.FIN_DESCANSO) && currentSiteName !== targetSiteName) {
+        setError(`No puedes gestionar descansos en esta obra. Tu jornada activa es en ${currentSiteName}.`);
+        return;
+    }
+
     if (type === LogType.INICIO_DESCANSO && workerStatus?.type !== 'TRABAJANDO') {
         setError("Solo puedes iniciar descanso si estás TRABAJANDO.");
         return;
@@ -166,18 +274,9 @@ function App() {
         setError("Solo puedes finalizar descanso si estás EN PAUSA.");
         return;
     }
-    if (type === LogType.SALIDA && workerStatus?.type === 'INACTIVO') {
-        setError("No puedes fichar salida sin haber fichado entrada.");
-        return;
-    }
 
+    setError('');
     setConfirmState({ isOpen: true, action: type });
-  };
-
-  const handleConfirmAction = async () => {
-    const type = confirmState.action; setConfirmState({ isOpen: false, action: null }); if (!type) return;
-    if (type === LogType.SALIDA) { setExitWorkMode(selectedWorker?.defaultMode || 'HORAS'); setExitReportText(''); setCurrentStep(Step.REPORT_EXIT); }
-    else executeLogSubmission(type);
   };
 
   const executeLogSubmission = async (type: LogType, report?: string, mode?: WorkMode) => {
@@ -330,38 +429,31 @@ function App() {
              <div><h2 className="text-xl font-black text-white">Acción en Obra</h2><p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">{selectedSite?.name}</p></div>
            </div>
            <div className="grid grid-cols-2 gap-3 flex-1 pb-4">
-             {/* BOTÓN ENTRADA: Solo si está INACTIVO */}
              <button 
-                disabled={workerStatus?.type !== 'INACTIVO'}
+                disabled={workerStatus?.type !== 'INACTIVO' && workerStatus?.site !== selectedSite?.name}
                 onClick={() => handleActionSelect(LogType.ENTRADA)} 
-                className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${workerStatus?.type !== 'INACTIVO' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${workerStatus?.type !== 'INACTIVO' ? 'opacity-40 grayscale' : ''}`}
              >
                <Zap size={32} /> <span className="text-sm font-black uppercase">Entrada</span>
              </button>
 
-             {/* BOTÓN SALIDA: Solo si NO está INACTIVO */}
              <button 
-                disabled={workerStatus?.type === 'INACTIVO'}
                 onClick={() => handleActionSelect(LogType.SALIDA)} 
-                className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${workerStatus?.type === 'INACTIVO' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${workerStatus?.type === 'INACTIVO' ? 'opacity-40 grayscale' : ''}`}
              >
                <LogOut size={32} /> <span className="text-sm font-black uppercase">Salida</span>
              </button>
 
-             {/* BOTÓN INICIO DESCANSO: Solo si está TRABAJANDO */}
              <button 
-                disabled={workerStatus?.type !== 'TRABAJANDO'}
                 onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} 
-                className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${workerStatus?.type !== 'TRABAJANDO' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${workerStatus?.type !== 'TRABAJANDO' ? 'opacity-40 grayscale' : ''}`}
              >
                <Coffee size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Ini Descanso</span>
              </button>
 
-             {/* BOTÓN FIN DESCANSO: Solo si está DESCANSO */}
              <button 
-                disabled={workerStatus?.type !== 'DESCANSO'}
                 onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} 
-                className={`bg-blue-600/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-blue-500 active:bg-blue-600 active:text-white transition-all ${workerStatus?.type !== 'DESCANSO' ? 'opacity-40 grayscale cursor-not-allowed' : ''}`}
+                className={`bg-blue-600/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-blue-500 active:bg-blue-600 active:text-white transition-all ${workerStatus?.type !== 'DESCANSO' ? 'opacity-40 grayscale' : ''}`}
              >
                <Timer size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Fin Descanso</span>
              </button>
@@ -397,21 +489,95 @@ function App() {
       );
       case Step.WORKER_HISTORY: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-           <div className="flex items-center gap-4 mb-4">
-             <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button>
-             <h2 className="text-xl font-black text-white">Mi Actividad</h2>
+           <div className="flex items-center justify-between gap-4 mb-4">
+             <div className="flex items-center gap-4">
+                <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button>
+                <h2 className="text-xl font-black text-white">Mi Actividad</h2>
+             </div>
+             <button onClick={handleDownloadPDF} className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl border border-emerald-500/20 active:bg-emerald-600 active:text-white">
+                <Download size={20}/>
+             </button>
            </div>
+
+           <div className="space-y-3 mb-4">
+              <div className="relative">
+                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar obra o tarea..." 
+                  className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs text-white outline-none focus:border-blue-500"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                 {(['ALL', 'WEEK', 'MONTH'] as const).map(p => (
+                   <button 
+                    key={p} 
+                    onClick={() => setHistoryPeriod(p)}
+                    className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${historyPeriod === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+                   >
+                    {p === 'ALL' ? 'Todo' : p === 'WEEK' ? 'Semana' : 'Mes'}
+                   </button>
+                 ))}
+              </div>
+
+              {/* Specific Period Pickers */}
+              {historyPeriod === 'MONTH' && (
+                <div className="animate-slideDown relative">
+                  <select 
+                    value={selectedMonth} 
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 px-4 text-xs font-bold text-blue-400 outline-none appearance-none"
+                  >
+                    {MONTH_NAMES.map((name, idx) => (
+                      <option key={name} value={idx}>{name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                </div>
+              )}
+
+              {historyPeriod === 'WEEK' && (
+                <div className="animate-slideDown flex flex-col gap-1">
+                  <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Elegir día de la semana:</span>
+                  <div className="relative">
+                    <CalendarDays size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" />
+                    <input 
+                      type="date" 
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-white outline-none [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+              )}
+           </div>
+
            <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">
-             {workerLogs.filter(l => l.workerId === selectedWorker?.id).map(log => (
-               <div key={log.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+             {filteredHistory.map(log => (
+               <div key={log.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 animate-slideUp">
                  <div className="flex justify-between items-start mb-2">
-                   <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">{log.type}</span>
+                   <span className={`text-[10px] font-black uppercase tracking-widest ${
+                      log.type === LogType.ENTRADA ? 'text-emerald-400' : 
+                      log.type === LogType.SALIDA ? 'text-rose-400' : 
+                      'text-blue-400'
+                   }`}>{log.type}</span>
                    <span className="text-[9px] text-slate-600 font-bold">{log.dateStr} • {log.timeStr}</span>
                  </div>
                  <p className="text-xs font-black text-white uppercase tracking-tight truncate">{log.siteName}</p>
-                 {log.workReport && <p className="text-[10px] text-slate-500 italic mt-1 line-clamp-1">"{log.workReport}"</p>}
+                 {log.workReport && <p className="text-[10px] text-slate-500 italic mt-1 line-clamp-2">"{log.workReport}"</p>}
+                 <div className="flex gap-2 mt-2">
+                    <span className="text-[8px] bg-slate-950 px-2 py-0.5 rounded text-slate-500 font-bold uppercase tracking-widest">{log.workMode || 'HORAS'}</span>
+                 </div>
                </div>
              ))}
+             {filteredHistory.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-600">
+                   <History size={48} className="mb-4 opacity-20" />
+                   <p className="text-xs font-bold uppercase tracking-widest">Sin registros encontrados</p>
+                </div>
+             )}
            </div>
         </div>
       );
@@ -422,19 +588,54 @@ function App() {
             <h2 className="text-xl font-black text-white">Herramientas</h2>
           </div>
           <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 mb-4 space-y-3 shadow-lg">
-             <input type="text" placeholder="Nombre" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white" value={newToolName} onChange={(e)=>setNewToolName(e.target.value)}/>
-             <div className="grid grid-cols-2 gap-2">
-               <select className="bg-slate-950 border border-slate-800 rounded-xl p-3 text-[10px] text-slate-400" value={newToolBrand} onChange={(e)=>setNewToolBrand(e.target.value)}>
-                 <option value="">Marca</option>
-                 {ELECTRICAL_BRANDS_LIST.map(b => <option key={b} value={b}>{b}</option>)}
-               </select>
-               <input type="text" placeholder="Modelo" className="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white" value={newToolModel} onChange={(e)=>setNewToolModel(e.target.value)}/>
+             <div className="space-y-1">
+                <label htmlFor="tool-input" className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Nombre Herramienta</label>
+                <input 
+                  id="tool-input"
+                  list="tools-list"
+                  type="text" 
+                  placeholder="Ej: Multímetro, Taladro..." 
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" 
+                  value={newToolName} 
+                  onChange={(e)=>setNewToolName(e.target.value)}
+                />
+                <datalist id="tools-list">
+                  {ELECTRICAL_TOOLS_LIST.map(tool => <option key={tool} value={tool} />)}
+                </datalist>
              </div>
-             <button onClick={handleAddTool} className="w-full bg-amber-600 text-white font-black py-3 rounded-xl uppercase text-[10px] tracking-widest">Añadir Equipo</button>
+
+             <div className="grid grid-cols-2 gap-2">
+               <div className="space-y-1">
+                 <label htmlFor="brand-input" className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Marca</label>
+                 <input 
+                    id="brand-input"
+                    list="brands-list"
+                    type="text" 
+                    placeholder="Marca" 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" 
+                    value={newToolBrand} 
+                    onChange={(e)=>setNewToolBrand(e.target.value)}
+                 />
+                 <datalist id="brands-list">
+                   {ELECTRICAL_BRANDS_LIST.map(brand => <option key={brand} value={brand} />)}
+                 </datalist>
+               </div>
+               <div className="space-y-1">
+                 <label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Modelo (Opcional)</label>
+                 <input 
+                    type="text" 
+                    placeholder="Modelo" 
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" 
+                    value={newToolModel} 
+                    onChange={(e)=>setNewToolModel(e.target.value)}
+                 />
+               </div>
+             </div>
+             <button onClick={handleAddTool} className="w-full bg-amber-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Añadir Equipo</button>
           </div>
           <div className="flex-1 overflow-y-auto space-y-2 pb-4 custom-scrollbar">
              {allTools.filter(t => t.workerId === selectedWorker?.id).map(tool => (
-               <div key={tool.id} className="bg-slate-900 border border-slate-800 p-3 rounded-2xl flex items-center justify-between">
+               <div key={tool.id} className="bg-slate-900 border border-slate-800 p-3 rounded-2xl flex items-center justify-between animate-slideUp">
                  <div className="flex items-center gap-3">
                    <div className="bg-slate-950 p-2 rounded-lg text-amber-500"><Wrench size={14} /></div>
                    <div>
@@ -445,6 +646,12 @@ function App() {
                  <button onClick={() => StorageService.deleteTool(tool.id)} className="text-slate-700 hover:text-rose-500 p-2"><Trash2 size={16} /></button>
                </div>
              ))}
+             {allTools.filter(t => t.workerId === selectedWorker?.id).length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 opacity-20">
+                   <Wrench size={40} className="mb-2" />
+                   <p className="text-[10px] font-black uppercase tracking-widest">Sin herramientas registradas</p>
+                </div>
+             )}
           </div>
         </div>
       );
@@ -456,21 +663,21 @@ function App() {
               <input type="text" placeholder="DNI / NIE" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/>
               <input type="tel" placeholder="Teléfono" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/>
               <div className="grid grid-cols-2 gap-3">
-                <input type="password" placeholder="PIN (4)" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPin} onChange={(e)=>setRegPin(e.target.value.replace(/\D/g,''))}/>
-                <input type="password" placeholder="Repetir" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPinConfirm} onChange={(e)=>setRegPinConfirm(e.target.value.replace(/\D/g,''))}/>
+                <input type="password" placeholder="PIN" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPin} onChange={(e)=>setRegPin(e.target.value.replace(/\D/g,''))}/>
+                <input type="password" placeholder="Confirm" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPinConfirm} onChange={(e)=>setRegPinConfirm(e.target.value.replace(/\D/g,''))}/>
               </div>
               <button onClick={handleRegistration} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs mt-4 active:scale-95 shadow-lg">Registrarme</button>
            </div>
         </div>
       );
-      default: return <div className="text-center p-10 text-slate-500">Error</div>;
+      default: return null;
     }
   };
 
   if (isAppLoading) return (
     <div className="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center">
        <div className="bg-blue-600 p-8 rounded-[3rem] mb-6 animate-pulse"><Zap size={64} className="text-white fill-white/20" /></div>
-       <h1 className="text-3xl font-black text-white tracking-tighter">CARMAGNE</h1>
+       <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Carmagne</h1>
     </div>
   );
 
@@ -482,7 +689,17 @@ function App() {
         isOpen={confirmState.isOpen}
         title="Confirmar"
         message={`¿Vas a registrar ${confirmState.action}?`}
-        onConfirm={handleConfirmAction}
+        onConfirm={() => {
+          const type = confirmState.action;
+          setConfirmState({ isOpen: false, action: null });
+          if (type === LogType.SALIDA) {
+            setExitWorkMode(selectedWorker?.defaultMode || 'HORAS');
+            setExitReportText('');
+            setCurrentStep(Step.REPORT_EXIT);
+          } else {
+            executeLogSubmission(type!);
+          }
+        }}
         onCancel={() => setConfirmState({ isOpen: false, action: null })}
         isDestructive={confirmState.action === LogType.SALIDA}
       />
@@ -517,7 +734,7 @@ function App() {
       </main>
 
       <footer className="h-10 flex items-center justify-center text-slate-800 text-[8px] font-black tracking-[0.5em] uppercase border-t border-slate-900 shrink-0">
-        Carmagne Solu 2024 • V4.4
+        Carmagne Solu 2024 • Build 5.0
       </footer>
     </div>
   );

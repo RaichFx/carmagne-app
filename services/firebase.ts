@@ -1,10 +1,10 @@
-import * as firebaseApp from 'firebase/app';
+
+import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
-// *** IMPORTANTE: PEGA AQUÍ TUS CREDENCIALES DE FIREBASE ***
-// Copia el objeto firebaseConfig de tu consola de Firebase
+// *** CREDENCIALES DE FIREBASE ***
 const firebaseConfig = {
-   apiKey: "AIzaSyCelLg2pqp1-lYi_IUgsv4FAoH4mN0WsAc",
+  apiKey: "AIzaSyCelLg2pqp1-lYi_IUgsv4FAoH4mN0WsAc",
   authDomain: "carmagne-instal-2024.firebaseapp.com",
   projectId: "carmagne-instal-2024",
   storageBucket: "carmagne-instal-2024.firebasestorage.app",
@@ -14,5 +14,5 @@ const firebaseConfig = {
 };
 
 // Inicializar Firebase
-const app = firebaseApp.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);

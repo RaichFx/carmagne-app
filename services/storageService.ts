@@ -12,7 +12,6 @@ const KEYS = {
   TOOLS: 'carmagne_tools',
 };
 
-// --- PREDEFINED ELECTRICAL CATALOG ---
 export const ELECTRICAL_TOOLS_LIST = [
   "Multímetro Digital", "Pinza Amperimétrica", "Pistola de Impacto", "Taladro Percutor",
   "Pelacables Automático", "Pelacables de Precisión", "Crimpadora RJ45", "Crimpadora de Terminales",
@@ -42,11 +41,37 @@ const loadLocal = <T>(key: string, initial: T): T => {
     return saved ? JSON.parse(saved) : initial;
   } catch (e) { return initial; }
 };
+
 const saveLocal = <T>(key: string, data: T): void => {
-  try { localStorage.setItem(key, JSON.stringify(data)); } catch (e) { console.error("Error saving local", e); }
+  try {
+    // Usamos un reemplazo para evitar errores circulares en el guardado local
+    const cache = new Set();
+    const safeJson = JSON.stringify(data, (key, value) => {
+      if (typeof value === 'object' && value !== null) {
+        if (cache.has(value)) return;
+        cache.add(value);
+      }
+      return value;
+    });
+    localStorage.setItem(key, safeJson);
+  } catch (e) { 
+    console.error("Error saving local", e); 
+  }
 };
 
-const sanitizeForFirebase = (data: any) => JSON.parse(JSON.stringify(data));
+// Función robusta para limpiar datos antes de enviarlos a Firestore
+const sanitizeForFirebase = (data: any) => {
+  if (!data) return data;
+  const cache = new Set();
+  const serialized = JSON.stringify(data, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (cache.has(value)) return; // Evita circularidad
+      cache.add(value);
+    }
+    return value;
+  });
+  return JSON.parse(serialized);
+};
 
 export const StorageService = {
   // --- TOOLS ---
@@ -91,14 +116,15 @@ export const StorageService = {
   },
   saveWorkers: async (workers: Worker[]) => {
     saveLocal(KEYS.WORKERS, workers);
-    try { await Promise.all(workers.map(w => setDoc(doc(db, "workers", w.id), sanitizeForFirebase(w)))); } catch (e) { }
+    try { 
+      await Promise.all(workers.map(w => setDoc(doc(db, "workers", w.id), sanitizeForFirebase(w)))); 
+    } catch (e) { }
   },
   deleteWorker: async (id: string) => {
     const workers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
     saveLocal(KEYS.WORKERS, workers.filter(w => w.id !== id));
     try { await deleteDoc(doc(db, "workers", id)); } catch (e) { }
   },
-  // Added fix: Implementation of subscribeToWorkers
   subscribeToWorkers: (callback: (workers: Worker[]) => void) => {
     callback(loadLocal(KEYS.WORKERS, INITIAL_WORKERS));
     try {
@@ -126,7 +152,6 @@ export const StorageService = {
     saveLocal(KEYS.SITES, sites.filter(s => s.id !== id));
     try { await deleteDoc(doc(db, "sites", id)); } catch (e) { }
   },
-  // Added fix: Implementation of subscribeToSites
   subscribeToSites: (callback: (sites: Site[]) => void) => {
     callback(loadLocal(KEYS.SITES, INITIAL_SITES));
     try {
@@ -150,7 +175,6 @@ export const StorageService = {
     saveLocal(KEYS.ADMINS, admins.filter(a => a.id !== id));
     try { await deleteDoc(doc(db, "admins", id)); } catch(e) { }
   },
-  // Added fix: Implementation of subscribeToAdmins
   subscribeToAdmins: (callback: (admins: AdminUser[]) => void) => {
     callback(loadLocal(KEYS.ADMINS, []));
     try {
@@ -174,7 +198,6 @@ export const StorageService = {
     saveLocal(KEYS.LOGS, logs.map(l => l.id === updatedLog.id ? updatedLog : l));
     try { await updateDoc(doc(db, "logs", updatedLog.id), sanitizeForFirebase(updatedLog)); } catch (e) { }
   },
-  // Added fix: Implementation of subscribeToLogs
   subscribeToLogs: (callback: (logs: WorkLog[]) => void) => {
     callback(loadLocal(KEYS.LOGS, []));
     try {
@@ -195,7 +218,11 @@ export const StorageService = {
     const config = loadLocal<AppConfig>(KEYS.CONFIG, INITIAL_CONFIG);
     if (!config.googleSheetUrl) return false;
     try {
-      await fetch(config.googleSheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'LOG', ...log }) });
+      await fetch(config.googleSheetUrl, { 
+        method: 'POST', 
+        mode: 'no-cors', 
+        body: JSON.stringify({ action: 'LOG', ...sanitizeForFirebase(log) }) 
+      });
       return true;
     } catch (error) { return false; }
   },
