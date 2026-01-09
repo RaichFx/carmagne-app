@@ -121,20 +121,65 @@ export const App: React.FC = () => {
 
   const isPhoneValidSpain = (phone: string): boolean => /^\+34[6789]\d{8}$/.test(phone);
 
+  /**
+   * LÓGICA DE ESTADO MEJORADA: 
+   * Calcula tiempo acumulado de trabajo ignorando descansos.
+   * IMPORTANTE: Si hay una SALIDA, el contador se reinicia a 0 para el próximo ciclo.
+   */
   const workerStatus = useMemo(() => {
     if (!selectedWorker) return null;
-    const logs = workerLogs.filter(l => l.workerId === selectedWorker.id);
-    if (logs.length === 0) return { type: 'INACTIVO', site: null, siteId: null, startTime: null };
-    const lastLog = logs[0];
     
-    if (lastLog.type === LogType.ENTRADA || lastLog.type === LogType.FIN_DESCANSO) {
-      return { type: 'TRABAJANDO', site: lastLog.siteName, siteId: lastLog.siteId, startTime: lastLog.timestamp };
+    const today = new Date().toLocaleDateString('es-ES');
+    const allTodayLogs = workerLogs
+      .filter(l => l.workerId === selectedWorker.id && l.dateStr === today)
+      .slice()
+      .reverse(); // Cronológico (más antiguo primero)
+
+    // Buscamos el índice de la última SALIDA registrada hoy.
+    // Usamos reverse loop para encontrar la última ocurrencia del tipo SALIDA.
+    let lastSalidaIndex = -1;
+    for (let i = allTodayLogs.length - 1; i >= 0; i--) {
+      if (allTodayLogs[i].type === LogType.SALIDA) {
+        lastSalidaIndex = i;
+        break;
+      }
     }
-    if (lastLog.type === LogType.INICIO_DESCANSO) {
-      return { type: 'DESCANSO', site: lastLog.siteName, siteId: lastLog.siteId, startTime: lastLog.timestamp };
+
+    // Solo procesamos logs que ocurrieron DESPUÉS de la última salida.
+    // Esto asegura que al clock-out el contador vuelva a 0.
+    const currentSessionLogs = lastSalidaIndex === -1 ? allTodayLogs : allTodayLogs.slice(lastSalidaIndex + 1);
+
+    let accumulatedTime = 0;
+    let currentSessionStart: number | null = null;
+    let currentState: 'INACTIVO' | 'TRABAJANDO' | 'DESCANSO' = 'INACTIVO';
+    let currentSite = null;
+    let currentSiteId = null;
+
+    for (const log of currentSessionLogs) {
+      if (log.type === LogType.ENTRADA || log.type === LogType.FIN_DESCANSO) {
+        currentSessionStart = log.timestamp;
+        currentState = 'TRABAJANDO';
+        currentSite = log.siteName;
+        currentSiteId = log.siteId;
+      } else if (log.type === LogType.INICIO_DESCANSO) {
+        if (currentSessionStart) {
+          accumulatedTime += (log.timestamp - currentSessionStart);
+          currentSessionStart = null;
+        }
+        currentState = 'DESCANSO';
+        currentSite = log.siteName;
+        currentSiteId = log.siteId;
+      }
+      // LogType.SALIDA no aparece aquí porque filtramos currentSessionLogs para empezar después de la última salida.
     }
-    
-    return { type: 'INACTIVO', site: null, siteId: null, startTime: null };
+
+    return {
+      type: currentState,
+      site: currentSite,
+      siteId: currentSiteId,
+      accumulatedTime: currentState === 'INACTIVO' ? 0 : accumulatedTime,
+      currentSessionStart // Inicio del tramo actual (si está trabajando)
+    };
   }, [workerLogs, selectedWorker]);
 
   const filteredHistory = useMemo(() => {
@@ -192,11 +237,23 @@ export const App: React.FC = () => {
     doc.save(`Historial_${selectedWorker?.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
-  const formatElapsed = (startTime: number) => {
-    const diff = currentTime.getTime() - startTime;
-    const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor((diff % 3600000) / 60000);
-    const seconds = Math.floor((diff % 60000) / 1000);
+  const formatElapsedToday = () => {
+    if (!workerStatus) return "00:00:00";
+    
+    // Si está inactivo, siempre mostramos 00:00:00 como pidió el usuario
+    if (workerStatus.type === 'INACTIVO') return "00:00:00";
+
+    let totalMs = workerStatus.accumulatedTime;
+    
+    // Si está trabajando actualmente, sumamos el tiempo del tramo en curso
+    if (workerStatus.type === 'TRABAJANDO' && workerStatus.currentSessionStart) {
+      totalMs += (currentTime.getTime() - workerStatus.currentSessionStart);
+    }
+    
+    const hours = Math.floor(totalMs / 3600000);
+    const minutes = Math.floor((totalMs % 3600000) / 60000);
+    const seconds = Math.floor((totalMs % 60000) / 1000);
+    
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
@@ -234,7 +291,6 @@ export const App: React.FC = () => {
   };
 
   const handleActionSelect = (type: LogType) => {
-    // Restricción: No se puede dar salida si se está en descanso
     if (type === LogType.SALIDA) {
       if (workerStatus?.type === 'DESCANSO') {
         setError("Primero debes finalizar el descanso antes de dar salida.");
@@ -243,7 +299,6 @@ export const App: React.FC = () => {
       setCurrentStep(Step.REPORT_EXIT);
       return;
     }
-    setConfirmState({ isOpen: true, action: null });
     setConfirmState({ isOpen: true, action: type });
   };
 
@@ -265,7 +320,7 @@ export const App: React.FC = () => {
 
   const handleAddTool = async () => {
     if (!newToolName || !selectedWorker) return;
-    const tool: ToolRecord = { id: `T-${Date.now()}`, workerId: selectedWorker.id, workerName: selectedWorker.name, toolName: newToolName, brand: newToolBrand, model: newToolModel, timestamp: Date.now(), dateStr: new Date().toLocaleDateString('es-ES'), timeStr: newToolModel };
+    const tool: ToolRecord = { id: `T-${Date.now()}`, workerId: selectedWorker.id, workerName: selectedWorker.name, toolName: newToolName, brand: newToolBrand, model: newToolModel, timestamp: Date.now(), dateStr: new Date().toLocaleDateString('es-ES'), timeStr: new Date().toLocaleTimeString('es-ES') };
     await StorageService.addTool(tool); setNewToolName(''); setNewToolBrand(''); setNewToolModel('');
   };
 
@@ -295,7 +350,10 @@ export const App: React.FC = () => {
              {workerStatus?.site && <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mt-1 flex items-center gap-1"><MapPin size={10} /> {workerStatus.site}</p>}
            </div>
          </div>
-         {workerStatus?.startTime && <div className="bg-black/20 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 z-10"><span className="text-lg font-mono font-black text-white">{formatElapsed(workerStatus.startTime)}</span></div>}
+         {/* Contador acumulativo que solo suma tiempo de trabajo efectivo */}
+         <div className="bg-black/20 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 z-10">
+           <span className="text-lg font-mono font-black text-white">{formatElapsedToday()}</span>
+         </div>
          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
       </div>
       <div className="grid grid-cols-1 gap-3 flex-1 overflow-hidden">
