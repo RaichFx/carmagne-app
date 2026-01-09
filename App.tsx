@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   User, MapPin, CheckCircle, 
@@ -7,7 +8,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StorageService, ELECTRICAL_TOOLS_LIST, ELECTRICAL_BRANDS_LIST } from './services/storageService';
 import { LocationService } from './services/locationService';
-import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser, ToolRecord } from './types';
+import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser, ToolRecord, AppConfig } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
 import { ConfirmationModal } from './components/ConfirmationModal';
@@ -32,9 +33,23 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
-const AppLogo = ({ className, size = "md" }: { className?: string, size?: "sm" | "md" | "lg" }) => {
-  const iconSize = size === "sm" ? 28 : size === "md" ? 64 : size === "lg" ? 140 : 64;
+const AppLogo = ({ className, size = "md", logoUrl, scale = 1.0 }: { className?: string, size?: "sm" | "md" | "lg", logoUrl?: string, scale?: number }) => {
+  const baseSize = size === "sm" ? 28 : size === "md" ? 64 : size === "lg" ? 140 : 64;
+  const iconSize = baseSize * scale;
   
+  if (logoUrl) {
+    return (
+      <div className={`relative flex items-center justify-center ${className}`}>
+        <img 
+          src={logoUrl} 
+          alt="Company Logo" 
+          style={{ width: iconSize, height: iconSize }} 
+          className="object-contain rounded-2xl drop-shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={`relative flex items-center justify-center ${className} text-blue-500`}>
       <Zap 
@@ -63,6 +78,7 @@ export const App: React.FC = () => {
   const [confirmState, setConfirmState] = useState<{isOpen: boolean; action: LogType | null;}>({ isOpen: false, action: null });
 
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [appConfig, setAppConfig] = useState<AppConfig>(StorageService.getConfig());
 
   // History states
   const [historySearch, setHistorySearch] = useState('');
@@ -97,19 +113,67 @@ export const App: React.FC = () => {
     setWorkerLogs(StorageService.getLogs()); 
     setAdmins(StorageService.getAdmins());
     setAllTools(StorageService.getTools());
+    setAppConfig(StorageService.getConfig());
 
     const unsubWorkers = StorageService.subscribeToWorkers(setWorkers);
     const unsubSites = StorageService.subscribeToSites(setSites);
     const unsubLogs = StorageService.subscribeToLogs(setWorkerLogs);
     const unsubAdmins = StorageService.subscribeToAdmins(setAdmins);
     const unsubTools = StorageService.subscribeToTools(setAllTools);
+    const unsubConfig = StorageService.subscribeToConfig(setAppConfig);
     
     return () => {
       clearTimeout(timer);
       clearInterval(interval);
-      unsubWorkers(); unsubSites(); unsubLogs(); unsubAdmins(); unsubTools();
+      unsubWorkers(); unsubSites(); unsubLogs(); unsubAdmins(); unsubTools(); unsubConfig();
     };
   }, []);
+
+  const filteredHistory = useMemo(() => {
+    if (!selectedWorker) return [];
+    let baseHistory = workerLogs.filter(l => l.workerId === selectedWorker.id);
+    if (historyPeriod === 'WEEK') {
+      const pickedDate = new Date(selectedDate);
+      const day = pickedDate.getDay();
+      const diffToMonday = pickedDate.getDate() - day + (day === 0 ? -6 : 1);
+      const startOfWeek = new Date(pickedDate);
+      startOfWeek.setDate(diffToMonday);
+      startOfWeek.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+      baseHistory = baseHistory.filter(l => l.timestamp >= startOfWeek.getTime() && l.timestamp <= endOfWeek.getTime());
+    } else if (historyPeriod === 'MONTH') {
+      baseHistory = baseHistory.filter(l => {
+        const logDate = new Date(l.timestamp);
+        return logDate.getMonth() === selectedMonth && logDate.getFullYear() === new Date().getFullYear();
+      });
+    }
+    if (historySearch) {
+      const q = historySearch.toLowerCase();
+      baseHistory = baseHistory.filter(l => l.siteName.toLowerCase().includes(q) || (l.workReport || '').toLowerCase().includes(q));
+    }
+    return baseHistory;
+  }, [workerLogs, selectedWorker, historySearch, historyPeriod, selectedMonth, selectedDate]);
+
+  const handleDownloadPDF = () => {
+    if (!selectedWorker) return;
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.setTextColor(15, 23, 42);
+    doc.text("Historial de Actividad - CARMAGNE INSTAL SL", 105, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(`Operario: ${selectedWorker.name}`, 105, 25, { align: 'center' });
+    const tableData = filteredHistory.map(l => [l.dateStr, l.timeStr, l.type, l.siteName, l.workMode || 'HORAS', l.workReport || '-']);
+    autoTable(doc, {
+      startY: 35,
+      head: [['Fecha', 'Hora', 'Acción', 'Obra', 'Modo', 'Reporte']],
+      body: tableData,
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+      styles: { fontSize: 8 }
+    });
+    doc.save(`Historial_${selectedWorker.name.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+  };
 
   const processSpanishPhone = (phone: string): string => {
     let cleaned = phone.trim().replace(/\s/g, '');
@@ -121,140 +185,57 @@ export const App: React.FC = () => {
 
   const isPhoneValidSpain = (phone: string): boolean => /^\+34[6789]\d{8}$/.test(phone);
 
-  /**
-   * LÓGICA DE ESTADO MEJORADA: 
-   * Calcula tiempo acumulado de trabajo ignorando descansos.
-   * IMPORTANTE: Si hay una SALIDA, el contador se reinicia a 0 para el próximo ciclo.
-   */
   const workerStatus = useMemo(() => {
     if (!selectedWorker) return null;
-    
     const today = new Date().toLocaleDateString('es-ES');
-    const allTodayLogs = workerLogs
-      .filter(l => l.workerId === selectedWorker.id && l.dateStr === today)
-      .slice()
-      .reverse(); // Cronológico (más antiguo primero)
-
-    // Buscamos el índice de la última SALIDA registrada hoy.
-    // Usamos reverse loop para encontrar la última ocurrencia del tipo SALIDA.
+    const allTodayLogs = workerLogs.filter(l => l.workerId === selectedWorker.id && l.dateStr === today).slice().reverse();
     let lastSalidaIndex = -1;
-    for (let i = allTodayLogs.length - 1; i >= 0; i--) {
-      if (allTodayLogs[i].type === LogType.SALIDA) {
-        lastSalidaIndex = i;
-        break;
-      }
-    }
-
-    // Solo procesamos logs que ocurrieron DESPUÉS de la última salida.
-    // Esto asegura que al clock-out el contador vuelva a 0.
+    for (let i = allTodayLogs.length - 1; i >= 0; i--) { if (allTodayLogs[i].type === LogType.SALIDA) { lastSalidaIndex = i; break; } }
     const currentSessionLogs = lastSalidaIndex === -1 ? allTodayLogs : allTodayLogs.slice(lastSalidaIndex + 1);
-
-    let accumulatedTime = 0;
-    let currentSessionStart: number | null = null;
+    let accumulatedWorkTime = 0;
+    let accumulatedBreakTime = 0;
+    let currentWorkStart: number | null = null;
+    let currentBreakStart: number | null = null;
     let currentState: 'INACTIVO' | 'TRABAJANDO' | 'DESCANSO' = 'INACTIVO';
     let currentSite = null;
     let currentSiteId = null;
-
     for (const log of currentSessionLogs) {
       if (log.type === LogType.ENTRADA || log.type === LogType.FIN_DESCANSO) {
-        currentSessionStart = log.timestamp;
+        if (currentBreakStart) { accumulatedBreakTime += (log.timestamp - currentBreakStart); currentBreakStart = null; }
+        currentWorkStart = log.timestamp;
         currentState = 'TRABAJANDO';
         currentSite = log.siteName;
         currentSiteId = log.siteId;
       } else if (log.type === LogType.INICIO_DESCANSO) {
-        if (currentSessionStart) {
-          accumulatedTime += (log.timestamp - currentSessionStart);
-          currentSessionStart = null;
-        }
+        if (currentWorkStart) { accumulatedWorkTime += (log.timestamp - currentWorkStart); currentWorkStart = null; }
+        currentBreakStart = log.timestamp;
         currentState = 'DESCANSO';
         currentSite = log.siteName;
         currentSiteId = log.siteId;
       }
-      // LogType.SALIDA no aparece aquí porque filtramos currentSessionLogs para empezar después de la última salida.
     }
-
-    return {
-      type: currentState,
-      site: currentSite,
-      siteId: currentSiteId,
-      accumulatedTime: currentState === 'INACTIVO' ? 0 : accumulatedTime,
-      currentSessionStart // Inicio del tramo actual (si está trabajando)
-    };
+    return { type: currentState, site: currentSite, siteId: currentSiteId, accumulatedWorkTime, currentWorkStart, accumulatedBreakTime, currentBreakStart };
   }, [workerLogs, selectedWorker]);
 
-  const filteredHistory = useMemo(() => {
-    if (!selectedWorker) return [];
-    let list = workerLogs.filter(l => l.workerId === selectedWorker.id);
-    
-    if (historyPeriod === 'WEEK') {
-      const pickedDate = new Date(selectedDate);
-      const day = pickedDate.getDay(); 
-      const diffToMonday = pickedDate.getDate() - day + (day === 0 ? -6 : 1);
-      const startOfWeek = new Date(pickedDate.setDate(diffToMonday));
-      startOfWeek.setHours(0, 0, 0, 0);
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
-      endOfWeek.setHours(23, 59, 59, 999);
-      list = list.filter(l => l.timestamp >= startOfWeek.getTime() && l.timestamp <= endOfWeek.getTime());
-    } else if (historyPeriod === 'MONTH') {
-      const year = new Date().getFullYear();
-      const startOfMonth = new Date(year, selectedMonth, 1);
-      const endOfMonth = new Date(year, selectedMonth + 1, 0, 23, 59, 59, 999);
-      list = list.filter(l => l.timestamp >= startOfMonth.getTime() && l.timestamp <= endOfMonth.getTime());
-    }
-
-    if (historySearch) {
-      const query = historySearch.toLowerCase();
-      list = list.filter(l => l.siteName.toLowerCase().includes(query) || (l.workReport || '').toLowerCase().includes(query));
-    }
-    return list;
-  }, [workerLogs, selectedWorker, historyPeriod, historySearch, selectedMonth, selectedDate]);
-
-  const handleDownloadPDF = () => {
-    if (filteredHistory.length === 0) return;
-    const doc = new jsPDF();
-    const title = `Informe de Actividad - ${selectedWorker?.name}`;
-    let periodLabel = 'Historial Completo';
-    if (historyPeriod === 'WEEK') {
-      const pickedDate = new Date(selectedDate);
-      const day = pickedDate.getDay();
-      const diffToMonday = pickedDate.getDate() - day + (day === 0 ? -6 : 1);
-      const start = new Date(pickedDate.setDate(diffToMonday));
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      periodLabel = `Semana del ${start.toLocaleDateString()} al ${end.toLocaleDateString()}`;
-    } else if (historyPeriod === 'MONTH') {
-      periodLabel = `Mes de ${MONTH_NAMES[selectedMonth]} ${new Date().getFullYear()}`;
-    }
-    doc.setFontSize(18);
-    doc.text("CARMAGNE INSTAL SL 2024", 105, 15, { align: 'center' });
-    doc.setFontSize(12);
-    doc.text(title, 105, 25, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text(`${periodLabel} | Generado el: ${new Date().toLocaleDateString()}`, 105, 32, { align: 'center' });
-    const tableData = filteredHistory.map(log => [log.dateStr, log.timeStr, log.type, log.siteName, log.workMode || 'HORAS', log.workReport || '-']);
-    autoTable(doc, { startY: 40, head: [['Fecha', 'Hora', 'Acción', 'Obra', 'Modo', 'Reporte']], body: tableData, headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255] }, alternateRowStyles: { fillColor: [245, 245, 245] }, styles: { fontSize: 8 } });
-    doc.save(`Historial_${selectedWorker?.name.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`);
+  const formatMsToTime = (ms: number) => {
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
+    const seconds = Math.floor((ms % 60000) / 1000);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  const formatElapsedToday = () => {
-    if (!workerStatus) return "00:00:00";
-    
-    // Si está inactivo, siempre mostramos 00:00:00 como pidió el usuario
-    if (workerStatus.type === 'INACTIVO') return "00:00:00";
+  const getEffectiveWorkTime = () => {
+    if (!workerStatus) return 0;
+    let total = workerStatus.accumulatedWorkTime;
+    if (workerStatus.type === 'TRABAJANDO' && workerStatus.currentWorkStart) total += (currentTime.getTime() - workerStatus.currentWorkStart);
+    return total;
+  };
 
-    let totalMs = workerStatus.accumulatedTime;
-    
-    // Si está trabajando actualmente, sumamos el tiempo del tramo en curso
-    if (workerStatus.type === 'TRABAJANDO' && workerStatus.currentSessionStart) {
-      totalMs += (currentTime.getTime() - workerStatus.currentSessionStart);
-    }
-    
-    const hours = Math.floor(totalMs / 3600000);
-    const minutes = Math.floor((totalMs % 3600000) / 60000);
-    const seconds = Math.floor((totalMs % 60000) / 1000);
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const getEffectiveBreakTime = () => {
+    if (!workerStatus) return 0;
+    let total = workerStatus.accumulatedBreakTime;
+    if (workerStatus.type === 'DESCANSO' && workerStatus.currentBreakStart) total += (currentTime.getTime() - workerStatus.currentBreakStart);
+    return total;
   };
 
   const handlePhoneLogin = () => {
@@ -263,7 +244,7 @@ export const App: React.FC = () => {
     const worker = workers.find(w => w.phone && processSpanishPhone(w.phone) === formattedPhone);
     if (worker) {
       if (!worker.active) { setError("Cuenta desactivada."); return; }
-      setSelectedWorker(worker); setPinInput(''); setError(''); setCurrentStep(Step.AUTHENTICATE);
+      setSelectedWorker(worker); setPinInput(''); setError(''); setCurrentStep(Step.WORKER_DASHBOARD);
     } else if(confirm("Este número no está registrado. ¿Quieres crear una cuenta nueva?")) {
       setRegPhone(formattedPhone); setError(''); setCurrentStep(Step.REGISTER);
     }
@@ -292,12 +273,8 @@ export const App: React.FC = () => {
 
   const handleActionSelect = (type: LogType) => {
     if (type === LogType.SALIDA) {
-      if (workerStatus?.type === 'DESCANSO') {
-        setError("Primero debes finalizar el descanso antes de dar salida.");
-        return;
-      }
-      setCurrentStep(Step.REPORT_EXIT);
-      return;
+      if (workerStatus?.type === 'DESCANSO') { setError("Primero debes finalizar el descanso antes de dar salida."); return; }
+      setCurrentStep(Step.REPORT_EXIT); return;
     }
     setConfirmState({ isOpen: true, action: type });
   };
@@ -333,41 +310,52 @@ export const App: React.FC = () => {
 
   const renderWorkerDashboard = () => (
     <div className="flex flex-col gap-4 animate-fadeIn h-full overflow-hidden">
-      <div className="flex justify-between items-center h-12">
+      <div className="flex justify-between items-center h-12 shrink-0">
         <div className="flex flex-col">
           <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Trabajador</span>
           <span className="text-lg font-black text-white leading-none">{selectedWorker?.name}</span>
         </div>
         <button onClick={resetApp} className="text-slate-400 p-2.5 bg-slate-900 rounded-xl border border-slate-800"><LogOut size={18} /></button>
       </div>
-      <div className={`rounded-3xl p-5 shadow-xl relative overflow-hidden flex items-center justify-between border border-white/5 ${workerStatus?.type === 'TRABAJANDO' ? 'bg-gradient-to-r from-emerald-600 to-teal-800' : workerStatus?.type === 'DESCANSO' ? 'bg-gradient-to-r from-amber-500 to-orange-700' : 'bg-gradient-to-r from-blue-600 to-indigo-800'}`}>
-         <div className="relative z-10 flex items-center gap-4">
-           <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
-             {workerStatus?.type === 'TRABAJANDO' ? <Zap size={28} className="text-white fill-white/20" /> : workerStatus?.type === 'DESCANSO' ? <Coffee size={28} className="text-white" /> : <Clock size={28} className="text-white" />}
-           </div>
-           <div>
-             <h2 className="text-xl font-black text-white leading-none">{workerStatus?.type === 'TRABAJANDO' ? 'Trabajando' : workerStatus?.type === 'DESCANSO' ? 'En Pausa' : 'Sin Obra'}</h2>
-             {workerStatus?.site && <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mt-1 flex items-center gap-1"><MapPin size={10} /> {workerStatus.site}</p>}
+
+      <div className={`rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col gap-4 border border-white/5 transition-colors duration-500 ${workerStatus?.type === 'TRABAJANDO' ? 'bg-gradient-to-r from-emerald-600 to-teal-800' : workerStatus?.type === 'DESCANSO' ? 'bg-gradient-to-r from-amber-500/80 to-orange-700/80' : 'bg-gradient-to-r from-blue-600 to-indigo-800'}`}>
+         <div className="relative z-10 flex items-center justify-between">
+           <div className="flex items-center gap-4">
+              <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
+                {workerStatus?.type === 'TRABAJANDO' ? <Zap size={28} className="text-white fill-white/20" /> : workerStatus?.type === 'DESCANSO' ? <Coffee size={28} className="text-white" /> : <Clock size={28} className="text-white" />}
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-white leading-none">{workerStatus?.type === 'TRABAJANDO' ? 'Trabajando' : workerStatus?.type === 'DESCANSO' ? 'En Pausa' : 'Sin Obra'}</h2>
+                {workerStatus?.site && <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mt-1 flex items-center gap-1"><MapPin size={10} /> {workerStatus.site}</p>}
+              </div>
            </div>
          </div>
-         {/* Contador acumulativo que solo suma tiempo de trabajo efectivo */}
-         <div className="bg-black/20 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 z-10">
-           <span className="text-lg font-mono font-black text-white">{formatElapsedToday()}</span>
+         <div className="relative z-10 flex flex-col gap-2">
+            <div className="flex justify-between items-end bg-black/20 p-4 rounded-2xl backdrop-blur-sm border border-white/10">
+               <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-white/50 uppercase tracking-widest">Tiempo de Trabajo</span>
+                  <span className={`text-2xl font-mono font-black text-white ${workerStatus?.type === 'TRABAJANDO' ? 'animate-pulse' : ''}`}>{formatMsToTime(getEffectiveWorkTime())}</span>
+               </div>
+               {workerStatus?.type === 'DESCANSO' && <div className="flex flex-col items-end"><span className="text-[8px] font-black text-amber-300 uppercase tracking-widest">En Pausa</span><div className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></div></div>}
+            </div>
+            {(getEffectiveBreakTime() > 0 || workerStatus?.type === 'DESCANSO') && (
+              <div className="flex justify-between items-center bg-amber-900/40 p-3 rounded-xl border border-amber-500/20">
+                <div className="flex items-center gap-2"><Coffee size={14} className="text-amber-400" /><span className="text-[9px] font-black text-amber-200 uppercase tracking-widest">Tiempo de Descanso</span></div>
+                <span className={`text-sm font-mono font-black text-amber-400 ${workerStatus?.type === 'DESCANSO' ? 'animate-pulse' : ''}`}>{formatMsToTime(getEffectiveBreakTime())}</span>
+              </div>
+            )}
          </div>
-         <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-12 -mt-12 blur-2xl"></div>
+         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
       </div>
+
       <div className="grid grid-cols-1 gap-3 flex-1 overflow-hidden">
          <button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="group bg-slate-900 border border-slate-800 p-5 rounded-[2rem] flex items-center justify-between shadow-lg active:scale-95 transition-all">
            <div><span className="block text-xl font-black text-white">Nuevo Fichaje</span><span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Registrar Movimiento</span></div>
            <div className="bg-blue-600/10 p-4 rounded-2xl text-blue-500"><Timer size={28} /></div>
          </button>
          <div className="grid grid-cols-2 gap-3">
-           <button onClick={() => setCurrentStep(Step.WORKER_HISTORY)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-slate-800">
-             <div className="text-emerald-500"><History size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Historial</span>
-           </button>
-           <button onClick={() => setCurrentStep(Step.WORKER_TOOLS)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-slate-800">
-             <div className="text-amber-500"><Wrench size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Equipos</span>
-           </button>
+           <button onClick={() => setCurrentStep(Step.WORKER_HISTORY)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-slate-800"><div className="text-emerald-500"><History size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Historial</span></button>
+           <button onClick={() => setCurrentStep(Step.WORKER_TOOLS)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-slate-800"><div className="text-amber-500"><Wrench size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Equipos</span></button>
          </div>
       </div>
     </div>
@@ -377,7 +365,7 @@ export const App: React.FC = () => {
     switch(currentStep) {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
-          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" /></div><h2 className="text-3xl font-black text-white tracking-tighter">CARMAGNE INSTAL SL</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
+          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="text-3xl font-black text-white tracking-tighter">CARMAGNE INSTAL SL</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
           <div className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800"><input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-5 text-2xl font-black focus:border-blue-500 outline-none text-center tracking-widest" placeholder="600000000"/><button onClick={handlePhoneLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg mt-6 flex items-center justify-center gap-3 active:scale-95 uppercase text-xs tracking-widest">Entrar <ArrowRight size={16} /></button></div>
           <button onClick={() => setShowAdminLogin(true)} className="text-slate-800 text-[10px] font-black uppercase tracking-[0.4em] text-center">Admin Panel</button>
         </div>
@@ -392,133 +380,30 @@ export const App: React.FC = () => {
       case Step.WORKER_DASHBOARD: return renderWorkerDashboard();
       case Step.SELECT_SITE: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-           <div className="flex items-center gap-4 mb-4"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Selecciona Obra</h2></div>
-           
-           {workerStatus?.type !== 'INACTIVO' && (
-             <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl mb-4 flex items-start gap-3">
-                <Info size={20} className="text-blue-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-blue-200 font-bold uppercase tracking-wider leading-relaxed">
-                   Tienes una sesión activa en <span className="text-white font-black underline">{workerStatus.site}</span>. 
-                   Debes finalizarla para poder fichar en otra obra.
-                </p>
-             </div>
-           )}
-
-           <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">
-             {sites.map(site => {
-               const isActiveSite = workerStatus?.siteId === site.id;
-               const isLocked = workerStatus?.type !== 'INACTIVO' && !isActiveSite;
-
-               return (
-                 <button 
-                  key={site.id} 
-                  disabled={isLocked}
-                  onClick={() => {
-                    if (isLocked) return;
-                    setSelectedSite(site); 
-                    setCurrentStep(Step.SELECT_ACTION);
-                  }} 
-                  className={`w-full p-4 rounded-[1.5rem] border text-left transition-all ${
-                    isActiveSite 
-                      ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]' 
-                      : isLocked 
-                        ? 'bg-slate-900/30 border-slate-900 opacity-40 grayscale' 
-                        : 'bg-slate-900 border-slate-800 hover:border-blue-500 active:scale-95'
-                  }`}
-                 >
-                   <div className="flex justify-between items-start">
-                     <div className="max-w-[75%]">
-                        <h3 className="font-black text-white text-sm uppercase tracking-tight">{site.name}</h3>
-                        <p className="text-[9px] text-slate-500 truncate uppercase font-bold mt-1">{site.address}</p>
-                     </div>
-                     {isActiveSite && (
-                       <span className="bg-blue-600 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Sesión Activa</span>
-                     )}
-                     {isLocked && (
-                       <Lock size={14} className="text-slate-700" />
-                     )}
-                   </div>
-                 </button>
-               );
-             })}
-           </div>
+           <div className="flex items-center gap-4 mb-4 shrink-0"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Selecciona Obra</h2></div>
+           {workerStatus?.type !== 'INACTIVO' && (<div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl mb-4 flex items-start gap-3 shrink-0"><Info size={20} className="text-blue-500 shrink-0 mt-0.5" /><p className="text-[10px] text-blue-200 font-bold uppercase tracking-wider leading-relaxed">Tienes una sesión activa en <span className="text-white font-black underline">{workerStatus.site}</span>. Debes finalizarla para poder fichar en otra obra.</p></div>)}
+           <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">{sites.map(site => { const isActiveSite = workerStatus?.siteId === site.id; const isLocked = workerStatus?.type !== 'INACTIVO' && !isActiveSite; return (<button key={site.id} disabled={isLocked} onClick={() => { if (isLocked) return; setSelectedSite(site); setCurrentStep(Step.SELECT_ACTION); }} className={`w-full p-4 rounded-[1.5rem] border text-left transition-all ${isActiveSite ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : isLocked ? 'bg-slate-900/30 border-slate-900 opacity-40 grayscale' : 'bg-slate-900 border-slate-800 hover:border-blue-500 active:scale-95'}`}><div className="flex justify-between items-start"><div className="max-w-[75%]"><h3 className="font-black text-white text-sm uppercase tracking-tight">{site.name}</h3><p className="text-[9px] text-slate-500 truncate uppercase font-bold mt-1">{site.address}</p></div>{isActiveSite && (<span className="bg-blue-600 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Sesión Activa</span>)}{isLocked && (<Lock size={14} className="text-slate-700" />)}</div></button>); })}</div>
         </div>
       );
       case Step.SELECT_ACTION: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-           <div className="flex items-center gap-4 mb-6"><button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Acción en Obra</h2><p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">{selectedSite?.name}</p></div></div>
-           
-           {/* Advertencia de flujo de descanso -> salida */}
-           {workerStatus?.type === 'DESCANSO' && workerStatus.siteId === selectedSite?.id && (
-              <div className="bg-amber-600/10 border border-amber-500/30 p-4 rounded-2xl mb-6 flex items-start gap-3 animate-pulse">
-                <AlertCircle size={20} className="text-amber-500 shrink-0" />
-                <p className="text-[10px] text-amber-200 font-bold uppercase tracking-tight leading-relaxed">
-                  Estás en descanso. Debes pulsar <span className="text-white font-black underline">Fin Descanso</span> antes de poder registrar la salida.
-                </p>
-              </div>
-           )}
-
-           {workerStatus?.type !== 'INACTIVO' && workerStatus.siteId !== selectedSite?.id && (
-             <div className="bg-rose-500/10 border border-rose-500/20 p-5 rounded-3xl mb-6 flex flex-col items-center text-center gap-3">
-                <AlertTriangle size={32} className="text-rose-500" />
-                <p className="text-xs font-black text-white uppercase tracking-tighter">Acceso Restringido</p>
-                <p className="text-[10px] text-rose-200 font-bold uppercase leading-relaxed">
-                  No puedes fichar en esta obra porque tienes una sesión abierta en <span className="underline">{workerStatus.site}</span>.
-                </p>
-                <button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="mt-2 text-[10px] font-black text-blue-400 uppercase tracking-widest bg-blue-400/10 px-4 py-2 rounded-xl">Volver a Selección</button>
-             </div>
-           )}
-
+           <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Acción en Obra</h2><p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">{selectedSite?.name}</p></div></div>
+           {workerStatus?.type === 'DESCANSO' && workerStatus.siteId === selectedSite?.id && (<div className="bg-amber-600/10 border border-amber-500/30 p-4 rounded-2xl mb-6 flex items-start gap-3 animate-pulse shrink-0"><AlertCircle size={20} className="text-amber-500 shrink-0" /><p className="text-[10px] text-amber-200 font-bold uppercase tracking-tight leading-relaxed">Estás en descanso. Debes pulsar <span className="text-white font-black underline">Fin Descanso</span> antes de poder registrar la salida.</p></div>)}
            <div className="grid grid-cols-2 gap-3 flex-1 pb-4">
-             <button 
-                disabled={workerStatus?.type !== 'INACTIVO' || (workerStatus?.type !== 'INACTIVO' && workerStatus.siteId !== selectedSite?.id)} 
-                onClick={() => handleActionSelect(LogType.ENTRADA)} 
-                className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${
-                  (workerStatus?.type !== 'INACTIVO') ? 'opacity-40 grayscale pointer-events-none' : ''
-                }`}
-             >
-                <Zap size={32} /> <span className="text-sm font-black uppercase">Entrada</span>
-             </button>
-             
-             <button 
-                disabled={workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id} 
-                onClick={() => handleActionSelect(LogType.SALIDA)} 
-                className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${
-                  (workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''
-                }`}
-             >
-                <LogOut size={32} /> <span className="text-sm font-black uppercase">Salida</span>
-             </button>
-             
-             <button 
-                disabled={workerStatus?.type !== 'TRABAJANDO' || workerStatus?.siteId !== selectedSite?.id} 
-                onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} 
-                className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${
-                  (workerStatus?.type !== 'TRABAJANDO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''
-                }`}
-             >
-                <Coffee size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Ini Descanso</span>
-             </button>
-             
-             <button 
-                disabled={workerStatus?.type !== 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id} 
-                onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} 
-                className={`bg-blue-600/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-blue-500 active:bg-blue-600 active:text-white transition-all ${
-                  (workerStatus?.type !== 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''
-                }`}
-             >
-                <Timer size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Fin Descanso</span>
-             </button>
+             <button disabled={workerStatus?.type !== 'INACTIVO' || (workerStatus?.type !== 'INACTIVO' && workerStatus.siteId !== selectedSite?.id)} onClick={() => handleActionSelect(LogType.ENTRADA)} className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${(workerStatus?.type !== 'INACTIVO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Zap size={32} /> <span className="text-sm font-black uppercase">Entrada</span></button>
+             <button disabled={workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id} onClick={() => handleActionSelect(LogType.SALIDA)} className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${(workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''}`}><LogOut size={32} /> <span className="text-sm font-black uppercase">Salida</span></button>
+             <button disabled={workerStatus?.type !== 'TRABAJANDO' || workerStatus?.siteId !== selectedSite?.id} onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${(workerStatus?.type !== 'TRABAJANDO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Coffee size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Ini Descanso</span></button>
+             <button disabled={workerStatus?.type !== 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id} onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} className={`bg-blue-600/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-blue-500 active:bg-blue-600 active:text-white transition-all ${(workerStatus?.type !== 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Timer size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Fin Descanso</span></button>
            </div>
         </div>
       );
       case Step.REPORT_EXIT: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
-           <h2 className="text-xl font-black text-white mb-4">Reporte Diario</h2>
+           <h2 className="text-xl font-black text-white mb-4 shrink-0">Reporte Diario</h2>
            <div className="bg-slate-900 p-5 rounded-[2rem] border border-slate-800 flex flex-col flex-1 gap-4 shadow-xl">
-              <div><label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Modo Trabajo</label><div className="flex gap-2">{['HORAS', 'DESTAJO'].map(m => (<button key={m} onClick={() => setExitWorkMode(m as WorkMode)} className={`flex-1 py-3 rounded-xl font-black text-xs transition ${exitWorkMode === m ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-600'}`}>{m}</button>))}</div></div>
+              <div className="shrink-0"><label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Modo Trabajo</label><div className="flex gap-2">{['HORAS', 'DESTAJO'].map(m => (<button key={m} onClick={() => setExitWorkMode(m as WorkMode)} className={`flex-1 py-3 rounded-xl font-black text-xs transition ${exitWorkMode === m ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-600'}`}>{m}</button>))}</div></div>
               <div className="flex flex-col flex-1"><label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block tracking-widest">Tareas realizadas</label><textarea className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white flex-1 outline-none focus:border-blue-500 resize-none" placeholder="Escribe aquí..." value={exitReportText} onChange={(e)=>setExitReportText(e.target.value)} /></div>
-              <button onClick={() => executeLogSubmission(LogType.SALIDA, exitReportText, exitWorkMode)} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all">Finalizar Salida</button>
+              <button onClick={() => executeLogSubmission(LogType.SALIDA, exitReportText, exitWorkMode)} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs shadow-lg active:scale-95 transition-all shrink-0">Finalizar Salida</button>
            </div>
         </div>
       );
@@ -531,22 +416,22 @@ export const App: React.FC = () => {
       );
       case Step.WORKER_HISTORY: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-           <div className="flex items-center justify-between gap-4 mb-4"><div className="flex items-center gap-4"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Mi Actividad</h2></div><button onClick={handleDownloadPDF} className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl border border-emerald-500/20 active:bg-emerald-600 active:text-white"><Download size={20}/></button></div>
-           <div className="space-y-3 mb-4"><div className="relative"><Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" /><input type="text" placeholder="Buscar obra o tarea..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs text-white outline-none focus:border-blue-500" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)}/></div><div className="flex gap-2">{(['ALL', 'WEEK', 'MONTH'] as const).map(p => (<button key={p} onClick={() => setHistoryPeriod(p)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${historyPeriod === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>{p === 'ALL' ? 'Todo' : p === 'WEEK' ? 'Semana' : 'Mes'}</button>))}</div>{historyPeriod === 'MONTH' && (<div className="animate-slideDown relative"><select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 px-4 text-xs font-bold text-blue-400 outline-none appearance-none">{MONTH_NAMES.map((name, idx) => (<option key={name} value={idx}>{name}</option>))}</select><ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} /></div>)}{historyPeriod === 'WEEK' && (<div className="animate-slideDown flex flex-col gap-1"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Elegir día de la semana:</span><div className="relative"><CalendarDays size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" /><input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-white outline-none [color-scheme:dark]"/></div></div>)}</div>
+           <div className="flex items-center justify-between gap-4 mb-4 shrink-0"><div className="flex items-center gap-4"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Mi Actividad</h2></div><button onClick={handleDownloadPDF} className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl border border-emerald-500/20 active:bg-emerald-600 active:text-white"><Download size={20}/></button></div>
+           <div className="space-y-3 mb-4 shrink-0"><div className="relative"><Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" /><input type="text" placeholder="Buscar obra o tarea..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs text-white outline-none focus:border-blue-500" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)}/></div><div className="flex gap-2">{(['ALL', 'WEEK', 'MONTH'] as const).map(p => (<button key={p} onClick={() => setHistoryPeriod(p)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${historyPeriod === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>{p === 'ALL' ? 'Todo' : p === 'WEEK' ? 'Semana' : 'Mes'}</button>))}</div>{historyPeriod === 'MONTH' && (<div className="animate-slideDown relative"><select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 px-4 text-xs font-bold text-blue-400 outline-none appearance-none">{MONTH_NAMES.map((name, idx) => (<option key={name} value={idx}>{name}</option>))}</select><ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} /></div>)}{historyPeriod === 'WEEK' && (<div className="animate-slideDown flex flex-col gap-1"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Elegir día de la semana:</span><div className="relative"><CalendarDays size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" /><input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-white outline-none [color-scheme:dark]"/></div></div>)}</div>
            <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">{filteredHistory.map(log => (<div key={log.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 animate-slideUp"><div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-black uppercase tracking-widest ${log.type === LogType.ENTRADA ? 'text-emerald-400' : log.type === LogType.SALIDA ? 'text-rose-400' : 'text-blue-400'}`}>{log.type}</span><span className="text-[9px] text-slate-600 font-bold">{log.dateStr} • {log.timeStr}</span></div><p className="text-xs font-black text-white uppercase tracking-tight truncate">{log.siteName}</p>{log.workReport && <p className="text-[10px] text-slate-500 italic mt-1 line-clamp-2">"{log.workReport}"</p>}<div className="flex gap-2 mt-2"><span className="text-[8px] bg-slate-950 px-2 py-0.5 rounded text-slate-500 font-bold uppercase tracking-widest">{log.workMode || 'HORAS'}</span></div></div>))}{filteredHistory.length === 0 && (<div className="flex flex-col items-center justify-center py-20 text-slate-600"><History size={48} className="mb-4 opacity-20" /><p className="text-xs font-bold uppercase tracking-widest">Sin registros encontrados</p></div>)}</div>
         </div>
       );
       case Step.WORKER_TOOLS: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-          <div className="flex items-center gap-4 mb-4"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Herramientas</h2></div>
-          <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 mb-4 space-y-3 shadow-lg"><div className="space-y-1"><label htmlFor="tool-input" className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Nombre Herramienta</label><input id="tool-input" list="tools-list" type="text" placeholder="Ej: Multímetro, Taladro..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolName} onChange={(e)=>setNewToolName(e.target.value)}/><datalist id="tools-list">{ELECTRICAL_TOOLS_LIST.map(tool => <option key={tool} value={tool} />)}</datalist></div><div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label htmlFor="brand-input" className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Marca</label><input id="brand-input" list="brands-list" type="text" placeholder="Marca" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolBrand} onChange={(e)=>setNewToolBrand(e.target.value)}/><datalist id="brands-list">{ELECTRICAL_BRANDS_LIST.map(brand => <option key={brand} value={brand} />)}</datalist></div><div className="space-y-1"><label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Modelo (Opcional)</label><input type="text" placeholder="Modelo" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolModel} onChange={(e)=>setNewToolModel(e.target.value)}/></div></div><button onClick={handleAddTool} className="w-full bg-amber-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Añadir Equipo</button></div>
+          <div className="flex items-center gap-4 mb-4 shrink-0"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Herramientas</h2></div>
+          <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 mb-4 space-y-3 shadow-lg shrink-0"><div className="space-y-1"><label htmlFor="tool-input" className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Nombre Herramienta</label><input id="tool-input" list="tools-list" type="text" placeholder="Ej: Multímetro, Taladro..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolName} onChange={(e)=>setNewToolName(e.target.value)}/><datalist id="tools-list">{ELECTRICAL_TOOLS_LIST.map(tool => <option key={tool} value={tool} />)}</datalist></div><div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label htmlFor="brand-input" className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Marca</label><input id="brand-input" list="brands-list" type="text" placeholder="Marca" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolBrand} onChange={(e)=>setNewToolBrand(e.target.value)}/><datalist id="brands-list">{ELECTRICAL_BRANDS_LIST.map(brand => <option key={brand} value={brand} />)}</datalist></div><div className="space-y-1"><label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Modelo (Opcional)</label><input type="text" placeholder="Modelo" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolModel} onChange={(e)=>setNewToolModel(e.target.value)}/></div></div><button onClick={handleAddTool} className="w-full bg-amber-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Añadir Equipo</button></div>
           <div className="flex-1 overflow-y-auto space-y-2 pb-4 custom-scrollbar">{allTools.filter(t => t.workerId === selectedWorker?.id).map(tool => (<div key={tool.id} className="bg-slate-900 border border-slate-800 p-3 rounded-2xl flex items-center justify-between animate-slideUp"><div className="flex items-center gap-3"><div className="bg-slate-950 p-2 rounded-lg text-amber-500"><Wrench size={14} /></div><div><h4 className="font-bold text-white text-xs">{tool.toolName}</h4><p className="text-[9px] text-slate-600 uppercase font-black">{tool.brand} • {tool.model || 'S/M'}</p></div></div><button onClick={() => StorageService.deleteTool(tool.id)} className="text-slate-700 hover:text-rose-500 p-2"><Trash2 size={16} /></button></div>))}{allTools.filter(t => t.workerId === selectedWorker?.id).length === 0 && (<div className="flex flex-col items-center justify-center py-10 opacity-20"><Wrench size={40} className="mb-2" /><p className="text-[10px] font-black uppercase tracking-widest">Sin herramientas registradas</p></div>)}</div>
         </div>
       );
       case Step.REGISTER: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
-           <h2 className="text-2xl font-black text-white mb-4">Nueva Cuenta</h2>
-           <div className="bg-slate-900 p-5 rounded-[2.5rem] border border-slate-800 space-y-3 shadow-xl overflow-y-auto custom-scrollbar"><input type="text" placeholder="Nombre completo" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regName} onChange={(e)=>setRegName(e.target.value)}/><input type="text" placeholder="DNI / NIE" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/><input type="tel" placeholder="Teléfono" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/><div className="grid grid-cols-2 gap-3"><input type="password" placeholder="PIN" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPin} onChange={(e)=>setRegPin(e.target.value.replace(/\D/g,''))}/><input type="password" placeholder="Confirm" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPinConfirm} onChange={(e)=>setRegPinConfirm(e.target.value.replace(/\D/g,''))}/></div><button onClick={handleRegistration} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs mt-4 active:scale-95 shadow-lg">Registrarme</button></div>
+           <h2 className="text-2xl font-black text-white mb-4 shrink-0">Nueva Cuenta</h2>
+           <div className="bg-slate-900 p-5 rounded-[2.5rem] border border-slate-800 space-y-3 shadow-xl overflow-y-auto custom-scrollbar flex-1"><input type="text" placeholder="Nombre completo" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regName} onChange={(e)=>setRegName(e.target.value)}/><input type="text" placeholder="DNI / NIE" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/><input type="tel" placeholder="Teléfono" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/><div className="grid grid-cols-2 gap-3"><input type="password" placeholder="PIN" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPin} onChange={(e)=>setRegPin(e.target.value.replace(/\D/g,''))}/><input type="password" placeholder="Confirm" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPinConfirm} onChange={(e)=>setRegPinConfirm(e.target.value.replace(/\D/g,''))}/></div><button onClick={handleRegistration} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs mt-4 active:scale-95 shadow-lg shrink-0">Registrarme</button></div>
         </div>
       );
       default: return null;
@@ -557,7 +442,7 @@ export const App: React.FC = () => {
 
   if (isAppLoading) return (
     <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center gap-6 z-[100]">
-       <AppLogo className="animate-pulse" size="lg" />
+       <AppLogo className="animate-pulse" size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} />
        <div className="w-48 h-1 bg-slate-900 rounded-full overflow-hidden">
           <div className="h-full bg-blue-600 animate-[loading_1.5s_ease-in-out_infinite]"></div>
        </div>
@@ -568,16 +453,12 @@ export const App: React.FC = () => {
   return (
     <div className="max-w-md mx-auto h-screen flex flex-col bg-slate-950 text-white p-4 relative overflow-hidden">
       {renderStep()}
-      
       {showAdminLogin && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
           <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden">
              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-indigo-600"></div>
              <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-3">
-                   <div className="p-2 bg-blue-600/10 rounded-xl text-blue-500"><Shield size={24} /></div>
-                   <h2 className="text-xl font-black text-white uppercase tracking-tighter">Admin Login</h2>
-                </div>
+                <div className="flex items-center gap-3"><div className="p-2 bg-blue-600/10 rounded-xl text-blue-500"><Shield size={24} /></div><h2 className="text-xl font-black text-white uppercase tracking-tighter">Admin Login</h2></div>
                 <button onClick={() => setShowAdminLogin(false)} className="text-slate-500 hover:text-white"><X size={20} /></button>
              </div>
              <div className="space-y-4">
@@ -589,29 +470,9 @@ export const App: React.FC = () => {
           </div>
         </div>
       )}
-
-      {error && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-rose-600 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest animate-bounce z-[200] shadow-2xl flex items-center gap-3">
-          <ShieldAlert size={16} /> {error} <button onClick={() => setError('')} className="bg-white/20 p-1 rounded-full"><X size={12}/></button>
-        </div>
-      )}
-
-      {loading && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center">
-           <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col items-center gap-4">
-              <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Procesando...</p>
-           </div>
-        </div>
-      )}
-
-      <ConfirmationModal 
-        isOpen={confirmState.isOpen}
-        title={`¿Confirmar ${confirmState.action}?`}
-        message={`Vas a registrar un evento de ${confirmState.action} en la obra ${selectedSite?.name}. ¿Estás seguro?`}
-        onConfirm={() => executeLogSubmission(confirmState.action!)}
-        onCancel={() => setConfirmState({ isOpen: false, action: null })}
-      />
+      {error && (<div className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-rose-600 px-6 py-3 rounded-full text-xs font-black uppercase tracking-widest animate-bounce z-[200] shadow-2xl flex items-center gap-3"><ShieldAlert size={16} /> {error} <button onClick={() => setError('')} className="bg-white/20 p-1 rounded-full"><X size={12}/></button></div>)}
+      {loading && (<div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center"><div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex flex-col items-center gap-4"><div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-500">Procesando...</p></div></div>)}
+      <ConfirmationModal isOpen={confirmState.isOpen} title={`¿Confirmar ${confirmState.action}?`} message={`Vas a registrar un evento de ${confirmState.action} en la obra ${selectedSite?.name}. ¿Estás seguro?`} onConfirm={() => executeLogSubmission(confirmState.action!)} onCancel={() => setConfirmState({ isOpen: false, action: null })} />
     </div>
   );
 };

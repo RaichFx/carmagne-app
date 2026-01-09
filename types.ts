@@ -83,4 +83,7 @@ export interface AppConfig {
   adminPhone: string;
   googleSheetUrl: string;
   adminPassword?: string;
+  logoUrl?: string;
+  logoScaleLogin?: number;
+  logoScaleDashboard?: number;
 }

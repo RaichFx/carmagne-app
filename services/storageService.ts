@@ -1,7 +1,7 @@
 
 import { Worker, Site, WorkLog, AppConfig, LogType, AdminUser, ToolRecord } from '../types';
 import { db } from './firebase';
-import { collection, doc, setDoc, updateDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, onSnapshot, deleteDoc, getDoc } from 'firebase/firestore';
 
 const KEYS = {
   WORKERS: 'carmagne_workers',
@@ -33,12 +33,15 @@ const INITIAL_WORKERS: Worker[] = [];
 const INITIAL_SITES: Site[] = [
   { id: 'S001', name: 'Barakaldo 106', address: '13 Av. Altos Hornos de Vizcaya', active: true, coordinates: { latitude: 43.30087, longitude: -2.99256 } }
 ];
-const INITIAL_CONFIG: AppConfig = { adminPhone: '34631400010', googleSheetUrl: '', adminPassword: 'admin' };
+const INITIAL_CONFIG: AppConfig = { 
+  adminPhone: '34631400010', 
+  googleSheetUrl: '', 
+  adminPassword: 'admin', 
+  logoUrl: '', 
+  logoScaleLogin: 1.0,
+  logoScaleDashboard: 1.0
+};
 
-/**
- * Función de clonación profunda segura que elimina referencias circulares
- * y maneja objetos específicos de Firebase como Timestamps.
- */
 const safeClone = (obj: any) => {
   if (obj === null || typeof obj !== 'object') return obj;
   
@@ -46,37 +49,23 @@ const safeClone = (obj: any) => {
   
   const deepCopy = (item: any): any => {
     if (item === null || typeof item !== 'object') return item;
-    
-    // Manejo de Firebase Timestamps (comunes en doc.data())
-    if (item && typeof item.toDate === 'function') {
-      return item.toDate().getTime(); 
-    }
-    
+    if (item && typeof item.toDate === 'function') return item.toDate().getTime(); 
     if (item instanceof Date) return item.getTime();
-    
-    // Prevención de circularidad
     if (cache.has(item)) return undefined;
     cache.add(item);
     
-    if (Array.isArray(item)) {
-      return item.map(deepCopy).filter(v => v !== undefined);
-    }
+    if (Array.isArray(item)) return item.map(deepCopy).filter(v => v !== undefined);
     
-    // Solo clonamos objetos planos para evitar instancias complejas
     const prototype = Object.getPrototypeOf(item);
     if (prototype !== null && prototype !== Object.prototype) {
-      if (typeof item.toJSON === 'function') {
-        return deepCopy(item.toJSON());
-      }
+      if (typeof item.toJSON === 'function') return deepCopy(item.toJSON());
       return undefined;
     }
 
     const copy: any = {};
     Object.keys(item).forEach(key => {
       const value = deepCopy(item[key]);
-      if (value !== undefined) {
-        copy[key] = value;
-      }
+      if (value !== undefined) copy[key] = value;
     });
     return copy;
   };
@@ -95,59 +84,45 @@ const saveLocal = <T>(key: string, data: T): void => {
   try {
     const cleaned = safeClone(data);
     localStorage.setItem(key, JSON.stringify(cleaned));
-  } catch (e) { 
-    console.error("Error saving local storage data:", e); 
-  }
+  } catch (e) { console.error("Error saving local storage data:", e); }
 };
 
 export const StorageService = {
   // --- TOOLS ---
   getTools: (): ToolRecord[] => loadLocal(KEYS.TOOLS, []),
-  
   addTool: async (tool: ToolRecord) => {
     const tools = loadLocal<ToolRecord[]>(KEYS.TOOLS, []);
     const updated = [tool, ...tools];
     saveLocal(KEYS.TOOLS, updated);
-    try {
-      await setDoc(doc(db, "tools", tool.id), safeClone(tool));
-    } catch (e) { console.warn("Firebase Tool Sync failed", e); }
+    try { await setDoc(doc(db, "tools", tool.id), safeClone(tool)); } catch (e) { }
   },
-
   deleteTool: async (id: string) => {
     const tools = loadLocal<ToolRecord[]>(KEYS.TOOLS, []);
-    const updated = tools.filter(t => t.id !== id);
-    saveLocal(KEYS.TOOLS, updated);
-    try {
-      await deleteDoc(doc(db, "tools", id));
-    } catch (e) { console.warn("Error deleting tool from FB", e); }
+    saveLocal(KEYS.TOOLS, tools.filter(t => t.id !== id));
+    try { await deleteDoc(doc(db, "tools", id)); } catch (e) { }
   },
-
   subscribeToTools: (callback: (tools: ToolRecord[]) => void) => {
     callback(loadLocal(KEYS.TOOLS, []));
     try {
       return onSnapshot(collection(db, "tools"), (snapshot) => {
         const tools = snapshot.docs.map(doc => doc.data() as ToolRecord);
-        const sortedTools = [...tools].sort((a, b) => b.timestamp - a.timestamp);
-        saveLocal(KEYS.TOOLS, sortedTools);
-        callback(sortedTools);
-      }, (error) => { console.warn("Firestore Tools access denied", error.message); });
+        const sorted = [...tools].sort((a, b) => b.timestamp - a.timestamp);
+        saveLocal(KEYS.TOOLS, sorted);
+        callback(sorted);
+      });
     } catch (e) { return () => {}; }
   },
 
   // --- WORKERS ---
   getWorkers: (): Worker[] => loadLocal(KEYS.WORKERS, INITIAL_WORKERS),
   registerNewWorker: async (worker: Worker) => {
-    const currentWorkers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
-    saveLocal(KEYS.WORKERS, [...currentWorkers, worker]);
-    try {
-      await setDoc(doc(db, "workers", worker.id), safeClone(worker));
-    } catch (e) { console.warn("Firebase Worker Sync failed", e); }
+    const current = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
+    saveLocal(KEYS.WORKERS, [...current, worker]);
+    try { await setDoc(doc(db, "workers", worker.id), safeClone(worker)); } catch (e) { }
   },
   saveWorkers: async (workers: Worker[]) => {
     saveLocal(KEYS.WORKERS, workers);
-    try { 
-      await Promise.all(workers.map(w => setDoc(doc(db, "workers", w.id), safeClone(w)))); 
-    } catch (e) { }
+    try { await Promise.all(workers.map(w => setDoc(doc(db, "workers", w.id), safeClone(w)))); } catch (e) { }
   },
   deleteWorker: async (id: string) => {
     const workers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
@@ -161,7 +136,7 @@ export const StorageService = {
         const workers = snapshot.docs.map(doc => doc.data() as Worker);
         saveLocal(KEYS.WORKERS, workers);
         callback(workers);
-      }, (error) => { console.warn("Firestore Workers access denied", error.message); });
+      });
     } catch (e) { return () => {}; }
   },
 
@@ -188,7 +163,7 @@ export const StorageService = {
         const sites = snapshot.docs.map(doc => doc.data() as Site);
         saveLocal(KEYS.SITES, sites);
         callback(sites);
-      }, (error) => { console.warn("Firestore Sites access denied", error.message); });
+      });
     } catch (e) { return () => {}; }
   },
 
@@ -211,7 +186,7 @@ export const StorageService = {
         const admins = snapshot.docs.map(doc => doc.data() as AdminUser);
         saveLocal(KEYS.ADMINS, admins);
         callback(admins);
-      }, (error) => { console.warn("Firestore Admins access denied", error.message); });
+      });
     } catch (e) { return () => {}; }
   },
 
@@ -232,34 +207,40 @@ export const StorageService = {
     try {
       return onSnapshot(collection(db, "logs"), (snapshot) => {
         const logs = snapshot.docs.map(doc => doc.data() as WorkLog);
-        const sortedLogs = [...logs].sort((a, b) => b.timestamp - a.timestamp);
-        saveLocal(KEYS.LOGS, sortedLogs);
-        callback(sortedLogs);
-      }, (error) => { console.warn("Firestore Logs access denied", error.message); });
+        const sorted = [...logs].sort((a, b) => b.timestamp - a.timestamp);
+        saveLocal(KEYS.LOGS, sorted);
+        callback(sorted);
+      });
     } catch (e) { return () => {}; }
   },
 
   // --- CONFIG ---
   getConfig: (): AppConfig => loadLocal(KEYS.CONFIG, INITIAL_CONFIG),
-  saveConfig: (config: AppConfig) => saveLocal(KEYS.CONFIG, config),
+  saveConfig: async (config: AppConfig) => {
+    saveLocal(KEYS.CONFIG, config);
+    try {
+      await setDoc(doc(db, "config", "global"), safeClone(config));
+    } catch (e) { console.error("Firebase Config Save failed", e); }
+  },
+  subscribeToConfig: (callback: (config: AppConfig) => void) => {
+    callback(loadLocal(KEYS.CONFIG, INITIAL_CONFIG));
+    try {
+      return onSnapshot(doc(db, "config", "global"), (snapshot) => {
+        if (snapshot.exists()) {
+          const config = snapshot.data() as AppConfig;
+          saveLocal(KEYS.CONFIG, config);
+          callback(config);
+        }
+      });
+    } catch (e) { return () => {}; }
+  },
   
   syncLog: async (log: WorkLog): Promise<boolean> => {
     const config = loadLocal<AppConfig>(KEYS.CONFIG, INITIAL_CONFIG);
     if (!config.googleSheetUrl) return false;
     try {
-      const cleanedLog = safeClone(log);
-      await fetch(config.googleSheetUrl, { 
-        method: 'POST', 
-        mode: 'no-cors', 
-        body: JSON.stringify({ action: 'LOG', ...cleanedLog }) 
-      });
+      await fetch(config.googleSheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'LOG', ...safeClone(log) }) });
       return true;
     } catch (error) { return false; }
-  },
-
-  exportToCSV: (logs: WorkLog[]): string => {
-    const headers = ['ID', 'Trabajador', 'Obra', 'Tipo', 'Fecha', 'Hora', 'Modo', 'Reporte'];
-    const rows = logs.map(l => [l.id, l.workerName, l.siteName, l.type, l.dateStr, l.timeStr, l.workMode || 'HORAS', `"${(l.workReport || '').replace(/"/g, '""')}"`]);
-    return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
   }
 };
