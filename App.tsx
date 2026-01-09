@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays, Zap, Wrench, Package, Info, Plus, Trash2, Timer, Filter, ChevronDown, Shield
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays, Zap, Wrench, Package, Info, Plus, Trash2, Timer, Filter, ChevronDown, Shield, AlertTriangle, AlertCircle
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -33,13 +33,13 @@ const MONTH_NAMES = [
 ];
 
 const AppLogo = ({ className, size = "md" }: { className?: string, size?: "sm" | "md" | "lg" }) => {
-  const iconSize = size === "sm" ? 28 : size === "md" ? 64 : 140;
+  const iconSize = size === "sm" ? 28 : size === "md" ? 64 : size === "lg" ? 140 : 64;
   
   return (
-    <div className={`relative flex items-center justify-center ${className} text-yellow-400`}>
+    <div className={`relative flex items-center justify-center ${className} text-blue-500`}>
       <Zap 
         size={iconSize} 
-        className="drop-shadow-[0_0_20px_rgba(250,204,21,0.6)] fill-yellow-400/20" 
+        className="drop-shadow-[0_0_20px_rgba(59,130,246,0.6)] fill-blue-500/20" 
         strokeWidth={2.5}
       />
     </div>
@@ -124,11 +124,17 @@ export const App: React.FC = () => {
   const workerStatus = useMemo(() => {
     if (!selectedWorker) return null;
     const logs = workerLogs.filter(l => l.workerId === selectedWorker.id);
-    if (logs.length === 0) return { type: 'INACTIVO', site: null, startTime: null };
+    if (logs.length === 0) return { type: 'INACTIVO', site: null, siteId: null, startTime: null };
     const lastLog = logs[0];
-    if (lastLog.type === LogType.ENTRADA || lastLog.type === LogType.FIN_DESCANSO) return { type: 'TRABAJANDO', site: lastLog.siteName, startTime: lastLog.timestamp };
-    if (lastLog.type === LogType.INICIO_DESCANSO) return { type: 'DESCANSO', site: lastLog.siteName, startTime: lastLog.timestamp };
-    return { type: 'INACTIVO', site: null, startTime: null };
+    
+    if (lastLog.type === LogType.ENTRADA || lastLog.type === LogType.FIN_DESCANSO) {
+      return { type: 'TRABAJANDO', site: lastLog.siteName, siteId: lastLog.siteId, startTime: lastLog.timestamp };
+    }
+    if (lastLog.type === LogType.INICIO_DESCANSO) {
+      return { type: 'DESCANSO', site: lastLog.siteName, siteId: lastLog.siteId, startTime: lastLog.timestamp };
+    }
+    
+    return { type: 'INACTIVO', site: null, siteId: null, startTime: null };
   }, [workerLogs, selectedWorker]);
 
   const filteredHistory = useMemo(() => {
@@ -228,7 +234,16 @@ export const App: React.FC = () => {
   };
 
   const handleActionSelect = (type: LogType) => {
-    if (type === LogType.SALIDA) { setCurrentStep(Step.REPORT_EXIT); return; }
+    // Restricción: No se puede dar salida si se está en descanso
+    if (type === LogType.SALIDA) {
+      if (workerStatus?.type === 'DESCANSO') {
+        setError("Primero debes finalizar el descanso antes de dar salida.");
+        return;
+      }
+      setCurrentStep(Step.REPORT_EXIT);
+      return;
+    }
+    setConfirmState({ isOpen: true, action: null });
     setConfirmState({ isOpen: true, action: type });
   };
 
@@ -250,7 +265,7 @@ export const App: React.FC = () => {
 
   const handleAddTool = async () => {
     if (!newToolName || !selectedWorker) return;
-    const tool: ToolRecord = { id: `T-${Date.now()}`, workerId: selectedWorker.id, workerName: selectedWorker.name, toolName: newToolName, brand: newToolBrand, model: newToolModel, timestamp: Date.now(), dateStr: new Date().toLocaleDateString('es-ES'), timeStr: new Date().toLocaleTimeString('es-ES') };
+    const tool: ToolRecord = { id: `T-${Date.now()}`, workerId: selectedWorker.id, workerName: selectedWorker.name, toolName: newToolName, brand: newToolBrand, model: newToolModel, timestamp: Date.now(), dateStr: new Date().toLocaleDateString('es-ES'), timeStr: newToolModel };
     await StorageService.addTool(tool); setNewToolName(''); setNewToolBrand(''); setNewToolModel('');
   };
 
@@ -320,17 +335,122 @@ export const App: React.FC = () => {
       case Step.SELECT_SITE: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
            <div className="flex items-center gap-4 mb-4"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Selecciona Obra</h2></div>
-           <div className="flex-1 overflow-y-auto space-y-2 pb-4 custom-scrollbar">{sites.map(site => (<button key={site.id} onClick={() => {setSelectedSite(site); setCurrentStep(Step.SELECT_ACTION);}} className="w-full bg-slate-900 p-4 rounded-2xl border border-slate-800 text-left active:border-blue-500"><h3 className="font-bold text-white text-sm">{site.name}</h3><p className="text-[10px] text-slate-500 truncate uppercase tracking-widest">{site.address}</p></button>))}</div>
+           
+           {workerStatus?.type !== 'INACTIVO' && (
+             <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl mb-4 flex items-start gap-3">
+                <Info size={20} className="text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-blue-200 font-bold uppercase tracking-wider leading-relaxed">
+                   Tienes una sesión activa en <span className="text-white font-black underline">{workerStatus.site}</span>. 
+                   Debes finalizarla para poder fichar en otra obra.
+                </p>
+             </div>
+           )}
+
+           <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">
+             {sites.map(site => {
+               const isActiveSite = workerStatus?.siteId === site.id;
+               const isLocked = workerStatus?.type !== 'INACTIVO' && !isActiveSite;
+
+               return (
+                 <button 
+                  key={site.id} 
+                  disabled={isLocked}
+                  onClick={() => {
+                    if (isLocked) return;
+                    setSelectedSite(site); 
+                    setCurrentStep(Step.SELECT_ACTION);
+                  }} 
+                  className={`w-full p-4 rounded-[1.5rem] border text-left transition-all ${
+                    isActiveSite 
+                      ? 'bg-blue-600/20 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]' 
+                      : isLocked 
+                        ? 'bg-slate-900/30 border-slate-900 opacity-40 grayscale' 
+                        : 'bg-slate-900 border-slate-800 hover:border-blue-500 active:scale-95'
+                  }`}
+                 >
+                   <div className="flex justify-between items-start">
+                     <div className="max-w-[75%]">
+                        <h3 className="font-black text-white text-sm uppercase tracking-tight">{site.name}</h3>
+                        <p className="text-[9px] text-slate-500 truncate uppercase font-bold mt-1">{site.address}</p>
+                     </div>
+                     {isActiveSite && (
+                       <span className="bg-blue-600 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Sesión Activa</span>
+                     )}
+                     {isLocked && (
+                       <Lock size={14} className="text-slate-700" />
+                     )}
+                   </div>
+                 </button>
+               );
+             })}
+           </div>
         </div>
       );
       case Step.SELECT_ACTION: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
            <div className="flex items-center gap-4 mb-6"><button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Acción en Obra</h2><p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">{selectedSite?.name}</p></div></div>
+           
+           {/* Advertencia de flujo de descanso -> salida */}
+           {workerStatus?.type === 'DESCANSO' && workerStatus.siteId === selectedSite?.id && (
+              <div className="bg-amber-600/10 border border-amber-500/30 p-4 rounded-2xl mb-6 flex items-start gap-3 animate-pulse">
+                <AlertCircle size={20} className="text-amber-500 shrink-0" />
+                <p className="text-[10px] text-amber-200 font-bold uppercase tracking-tight leading-relaxed">
+                  Estás en descanso. Debes pulsar <span className="text-white font-black underline">Fin Descanso</span> antes de poder registrar la salida.
+                </p>
+              </div>
+           )}
+
+           {workerStatus?.type !== 'INACTIVO' && workerStatus.siteId !== selectedSite?.id && (
+             <div className="bg-rose-500/10 border border-rose-500/20 p-5 rounded-3xl mb-6 flex flex-col items-center text-center gap-3">
+                <AlertTriangle size={32} className="text-rose-500" />
+                <p className="text-xs font-black text-white uppercase tracking-tighter">Acceso Restringido</p>
+                <p className="text-[10px] text-rose-200 font-bold uppercase leading-relaxed">
+                  No puedes fichar en esta obra porque tienes una sesión abierta en <span className="underline">{workerStatus.site}</span>.
+                </p>
+                <button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="mt-2 text-[10px] font-black text-blue-400 uppercase tracking-widest bg-blue-400/10 px-4 py-2 rounded-xl">Volver a Selección</button>
+             </div>
+           )}
+
            <div className="grid grid-cols-2 gap-3 flex-1 pb-4">
-             <button disabled={workerStatus?.type !== 'INACTIVO' && workerStatus?.site !== selectedSite?.name} onClick={() => handleActionSelect(LogType.ENTRADA)} className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${workerStatus?.type !== 'INACTIVO' ? 'opacity-40 grayscale' : ''}`}><Zap size={32} /> <span className="text-sm font-black uppercase">Entrada</span></button>
-             <button onClick={() => handleActionSelect(LogType.SALIDA)} className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${workerStatus?.type === 'INACTIVO' ? 'opacity-40 grayscale' : ''}`}><LogOut size={32} /> <span className="text-sm font-black uppercase">Salida</span></button>
-             <button onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${workerStatus?.type !== 'TRABAJANDO' ? 'opacity-40 grayscale' : ''}`}><Coffee size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Ini Descanso</span></button>
-             <button onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} className={`bg-blue-600/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-blue-500 active:bg-blue-600 active:text-white transition-all ${workerStatus?.type !== 'DESCANSO' ? 'opacity-40 grayscale' : ''}`}><Timer size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Fin Descanso</span></button>
+             <button 
+                disabled={workerStatus?.type !== 'INACTIVO' || (workerStatus?.type !== 'INACTIVO' && workerStatus.siteId !== selectedSite?.id)} 
+                onClick={() => handleActionSelect(LogType.ENTRADA)} 
+                className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${
+                  (workerStatus?.type !== 'INACTIVO') ? 'opacity-40 grayscale pointer-events-none' : ''
+                }`}
+             >
+                <Zap size={32} /> <span className="text-sm font-black uppercase">Entrada</span>
+             </button>
+             
+             <button 
+                disabled={workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id} 
+                onClick={() => handleActionSelect(LogType.SALIDA)} 
+                className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${
+                  (workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''
+                }`}
+             >
+                <LogOut size={32} /> <span className="text-sm font-black uppercase">Salida</span>
+             </button>
+             
+             <button 
+                disabled={workerStatus?.type !== 'TRABAJANDO' || workerStatus?.siteId !== selectedSite?.id} 
+                onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} 
+                className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${
+                  (workerStatus?.type !== 'TRABAJANDO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''
+                }`}
+             >
+                <Coffee size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Ini Descanso</span>
+             </button>
+             
+             <button 
+                disabled={workerStatus?.type !== 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id} 
+                onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} 
+                className={`bg-blue-600/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-blue-500 active:bg-blue-600 active:text-white transition-all ${
+                  (workerStatus?.type !== 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''
+                }`}
+             >
+                <Timer size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Fin Descanso</span>
+             </button>
            </div>
         </div>
       );
