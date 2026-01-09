@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
+// Fix: Use named import for App as it's defined as a named export in App.tsx
+import { App } from './App';
 
 const container = document.getElementById('root');
 if (container) {
