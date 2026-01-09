@@ -129,6 +129,19 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Update dynamic favicon
+  useEffect(() => {
+    if (appConfig.faviconUrl) {
+      let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = appConfig.faviconUrl;
+    }
+  }, [appConfig.faviconUrl]);
+
   const filteredHistory = useMemo(() => {
     if (!selectedWorker) return [];
     let baseHistory = workerLogs.filter(l => l.workerId === selectedWorker.id);

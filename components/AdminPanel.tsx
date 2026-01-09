@@ -52,6 +52,7 @@ const AppLogo = ({ className, size = "md", logoUrl, scale = 1.0 }: { className?:
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) => {
   const isSuperAdmin = currentUser === null;
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'workers' | 'sites' | 'logs' | 'tools' | 'admins' | 'settings'>('dashboard');
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
@@ -88,6 +89,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const [isToolModalOpen, setIsToolModalOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<ToolRecord | null>(null);
   const [toolForm, setToolForm] = useState({ toolName: '', brand: '', model: '', workerId: '' });
+  const [toolModalError, setToolModalError] = useState('');
 
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [adminForm, setAdminForm] = useState({ username: '', password: '' });
@@ -134,8 +136,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     }
   };
 
+  const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 100000) { // Favicons should be tiny
+        alert("El favicon es demasiado pesado. Intenta con una imagen de menos de 100KB.");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        const newConfig = { ...config, faviconUrl: base64String };
+        setConfig(newConfig);
+        StorageService.saveConfig(newConfig);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleRemoveLogo = () => {
     const newConfig = { ...config, logoUrl: '', logoScaleLogin: 1.0, logoScaleDashboard: 1.0 };
+    setConfig(newConfig);
+    StorageService.saveConfig(newConfig);
+  };
+
+  const handleRemoveFavicon = () => {
+    const newConfig = { ...config, faviconUrl: '' };
     setConfig(newConfig);
     StorageService.saveConfig(newConfig);
   };
@@ -219,6 +245,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   };
 
   const handleOpenToolModal = (tool?: ToolRecord) => {
+    setToolModalError('');
     if (tool) {
       setEditingTool(tool);
       setToolForm({ toolName: tool.toolName, brand: tool.brand, model: tool.model, workerId: tool.workerId });
@@ -230,12 +257,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   };
 
   const handleSaveTool = async () => {
-    if (!toolForm.toolName || !toolForm.workerId) return;
+    if (!toolForm.toolName.trim()) {
+      setToolModalError('El nombre de la herramienta es obligatorio.');
+      return;
+    }
+    if (!toolForm.workerId) {
+      setToolModalError('Debes seleccionar un responsable para el equipo.');
+      return;
+    }
+
     const worker = workers.find(w => w.id === toolForm.workerId);
-    if (!worker) return;
-    const toolData: ToolRecord = { id: editingTool ? editingTool.id : `T-${Date.now()}`, workerId: worker.id, workerName: worker.name, toolName: toolForm.toolName, brand: toolForm.brand, model: toolForm.model, timestamp: editingTool ? editingTool.timestamp : Date.now(), dateStr: editingTool ? editingTool.dateStr : new Date().toLocaleDateString('es-ES'), timeStr: editingTool ? editingTool.timeStr : new Date().toLocaleTimeString('es-ES') };
-    await StorageService.addTool(toolData); 
-    setIsToolModalOpen(false);
+    if (!worker) {
+      setToolModalError('El operario seleccionado no es válido.');
+      return;
+    }
+
+    const toolData: ToolRecord = { 
+      id: editingTool ? editingTool.id : `T-${Date.now()}`, 
+      workerId: worker.id, 
+      workerName: worker.name, 
+      toolName: toolForm.toolName.trim(), 
+      brand: toolForm.brand, 
+      model: toolForm.model, 
+      timestamp: editingTool ? editingTool.timestamp : Date.now(), 
+      dateStr: editingTool ? editingTool.dateStr : new Date().toLocaleDateString('es-ES'), 
+      timeStr: editingTool ? editingTool.timeStr : new Date().toLocaleTimeString('es-ES') 
+    };
+
+    try {
+      await StorageService.addTool(toolData); 
+      setIsToolModalOpen(false);
+      setToolModalError('');
+    } catch (e) {
+      setToolModalError('Error al guardar el equipo. Inténtalo de nuevo.');
+    }
   };
 
   const handleSaveAdmin = async () => {
@@ -332,6 +387,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 shadow-xl space-y-6">
                   <div className="flex items-center gap-3 mb-2"><ImageIcon className="text-blue-500" size={24}/><h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Identidad Corporativa</h3></div>
                   
+                  {/* LOGO SECTION */}
                   <div className="flex flex-col items-center gap-4 p-8 bg-slate-950/50 rounded-3xl border-2 border-dashed border-slate-800">
                      {config.logoUrl ? (
                         <div className="relative group">
@@ -351,13 +407,44 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                      )}
                      <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                      <button onClick={() => logoInputRef.current?.click()} className="flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-blue-500 transition active:scale-95">
-                        <Upload size={18}/> {config.logoUrl ? 'Actualizar Imagen' : 'Subir Logotipo'}
+                        <Upload size={18}/> {config.logoUrl ? 'Actualizar Logo' : 'Subir Logotipo'}
                      </button>
+                  </div>
+
+                  {/* FAVICON SECTION */}
+                  <div className="flex flex-col gap-4 p-6 bg-slate-950/50 rounded-3xl border border-slate-800">
+                    <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-2">
+                          <Layout className="text-blue-400" size={18}/>
+                          <h4 className="text-xs font-black text-white uppercase tracking-widest">Favicon del Sitio</h4>
+                       </div>
+                       {config.faviconUrl && (
+                         <button onClick={handleRemoveFavicon} className="text-rose-500 hover:text-rose-400 text-[10px] font-black uppercase tracking-widest">Eliminar</button>
+                       )}
+                    </div>
+                    
+                    <div className="flex items-center gap-6">
+                       <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                          {config.faviconUrl ? (
+                            <img src={config.faviconUrl} className="w-10 h-10 object-contain" alt="Favicon Preview" />
+                          ) : (
+                            <Zap size={24} className="text-slate-700" />
+                          )}
+                       </div>
+                       <div className="flex flex-col gap-2 flex-1">
+                          <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                            <span className="text-blue-400 font-black">Dimensiones recomendadas:</span> 192x192 píxeles (formato cuadrado). Visible en la pestaña del navegador y accesos directos.
+                          </p>
+                          <input ref={faviconInputRef} type="file" accept="image/*" onChange={handleFaviconUpload} className="hidden" />
+                          <button onClick={() => faviconInputRef.current?.click()} className="text-left flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-400 transition">
+                             <Upload size={14}/> {config.faviconUrl ? 'Cambiar Imagen' : 'Seleccionar Archivo'}
+                          </button>
+                       </div>
+                    </div>
                   </div>
 
                   {config.logoUrl && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Control Escala Login */}
                         <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800 space-y-3">
                             <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-2 text-slate-400">
@@ -377,7 +464,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                             />
                         </div>
 
-                        {/* Control Escala Dashboard */}
                         <div className="bg-slate-950/50 p-5 rounded-2xl border border-slate-800 space-y-3">
                             <div className="flex justify-between items-center">
                                 <div className="flex items-center gap-2 text-slate-400">
@@ -403,7 +489,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                      <div className="flex items-center gap-2 text-slate-500"><Maximize2 size={16}/><span className="text-[10px] font-black uppercase tracking-widest">Vistas Previas Independientes</span></div>
                      
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Preview Dashboard */}
                         <div className="space-y-2">
                            <p className="text-[9px] font-bold text-slate-600 uppercase ml-2">Vista Dashboard</p>
                            <div className="bg-slate-950 border border-blue-500/30 rounded-2xl p-4 flex items-center justify-between overflow-hidden">
@@ -418,7 +503,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                            </div>
                         </div>
 
-                        {/* Preview Login */}
                         <div className="space-y-2">
                            <p className="text-[9px] font-bold text-slate-600 uppercase ml-2">Vista Inicio Sesión</p>
                            <div className="bg-slate-950 border border-blue-500/30 rounded-2xl p-6 flex flex-col items-center justify-center gap-4 overflow-hidden">
@@ -459,7 +543,82 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         <nav className="md:hidden fixed bottom-0 left-0 right-0 h-18 bg-slate-950/90 backdrop-blur-xl border-t border-white/5 flex items-center justify-between px-6 z-50"><div className="flex items-center justify-around w-full overflow-x-auto no-scrollbar gap-6 py-3">{sidebarItems.map(item => (<button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center gap-1 shrink-0 transition-all ${activeTab === item.id ? 'text-blue-500 scale-110' : 'text-slate-600'}`}><item.icon size={22} className={activeTab === item.id ? 'drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]' : ''} /><span className="text-[8px] font-black uppercase tracking-tighter">{item.label}</span></button>))}</div></nav>
       </main>
       {isAdminModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">Nueva Cuenta Admin</h3><p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest">Configurar Credenciales</p></div><button onClick={() => setIsAdminModalOpen(false)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input type="text" placeholder="Usuario" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-indigo-500 outline-none" value={adminForm.username} onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })}/><input type="password" placeholder="Contraseña" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-indigo-500 outline-none" value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}/><button onClick={handleSaveAdmin} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest mt-4">Crear Administrador</button></div></div></div>)}
-      {isToolModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingTool ? 'Editar Herramienta' : 'Nueva Herramienta'}</h3><p className="text-amber-500 text-[10px] font-bold uppercase tracking-widest">Asignación de Inventario</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input list="admin-tools-list" type="text" placeholder="Nombre" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white outline-none" value={toolForm.toolName} onChange={(e) => setToolForm({ ...toolForm, toolName: e.target.value })}/><datalist id="admin-tools-list">{ELECTRICAL_TOOLS_LIST.map(t => <option key={t} value={t}/>)}</datalist><div className="grid grid-cols-2 gap-3"><input list="admin-brands-list" type="text" placeholder="Marca" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-white" value={toolForm.brand} onChange={(e) => setToolForm({ ...toolForm, brand: e.target.value })}/><datalist id="admin-brands-list">{ELECTRICAL_BRANDS_LIST.map(b => <option key={b} value={b}/>)}</datalist><input type="text" placeholder="Modelo" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-white" value={toolForm.model} onChange={(e) => setToolForm({ ...toolForm, model: e.target.value })}/></div><div className="relative"><select className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white appearance-none" value={toolForm.workerId} onChange={(e) => setToolForm({ ...toolForm, workerId: e.target.value })}><option value="">Selecciona responsable...</option>{workers.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}</select><ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} /></div><button onClick={handleSaveTool} className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs mt-4">{editingTool ? 'Guardar Cambios' : 'Añadir'}</button></div></div></div>)}
+      {isToolModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
+          <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingTool ? 'Editar Herramienta' : 'Nueva Herramienta'}</h3>
+                <p className="text-amber-500 text-[10px] font-bold uppercase tracking-widest">Asignación de Inventario</p>
+              </div>
+              <button onClick={() => setIsToolModalOpen(false)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nombre del Equipo *</label>
+                <input 
+                  list="admin-tools-list" 
+                  type="text" 
+                  placeholder="Ej: Taladro Percutor..." 
+                  className={`w-full bg-slate-950 border rounded-2xl p-4 text-sm text-white outline-none focus:border-amber-500 transition-colors ${toolModalError.includes('nombre') ? 'border-rose-500' : 'border-slate-800'}`}
+                  value={toolForm.toolName} 
+                  onChange={(e) => {
+                    setToolForm({ ...toolForm, toolName: e.target.value });
+                    if(toolModalError) setToolModalError('');
+                  }}
+                />
+              </div>
+              <datalist id="admin-tools-list">{ELECTRICAL_TOOLS_LIST.map(t => <option key={t} value={t}/>)}</datalist>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Marca</label>
+                  <input list="admin-brands-list" type="text" placeholder="Marca" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-white" value={toolForm.brand} onChange={(e) => setToolForm({ ...toolForm, brand: e.target.value })}/>
+                </div>
+                <datalist id="admin-brands-list">{ELECTRICAL_BRANDS_LIST.map(b => <option key={b} value={b}/>)}</datalist>
+                
+                <div className="space-y-1">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Modelo</label>
+                  <input type="text" placeholder="Modelo" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-white" value={toolForm.model} onChange={(e) => setToolForm({ ...toolForm, model: e.target.value })}/>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Responsable *</label>
+                <div className="relative">
+                  <select 
+                    className={`w-full bg-slate-950 border rounded-2xl p-4 text-sm text-white appearance-none focus:border-amber-500 transition-colors ${toolModalError.includes('responsable') ? 'border-rose-500' : 'border-slate-800'}`}
+                    value={toolForm.workerId} 
+                    onChange={(e) => {
+                      setToolForm({ ...toolForm, workerId: e.target.value });
+                      if(toolModalError) setToolModalError('');
+                    }}
+                  >
+                    <option value="">Selecciona operario...</option>
+                    {workers.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                </div>
+              </div>
+
+              {toolModalError && (
+                <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle size={14} className="text-rose-500 shrink-0" />
+                  <p className="text-rose-500 text-[10px] font-bold uppercase tracking-widest leading-tight">{toolModalError}</p>
+                </div>
+              )}
+
+              <button 
+                onClick={handleSaveTool} 
+                className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 transition-all mt-2 flex items-center justify-center gap-2"
+              >
+                {editingTool ? <Save size={18} /> : <Plus size={18} />}
+                {editingTool ? 'Guardar Cambios' : 'Añadir Herramienta'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isSiteModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingSite ? 'Editar Obra' : 'Nueva Obra'}</h3><p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Ubicación</p></div><button onClick={() => setIsSiteModalOpen(false)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input type="text" placeholder="Nombre de la Obra" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white" value={siteForm.name} onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}/><textarea placeholder="Dirección" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white h-20 resize-none" value={siteForm.address} onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })}/><button onClick={handleSaveSite} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-xs mt-2">{editingSite ? 'Guardar Cambios' : 'Crear Obra'}</button></div></div></div>)}
       {reportModal.isOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">Generar Informe</h3><p className="text-blue-500 text-[10px] font-bold uppercase tracking-widest">{reportModal.worker?.name}</p></div><button onClick={() => setReportModal({ ...reportModal, isOpen: false })} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-6"><div className="flex gap-2"><button onClick={() => setReportModal({ ...reportModal, type: 'WEEK' })} className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase transition ${reportModal.type === 'WEEK' ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-500'}`}>Semanal</button><button onClick={() => setReportModal({ ...reportModal, type: 'MONTH' })} className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase transition ${reportModal.type === 'MONTH' ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-500'}`}>Mensual</button></div>{reportModal.type === 'WEEK' ? (<input type="date" value={reportModal.selectedDate} onChange={(e) => setReportModal({ ...reportModal, selectedDate: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-xs text-white [color-scheme:dark]"/>) : (<select value={reportModal.selectedMonth} onChange={(e) => setReportModal({ ...reportModal, selectedMonth: parseInt(e.target.value) })} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-xs text-white appearance-none">{MONTH_NAMES.map((m, i) => (<option key={m} value={i}>{m}</option>))}</select>)}<button onClick={handleGenerateWorkerReport} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-lg"><Download size={18} /> Descargar PDF</button></div></div></div>)}
       <ConfirmationModal isOpen={isLogoutConfirmOpen} title="¿Cerrar Sesión de Administrador?" message="Vas a salir del panel de gestión. Los cambios no guardados en los formularios abiertos podrían perderse." confirmText="Sí, salir" cancelText="Permanecer aquí" isDestructive={true} onConfirm={() => { setIsLogoutConfirmOpen(false); onBack(); }} onCancel={() => setIsLogoutConfirmOpen(false)} />
