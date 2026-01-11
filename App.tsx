@@ -129,9 +129,10 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Update dynamic favicon
+  // Update dynamic favicon and Apple Home Screen icon
   useEffect(() => {
     if (appConfig.faviconUrl) {
+      // Standard Favicon
       let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
       if (!link) {
         link = document.createElement('link');
@@ -139,6 +140,15 @@ export const App: React.FC = () => {
         document.getElementsByTagName('head')[0].appendChild(link);
       }
       link.href = appConfig.faviconUrl;
+
+      // Apple Touch Icon (Home Screen)
+      let appleLink = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
+      if (!appleLink) {
+        appleLink = document.createElement('link');
+        appleLink.rel = 'apple-touch-icon';
+        document.getElementsByTagName('head')[0].appendChild(appleLink);
+      }
+      appleLink.href = appConfig.faviconUrl;
     }
   }, [appConfig.faviconUrl]);
 
@@ -257,7 +267,7 @@ export const App: React.FC = () => {
     const worker = workers.find(w => w.phone && processSpanishPhone(w.phone) === formattedPhone);
     if (worker) {
       if (!worker.active) { setError("Cuenta desactivada."); return; }
-      setSelectedWorker(worker); setPinInput(''); setError(''); setCurrentStep(Step.AUTHENTICATE); // Redirect to PIN
+      setSelectedWorker(worker); setPinInput(''); setError(''); setCurrentStep(Step.AUTHENTICATE); // PIN is mandatory
     } else if(confirm("Este número no está registrado. ¿Quieres crear una cuenta nueva?")) {
       setRegPhone(formattedPhone); setError(''); setCurrentStep(Step.REGISTER);
     }
@@ -378,7 +388,7 @@ export const App: React.FC = () => {
     switch(currentStep) {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
-          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="text-3xl font-black text-white tracking-tighter">CARMAGNE SOLU 2024</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
+          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="text-3xl font-black text-white tracking-tighter uppercase">CARMAGNE SOLU 2024</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
           <div className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800"><input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-5 text-2xl font-black focus:border-blue-500 outline-none text-center tracking-widest" placeholder="600000000"/><button onClick={handlePhoneLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg mt-6 flex items-center justify-center gap-3 active:scale-95 uppercase text-xs tracking-widest">Entrar <ArrowRight size={16} /></button></div>
           <button onClick={() => setShowAdminLogin(true)} className="text-slate-800 text-[10px] font-black uppercase tracking-[0.4em] text-center">Admin Panel</button>
         </div>

@@ -139,8 +139,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 100000) { // Favicons should be tiny
-        alert("El favicon es demasiado pesado. Intenta con una imagen de menos de 100KB.");
+      if (file.size > 200000) { 
+        alert("El icono es demasiado pesado. Intenta con una imagen de menos de 200KB.");
         return;
       }
       const reader = new FileReader();
@@ -181,7 +181,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    doc.text("Reporte de Actividad Filtrado - CARMAGNE INSTAL SL", 14, 15);
+    doc.text("Reporte de Actividad Filtrado - CARMAGNE SOLU 2024", 14, 15);
     const tableData = filteredLogs.map(l => [l.dateStr, l.timeStr, l.workerName, l.siteName, l.type, l.workMode || 'HORAS']);
     autoTable(doc, { head: [['Fecha', 'Hora', 'Trabajador', 'Obra', 'Tipo', 'Modo']], body: tableData, startY: 20 });
     doc.save(`reporte_actividad_${new Date().getTime()}.pdf`);
@@ -213,7 +213,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     }
     doc.setFontSize(18);
     doc.setTextColor(15, 23, 42);
-    doc.text("CARMAGNE INSTAL SL 2024", 105, 15, { align: 'center' });
+    doc.text("CARMAGNE SOLU 2024", 105, 15, { align: 'center' });
     doc.setFontSize(12);
     doc.text(`Informe de Actividad: ${worker.name}`, 105, 25, { align: 'center' });
     doc.setFontSize(10);
@@ -411,12 +411,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                      </button>
                   </div>
 
-                  {/* FAVICON SECTION */}
+                  {/* FAVICON / PWA ICON SECTION */}
                   <div className="flex flex-col gap-4 p-6 bg-slate-950/50 rounded-3xl border border-slate-800">
                     <div className="flex items-center justify-between">
                        <div className="flex items-center gap-2">
-                          <Layout className="text-blue-400" size={18}/>
-                          <h4 className="text-xs font-black text-white uppercase tracking-widest">Favicon del Sitio</h4>
+                          <Smartphone className="text-blue-400" size={18}/>
+                          <h4 className="text-xs font-black text-white uppercase tracking-widest">Icono Pantalla de Inicio (PWA)</h4>
                        </div>
                        {config.faviconUrl && (
                          <button onClick={handleRemoveFavicon} className="text-rose-500 hover:text-rose-400 text-[10px] font-black uppercase tracking-widest">Eliminar</button>
@@ -424,20 +424,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                     </div>
                     
                     <div className="flex items-center gap-6">
-                       <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                       <div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-2xl">
                           {config.faviconUrl ? (
-                            <img src={config.faviconUrl} className="w-10 h-10 object-contain" alt="Favicon Preview" />
+                            <img src={config.faviconUrl} className="w-full h-full object-contain p-2" alt="Favicon Preview" />
                           ) : (
                             <Zap size={24} className="text-slate-700" />
                           )}
                        </div>
                        <div className="flex flex-col gap-2 flex-1">
-                          <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                            <span className="text-blue-400 font-black">Dimensiones recomendadas:</span> 192x192 píxeles (formato cuadrado). Visible en la pestaña del navegador y accesos directos.
+                          <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                            <span className="text-blue-400 font-black uppercase">Recomendado:</span> 512x512 px, formato cuadrado. Este icono aparecerá cuando los trabajadores instalen la app en sus móviles.
                           </p>
                           <input ref={faviconInputRef} type="file" accept="image/*" onChange={handleFaviconUpload} className="hidden" />
                           <button onClick={() => faviconInputRef.current?.click()} className="text-left flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-400 transition">
-                             <Upload size={14}/> {config.faviconUrl ? 'Cambiar Imagen' : 'Seleccionar Archivo'}
+                             <Upload size={14}/> {config.faviconUrl ? 'Cambiar Icono PWA' : 'Seleccionar Archivo'}
                           </button>
                        </div>
                     </div>
