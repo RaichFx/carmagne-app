@@ -13,7 +13,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 
 interface AdminPanelProps {
   onBack: () => void;
-  currentUser: AdminUser | null; // Null means "Super Admin" (Master Password login)
+  currentUser: AdminUser | null;
 }
 
 const MONTH_NAMES = [
@@ -136,7 +136,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
-  // Search & Filter states
   const [workerSearchQuery, setWorkerSearchQuery] = useState('');
   const [siteSearchQuery, setSiteSearchQuery] = useState('');
   const [toolSearchQuery, setToolSearchQuery] = useState('');
@@ -145,7 +144,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const [hoursSearchQuery, setHoursSearchQuery] = useState('');
   const [hoursFilterDate, setHoursFilterDate] = useState(new Date().toISOString().split('T')[0]);
   
-  // Log Filters
   const [logSearchQuery, setLogSearchQuery] = useState('');
   const [logFilterWorker, setLogFilterWorker] = useState('');
   const [logFilterSite, setLogFilterSite] = useState('');
@@ -155,7 +153,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
-  // Modals States
   const [isSiteModalOpen, setIsSiteModalOpen] = useState(false);
   const [editingSite, setEditingSite] = useState<Site | null>(null);
   const [siteForm, setSiteForm] = useState({ name: '', address: '', active: true, lat: '', lng: '' });
@@ -215,13 +212,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 800000) { alert("El logo es demasiado pesado. Intenta con una imagen de menos de 800KB."); return; }
+      if (file.size > 1000000) { alert("El logo es demasiado pesado. Máximo 1MB."); return; }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
         const newConfig = { ...config, logoUrl: base64String };
         setConfig(newConfig);
-        StorageService.saveConfig(newConfig);
       };
       reader.readAsDataURL(file);
     }
@@ -230,33 +226,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 200000) { alert("El icono es demasiado pesado. Intenta con una imagen de menos de 200KB."); return; }
+      if (file.size > 500000) { alert("El icono es demasiado pesado. Máximo 500KB."); return; }
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64String = reader.result as string;
         const newConfig = { ...config, faviconUrl: base64String };
         setConfig(newConfig);
-        StorageService.saveConfig(newConfig);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleRemoveLogo = () => {
-    const newConfig = { ...config, logoUrl: '', logoScaleLogin: 1.0, logoScaleDashboard: 1.0 };
-    setConfig(newConfig);
-    StorageService.saveConfig(newConfig);
-  };
-
-  const handleRemoveFavicon = () => {
-    const newConfig = { ...config, faviconUrl: '' };
-    setConfig(newConfig);
-    StorageService.saveConfig(newConfig);
-  };
+  const handleRemoveLogo = () => setConfig({ ...config, logoUrl: '' });
+  const handleRemoveFavicon = () => setConfig({ ...config, faviconUrl: '' });
 
   const handleSaveConfig = async () => {
     setIsSaving(true);
-    try { await StorageService.saveConfig(config); setShowSaveSuccess(true); setTimeout(() => setShowSaveSuccess(false), 3000); }
+    try { 
+      await StorageService.saveConfig(config); 
+      setShowSaveSuccess(true); 
+      setTimeout(() => setShowSaveSuccess(false), 3000); 
+    }
     catch (e) { alert("Error al guardar la configuración"); }
     finally { setIsSaving(false); }
   };
@@ -265,25 +255,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("Reporte General de Actividad - CARMAGNE INSTAL SL", 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, 14, 22);
-    let summaryText = "";
-    if (logFilterWorker) {
-      const { totalWork, totalBreak, isOngoing } = calculateTotalsFromLogs(filteredLogs);
-      summaryText = `TRABAJO NETO: ${formatMsToTime(totalWork)} | DESCANSO: ${formatMsToTime(totalBreak)} | TOTAL (BRUTO): ${formatMsToTime(totalWork + totalBreak)}${isOngoing ? ' (ACTIVO)' : ''}`;
-      doc.setFontSize(9); doc.setTextColor(59, 130, 246); doc.text(summaryText, 14, 28);
-    }
     const tableData = filteredLogs.map(l => [l.dateStr, l.timeStr, l.workerName, l.siteName, l.type, l.workMode || 'HORAS', l.workReport || '-']);
-    autoTable(doc, { head: [['Fecha', 'Hora', 'Trabajador', 'Obra', 'Tipo', 'Modo', 'Reporte/Tareas']], body: tableData, startY: logFilterWorker ? 34 : 30, styles: { fontSize: 7, cellPadding: 2 }, headStyles: { fillColor: [15, 23, 42] }, columnStyles: { 6: { cellWidth: 50 } } });
-    doc.save(`reporte_general_${new Date().getTime()}.pdf`);
+    autoTable(doc, { head: [['Fecha', 'Hora', 'Trabajador', 'Obra', 'Tipo', 'Modo', 'Reporte']], body: tableData, startY: 25, styles: { fontSize: 7 } });
+    doc.save(`reporte_carmagne_${new Date().getTime()}.pdf`);
   };
 
   const handleGenerateWorkerReport = () => {
     if (!reportModal.worker) return;
     const worker = reportModal.worker;
     const doc = new jsPDF();
-    doc.setFontSize(18); doc.setTextColor(15, 23, 42); doc.text(`Reporte de Actividad - ${worker.name}`, 14, 20);
-    doc.setFontSize(10); doc.setTextColor(100, 100, 100); doc.text(`DNI: ${worker.dni || 'No registrado'} | Generado: ${new Date().toLocaleDateString('es-ES')}`, 14, 28);
+    doc.setFontSize(18); doc.text(`Informe: ${worker.name}`, 14, 20);
     let filteredReportLogs = logs.filter(l => l.workerId === worker.id);
     if (reportModal.type === 'WEEK') {
       const pickedDate = new Date(reportModal.selectedDate);
@@ -291,24 +272,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       const startOfWeek = new Date(pickedDate); startOfWeek.setDate(diffToMonday); startOfWeek.setHours(0, 0, 0, 0);
       const endOfWeek = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6); endOfWeek.setHours(23, 59, 59, 999);
       filteredReportLogs = filteredReportLogs.filter(l => l.timestamp >= startOfWeek.getTime() && l.timestamp <= endOfWeek.getTime());
-      doc.text(`Periodo: Semana del ${startOfWeek.toLocaleDateString('es-ES')} al ${endOfWeek.toLocaleDateString('es-ES')}`, 14, 34);
     } else {
       filteredReportLogs = filteredReportLogs.filter(l => {
         const logDate = new Date(l.timestamp);
         return logDate.getMonth() === reportModal.selectedMonth && logDate.getFullYear() === new Date().getFullYear();
       });
-      doc.text(`Periodo: Mes de ${MONTH_NAMES[reportModal.selectedMonth]} ${new Date().getFullYear()}`, 14, 34);
     }
-    const { totalWork, totalBreak, isOngoing } = calculateTotalsFromLogs(filteredReportLogs);
-    doc.setFillColor(248, 250, 252); doc.setDrawColor(226, 232, 240); doc.roundedRect(14, 40, 182, 32, 3, 3, 'FD');
-    doc.setFontSize(9); doc.setTextColor(71, 85, 105); doc.text("RESUMEN DE TIEMPOS:", 20, 47);
-    doc.setFontSize(11); doc.setTextColor(5, 150, 105); doc.text(`T. Trabajo (Neto): ${formatMsToTime(totalWork)}`, 20, 56);
-    doc.setTextColor(217, 119, 6); doc.text(`T. Descanso: ${formatMsToTime(totalBreak)}`, 105, 56);
-    doc.setTextColor(15, 23, 42); doc.setFontSize(12); doc.text(`JORNADA TOTAL (BRUTO): ${formatMsToTime(totalWork + totalBreak)}`, 20, 65);
-    if (isOngoing) { doc.setFontSize(8); doc.setTextColor(225, 29, 72); doc.text("(!) PENDIENTE A TERMINAR JORNADA LABORAL", 105, 65); }
-    const tableData = filteredReportLogs.sort((a, b) => a.timestamp - b.timestamp).map(l => [l.dateStr, l.timeStr, l.siteName, l.type, l.workMode || 'HORAS', l.workReport || '-']);
-    autoTable(doc, { head: [['Fecha', 'Hora', 'Obra', 'Acción', 'Modo', 'Reporte de Tareas']], body: tableData, startY: 78, styles: { fontSize: 8, cellPadding: 3, valign: 'middle' }, headStyles: { fillColor: [59, 130, 246], fontStyle: 'bold' }, columnStyles: { 5: { cellWidth: 60 } }, didParseCell: (data) => { if (data.section === 'body' && data.column.index === 3) { if (data.cell.text[0] === 'SALIDA') data.cell.styles.textColor = [225, 29, 72]; if (data.cell.text[0] === 'ENTRADA') data.cell.styles.textColor = [5, 150, 105]; } } });
-    doc.save(`Reporte_${worker.name.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+    const { totalWork, totalBreak } = calculateTotalsFromLogs(filteredReportLogs);
+    doc.text(`TRABAJO NETO: ${formatMsToTime(totalWork)} | DESCANSOS: ${formatMsToTime(totalBreak)}`, 14, 30);
+    const tableData = filteredReportLogs.map(l => [l.dateStr, l.timeStr, l.siteName, l.type, l.workMode || 'HORAS', l.workReport || '-']);
+    autoTable(doc, { head: [['Fecha', 'Hora', 'Obra', 'Acción', 'Modo', 'Tarea']], body: tableData, startY: 40, styles: { fontSize: 8 } });
+    doc.save(`Reporte_${worker.name}_Carmagne.pdf`);
     setReportModal({ ...reportModal, isOpen: false });
   };
 
@@ -344,13 +318,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   };
 
   const handleSaveTool = async () => {
-    if (!toolForm.toolName.trim()) { setToolModalError('El nombre de la herramienta es obligatorio.'); return; }
-    if (!toolForm.workerId) { setToolModalError('Debes seleccionar un responsable.'); return; }
+    if (!toolForm.toolName.trim() || !toolForm.workerId) { setToolModalError('Nombre y responsable obligatorios.'); return; }
     const worker = workers.find(w => w.id === toolForm.workerId);
-    if (!worker) { setToolModalError('El operario seleccionado no es válido.'); return; }
-    
     const site = sites.find(s => s.id === toolForm.siteId);
-    
+    if (!worker) return;
     const toolData: ToolRecord = { 
       id: editingTool ? editingTool.id : `T-${Date.now()}`, 
       workerId: worker.id, 
@@ -358,29 +329,21 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       toolName: toolForm.toolName.trim(), 
       brand: toolForm.brand, 
       model: toolForm.model, 
-      timestamp: editingTool ? editingTool.timestamp : Date.now(), 
-      dateStr: editingTool ? editingTool.dateStr : new Date().toLocaleDateString('es-ES'), 
-      timeStr: editingTool ? editingTool.timeStr : new Date().toLocaleTimeString('es-ES'),
+      timestamp: Date.now(), 
+      dateStr: new Date().toLocaleDateString('es-ES'), 
+      timeStr: new Date().toLocaleTimeString('es-ES'),
       siteId: site?.id,
       siteName: site?.name
     };
-    try { await StorageService.addTool(toolData); setIsToolModalOpen(false); setToolModalError(''); } catch (e) { setToolModalError('Error al guardar el equipo.'); }
+    await StorageService.addTool(toolData); setIsToolModalOpen(false);
   };
 
-  const handleSaveAdmin = async () => {
-    if (!adminForm.username || !adminForm.password) return;
-    const newAdmin: AdminUser = { id: `ADM-${Date.now()}`, username: adminForm.username, password: adminForm.password, active: true, createdAt: Date.now() };
-    await StorageService.addAdmin(newAdmin); setAdminForm({ username: '', password: '' }); setIsAdminModalOpen(false);
-  };
-
-  const filteredWorkers = workers.filter(w => w.name.toLowerCase().includes(workerSearchQuery.toLowerCase()) || (w.dni || '').toLowerCase().includes(workerSearchQuery.toLowerCase()));
-  const filteredSites = sites.filter(s => s.name.toLowerCase().includes(siteSearchQuery.toLowerCase()) || s.address.toLowerCase().includes(siteSearchQuery.toLowerCase()));
+  const filteredWorkers = workers.filter(w => w.name.toLowerCase().includes(workerSearchQuery.toLowerCase()));
+  const filteredSites = sites.filter(s => s.name.toLowerCase().includes(siteSearchQuery.toLowerCase()));
   
   const filteredTools = useMemo(() => {
     return tools.filter(t => {
-      const matchesSearch = t.toolName.toLowerCase().includes(toolSearchQuery.toLowerCase()) || 
-                          t.workerName.toLowerCase().includes(toolSearchQuery.toLowerCase()) || 
-                          t.brand.toLowerCase().includes(toolSearchQuery.toLowerCase());
+      const matchesSearch = t.toolName.toLowerCase().includes(toolSearchQuery.toLowerCase()) || t.brand.toLowerCase().includes(toolSearchQuery.toLowerCase());
       const matchesWorker = !toolFilterWorker || t.workerId === toolFilterWorker;
       const matchesSite = !toolFilterSite || t.siteId === toolFilterSite;
       return matchesSearch && matchesWorker && matchesSite;
@@ -389,236 +352,482 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
-      const matchesSearch = !logSearchQuery || log.workerName.toLowerCase().includes(logSearchQuery.toLowerCase()) || log.siteName.toLowerCase().includes(logSearchQuery.toLowerCase()) || (log.workReport || '').toLowerCase().includes(logSearchQuery.toLowerCase());
+      const matchesSearch = !logSearchQuery || log.workerName.toLowerCase().includes(logSearchQuery.toLowerCase()) || log.siteName.toLowerCase().includes(logSearchQuery.toLowerCase());
       const matchesWorker = !logFilterWorker || log.workerId === logFilterWorker;
       const matchesSite = !logFilterSite || log.siteId === logFilterSite;
       const matchesType = !logFilterType || log.type === logFilterType;
-      let matchesDate = true; if (logFilterDate) { const filterDateStr = new Date(logFilterDate).toLocaleDateString('es-ES'); matchesDate = log.dateStr === filterDateStr; }
+      let matchesDate = true; if (logFilterDate) { const d = new Date(logFilterDate).toLocaleDateString('es-ES'); matchesDate = log.dateStr === d; }
       return matchesSearch && matchesWorker && matchesSite && matchesType && matchesDate;
     });
   }, [logs, logSearchQuery, logFilterWorker, logFilterSite, logFilterType, logFilterDate]);
 
   const sidebarItems = useMemo(() => {
     const baseItems = [
-      { id: 'dashboard', icon: BarChart3, label: 'Panel', color: 'blue' },
-      { id: 'workers', icon: Users, label: 'Personal', color: 'indigo' },
-      { id: 'hours', icon: History, label: 'Control Horario', color: 'emerald' },
-      { id: 'sites', icon: MapPin, label: 'Obras', color: 'emerald' },
-      { id: 'logs', icon: ClipboardList, label: 'Registros', color: 'amber' },
-      { id: 'tools', icon: Wrench, label: 'Herramientas', color: 'orange' },
+      { id: 'dashboard', icon: BarChart3, label: 'Panel' },
+      { id: 'workers', icon: Users, label: 'Personal' },
+      { id: 'hours', icon: History, label: 'Horas' },
+      { id: 'sites', icon: MapPin, label: 'Obras' },
+      { id: 'logs', icon: ClipboardList, label: 'Registros' },
+      { id: 'tools', icon: Wrench, label: 'Equipos' },
     ];
-    if (isSuperAdmin) { baseItems.push({ id: 'admins', icon: Shield, label: 'Admins', color: 'violet' }, { id: 'settings', icon: Settings, label: 'Ajustes', color: 'slate' }); }
+    if (isSuperAdmin) { baseItems.push({ id: 'admins', icon: Shield, label: 'Admins' }, { id: 'settings', icon: Settings, label: 'Ajustes' }); }
     return baseItems;
   }, [isSuperAdmin]);
 
-  const renderDashboard = () => {
-    const stats = { totalWorkers: workers.length, activeSites: sites.filter(s => s.active).length, todayLogs: logs.filter(l => l.dateStr === new Date().toLocaleDateString('es-ES')).length };
-    return (
-      <div className="space-y-6 animate-fadeIn pb-32 md:pb-0">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col justify-center"><Users className="text-blue-500 mb-1" size={24} /><h4 className="text-xl font-black text-white">{stats.totalWorkers}</h4><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Trabajadores</p></div>
-          <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col justify-center"><MapPin className="text-emerald-500 mb-1" size={24} /><h4 className="text-xl font-black text-white">{stats.activeSites}</h4><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Obras Activas</p></div>
-          <div className="col-span-2 md:col-span-1 bg-slate-900 p-4 rounded-2xl border border-slate-800 flex items-center justify-between"><div><Zap className="text-amber-500 mb-1" size={24} /><h4 className="text-xl font-black text-white">{stats.todayLogs}</h4><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fichajes Hoy</p></div><div className="md:hidden"><Clock size={32} className="text-slate-800" /></div></div>
+  const renderDashboard = () => (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-fadeIn">
+      <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl"><Users className="text-blue-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{workers.length}</h4><p className="text-[10px] text-slate-500 font-bold uppercase">Personal</p></div>
+      <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl"><MapPin className="text-emerald-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{sites.length}</h4><p className="text-[10px] text-slate-500 font-bold uppercase">Obras</p></div>
+      <div className="col-span-2 md:col-span-1 bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl"><Zap className="text-amber-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{logs.filter(l => l.dateStr === new Date().toLocaleDateString('es-ES')).length}</h4><p className="text-[10px] text-slate-500 font-bold uppercase">Fichajes Hoy</p></div>
+    </div>
+  );
+
+  // Fix for error: renderHoursReport was referenced but not defined.
+  const renderHoursReport = () => (
+    <div className="space-y-4 animate-fadeIn pb-32">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase">Reporte de Horas</h2>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Cálculo de tiempos por jornada</p>
         </div>
-        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 h-[280px]"><h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Actividad Semanal</h3><ResponsiveContainer width="100%" height="100%"><BarChart data={logs.slice(0, 10)}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="timeStr" stroke="#64748b" fontSize={10} /><YAxis stroke="#64748b" fontSize={10} /><RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b' }} /><Bar dataKey="timestamp" fill="#3b82f6" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div>
-      </div>
-    );
-  };
-
-  const renderHoursReport = () => {
-    return (
-      <div className="space-y-4 animate-fadeIn pb-32 md:pb-0">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><h2 className="text-xl font-black text-white uppercase tracking-tighter">Control de Horas Diarias</h2><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Auditoría de jornada y descansos</p></div><div className="flex items-center gap-2 w-full md:w-auto"><div className="relative flex-1 md:w-48"><CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={16} /><input type="date" value={hoursFilterDate} onChange={(e) => setHoursFilterDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-3 text-xs text-white focus:border-emerald-500 outline-none [color-scheme:dark]"/></div></div></div>
-        <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} /><input type="text" placeholder="Buscar trabajador..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-xs text-white focus:border-blue-500 outline-none shadow-inner" value={hoursSearchQuery} onChange={(e) => setHoursSearchQuery(e.target.value)}/></div>
-        <div className="hidden md:block overflow-hidden bg-slate-900/30 rounded-3xl border border-slate-900 shadow-xl"><table className="w-full text-left text-xs"><thead className="text-slate-500 uppercase font-black border-b border-slate-800 bg-slate-900/50"><tr><th className="p-4">Trabajador</th><th className="p-4">Fecha</th><th className="p-4 text-emerald-500">Trabajo Neto</th><th className="p-4 text-amber-500">Horas Descanso</th><th className="p-4 text-blue-400">Total (Bruto)</th><th className="p-4 text-right">Estado</th></tr></thead><tbody className="text-slate-300">{dailyHoursStats.map(stat => (<tr key={stat.key} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"><td className="p-4 whitespace-nowrap font-bold text-white">{stat.workerName}</td><td className="p-4 text-slate-500 font-medium">{stat.dateStr}</td><td className="p-4 font-mono text-emerald-400 font-black">{formatMsToTime(stat.workMs)}</td><td className="p-4 font-mono text-amber-400 font-black">{formatMsToTime(stat.breakMs)}</td><td className="p-4 font-mono text-blue-300 font-black">{formatMsToTime(stat.totalMs)}</td><td className="p-4 text-right">{stat.isCurrentlyActive ? (<span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-500 text-[8px] font-black px-2 py-1 rounded-full uppercase animate-pulse"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div> En Directo</span>) : (<span className="text-[8px] font-black text-slate-700 uppercase">Finalizado</span>)}</td></tr>))}</tbody></table>{dailyHoursStats.length === 0 && (<div className="p-20 text-center text-slate-600"><Clock size={48} className="mx-auto mb-4 opacity-10" /><p className="text-sm font-black uppercase tracking-widest">No hay actividad registrada este día</p></div>)}</div>
-      </div>
-    );
-  };
-
-  const renderLogs = () => {
-    return (
-      <div className="space-y-4 animate-fadeIn pb-32 md:pb-0">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><h2 className="text-xl font-black text-white uppercase tracking-tighter">Registros de Actividad</h2><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{filteredLogs.length} eventos encontrados</p></div><div className="flex items-center gap-2 w-full md:w-auto"><button onClick={() => setShowLogFilters(!showLogFilters)} className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${showLogFilters ? 'bg-amber-600 text-white shadow-lg' : 'bg-slate-900 text-slate-500 border border-slate-800'}`}><ListFilter size={16} /> {showLogFilters ? 'Ocultar Filtros' : 'Filtros'}</button><button onClick={handleExportPDF} className="flex-1 md:flex-none bg-emerald-600/10 text-emerald-500 px-4 py-3 rounded-xl border border-emerald-500/20 text-[10px] font-black uppercase flex items-center justify-center gap-2 hover:bg-emerald-600 hover:text-white transition"><Download size={18} /> Exportar</button></div></div>
-        <div className="relative"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} /><input type="text" placeholder="Buscar trabajador u obra..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-xs text-white focus:border-blue-500 outline-none shadow-inner" value={logSearchQuery} onChange={(e) => setLogSearchQuery(e.target.value)}/>{logSearchQuery && (<button onClick={() => setLogSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X size={16} /></button>)}</div>
-        {showLogFilters && (<div className="bg-slate-900/40 p-5 rounded-3xl border border-slate-800 space-y-4 animate-fadeIn"><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"><div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Trabajador</label><div className="relative"><select value={logFilterWorker} onChange={(e) => setLogFilterWorker(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-3 pr-8 text-xs text-white outline-none focus:border-blue-500 appearance-none"><option value="">Todos los trabajadores</option>{workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}</select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} /></div></div><div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Obra / Proyecto</label><div className="relative"><select value={logFilterSite} onChange={(e) => setLogFilterSite(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-3 pr-8 text-xs text-white outline-none focus:border-blue-500 appearance-none"><option value="">Todas las obras</option>{sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} /></div></div><div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Tipo de Acción</label><div className="relative"><select value={logFilterType} onChange={(e) => setLogFilterType(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-3 pr-8 text-xs text-white outline-none focus:border-blue-500 appearance-none"><option value="">Todas las acciones</option>{Object.values(LogType).map(t => <option key={t} value={t}>{t}</option>)}</select><ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} /></div></div><div className="space-y-1"><label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Fecha específica</label><div className="relative"><input type="date" value={logFilterDate} onChange={(e) => setLogFilterDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:border-blue-500 [color-scheme:dark]"/></div></div></div><div className="flex justify-end"><button onClick={() => { setLogSearchQuery(''); setLogFilterWorker(''); setLogFilterSite(''); setLogFilterType(''); setLogFilterDate(''); }} className="flex items-center gap-1.5 text-rose-500 text-[10px] font-black uppercase hover:text-rose-400 transition"><RotateCcw size={14} /> Limpiar Filtros</button></div></div>)}
-        <div className="hidden md:block overflow-hidden bg-slate-900/30 rounded-3xl border border-slate-900 shadow-xl"><table className="w-full text-left text-xs"><thead className="text-slate-500 uppercase font-black border-b border-slate-800 bg-slate-900/50"><tr><th className="p-4">Fecha/Hora</th><th className="p-4">Trabajador</th><th className="p-4">Obra</th><th className="p-4">Acción</th><th className="p-4">Modo / Reporte</th><th className="p-4 text-right">Ubicación</th></tr></thead><tbody className="text-slate-300">{filteredLogs.map(log => (<tr key={log.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors"><td className="p-4 whitespace-nowrap"><div className="font-bold text-white">{log.dateStr}</div><div className="text-[10px] text-slate-500">{log.timeStr}</div></td><td className="p-4 whitespace-nowrap font-bold text-blue-400">{log.workerName}</td><td className="p-4 font-bold text-white leading-tight">{log.siteName}</td><td className="p-4"><div className="flex items-center gap-2"><div className={`p-1.5 rounded-lg border ${log.type === LogType.ENTRADA ? 'bg-emerald-500/10 border-emerald-500/20' : log.type === LogType.SALIDA ? 'bg-rose-500/10 border-rose-500/20' : log.type === LogType.INICIO_DESCANSO ? 'bg-amber-500/10 border-amber-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}><LogIcon type={log.type} size={14} /></div><span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tight ${log.type === LogType.ENTRADA ? 'text-emerald-500' : log.type === LogType.SALIDA ? 'text-rose-500' : log.type === LogType.INICIO_DESCANSO ? 'text-amber-500' : 'text-blue-500'}`}>{log.type}</span></div></td><td className="p-4"><div className="text-[9px] font-black text-slate-600 uppercase">{log.workMode || 'HORAS'}</div><div className="text-[11px] text-slate-400 mt-1 font-medium italic line-clamp-2 max-w-[250px]">{log.workReport || '-'}</div></td><td className="p-4 text-right"><a href={`https://www.google.com/maps/search/?api=1&query=${log.location.latitude},${log.location.longitude}`} target="_blank" rel="noopener noreferrer" className="text-slate-500 hover:text-white transition inline-flex p-2 bg-slate-950 rounded-lg border border-slate-800"><MapIcon size={16}/></a></td></tr>))}</tbody></table></div>
-      </div>
-    );
-  };
-
-  const renderTools = () => {
-    return (
-      <div className="space-y-4 animate-fadeIn pb-32 md:pb-0">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h2 className="text-xl font-black text-white uppercase">Gestión de Herramientas</h2>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{filteredTools.length} equipos registrados</p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+            <input type="text" placeholder="Buscar operario..." className="bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none w-full sm:w-48" value={hoursSearchQuery} onChange={(e) => setHoursSearchQuery(e.target.value)} />
           </div>
-          <button onClick={() => handleOpenToolModal()} className="bg-amber-600 p-3 rounded-xl text-white hover:bg-amber-500 transition shadow-lg flex items-center gap-2 px-4">
-            <Plus size={20} /> <span className="text-[10px] font-black uppercase tracking-widest">Añadir Equipo</span>
+          <input type="date" className="bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white [color-scheme:dark]" value={hoursFilterDate} onChange={(e) => setHoursFilterDate(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        {dailyHoursStats.length > 0 ? (
+          dailyHoursStats.map(stat => (
+            <div key={stat.key} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                  <Users size={18} />
+                </div>
+                <div>
+                  <p className="font-black text-white text-sm uppercase leading-tight">{stat.workerName}</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{stat.dateStr}</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-2 sm:gap-6">
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Trabajo</span>
+                  <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.workMs)}</span>
+                </div>
+                <div className="flex flex-col border-x border-slate-800 px-2 sm:px-6">
+                  <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Descanso</span>
+                  <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.breakMs)}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Total</span>
+                  <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.totalMs)}</span>
+                </div>
+              </div>
+
+              {stat.isCurrentlyActive && (
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full shrink-0">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                  <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Activo</span>
+                </div>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-20 bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-800">
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No hay registros para este día</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Fix for error: renderLogs was referenced but not defined.
+  const renderLogs = () => (
+    <div className="space-y-4 animate-fadeIn pb-32">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase">Registros de Actividad</h2>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Historial completo de fichajes</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setShowLogFilters(!showLogFilters)} className={`p-3 rounded-xl transition ${showLogFilters ? 'bg-blue-600 text-white' : 'bg-slate-900 text-slate-400'}`}>
+            <ListFilter size={20} />
+          </button>
+          <button onClick={handleExportPDF} className="bg-emerald-600 p-3 rounded-xl text-white">
+            <Download size={20} />
           </button>
         </div>
+      </div>
 
-        {/* Tools Search & Filters */}
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-            <input 
-              type="text" 
-              placeholder="Buscar por nombre o marca..." 
-              className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-12 pr-4 text-xs text-white focus:border-amber-500 outline-none shadow-inner" 
-              value={toolSearchQuery} 
-              onChange={(e) => setToolSearchQuery(e.target.value)}
-            />
+      {showLogFilters && (
+        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-slideDown">
+          <div className="space-y-1.5">
+            <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Buscar</label>
+            <input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none" value={logSearchQuery} onChange={(e) => setLogSearchQuery(e.target.value)} placeholder="Operario o obra..." />
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="relative">
-              <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-              <select 
-                value={toolFilterWorker} 
-                onChange={(e) => setToolFilterWorker(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-3 pl-9 pr-8 text-[10px] text-white font-black uppercase outline-none focus:border-amber-500 appearance-none"
-              >
-                <option value="">Filtrar por Trabajador</option>
-                {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} />
-            </div>
-            
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-              <select 
-                value={toolFilterSite} 
-                onChange={(e) => setToolFilterSite(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-3 pl-9 pr-8 text-[10px] text-white font-black uppercase outline-none focus:border-amber-500 appearance-none"
-              >
-                <option value="">Filtrar por Obra</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} />
-            </div>
+          <div className="space-y-1.5">
+            <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Operario</label>
+            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none" value={logFilterWorker} onChange={(e) => setLogFilterWorker(e.target.value)}>
+              <option value="">Todos</option>
+              {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
           </div>
-          
-          {(toolFilterWorker || toolFilterSite || toolSearchQuery) && (
-            <div className="flex justify-end">
-              <button 
-                onClick={() => { setToolFilterWorker(''); setToolFilterSite(''); setToolSearchQuery(''); }} 
-                className="flex items-center gap-1.5 text-rose-500 text-[10px] font-black uppercase hover:text-rose-400 transition"
-              >
-                <RotateCcw size={12} /> Limpiar Filtros
-              </button>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Obra</label>
+            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none" value={logFilterSite} onChange={(e) => setLogFilterSite(e.target.value)}>
+              <option value="">Todas</option>
+              {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Fecha</label>
+            <input type="date" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white [color-scheme:dark] outline-none" value={logFilterDate} onChange={(e) => setLogFilterDate(e.target.value)} />
+          </div>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredTools.map(tool => (
-            <div key={tool.id} className="bg-slate-900 p-5 rounded-[2rem] border border-slate-800 flex flex-col gap-4 shadow-xl hover:border-amber-500/50 transition-colors">
-              <div className="flex justify-between items-start">
-                <div className="w-12 h-12 bg-amber-600/10 rounded-2xl flex items-center justify-center text-amber-500 border border-amber-500/20 shadow-inner">
-                  <Wrench size={22} />
-                </div>
-                <div className="flex gap-1">
-                  <button onClick={() => handleOpenToolModal(tool)} className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-slate-500 hover:text-blue-400 transition"><Pencil size={16} /></button>
-                  <button onClick={() => StorageService.deleteTool(tool.id)} className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-rose-500 hover:bg-rose-500/10 transition"><Trash2 size={16} /></button>
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <h4 className="text-base font-black text-white leading-tight uppercase tracking-tight">{tool.toolName}</h4>
-                <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{tool.brand} • {tool.model || 'S/M'}</p>
-              </div>
-              
-              <div className="pt-4 border-t border-slate-800/50 mt-auto space-y-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-500 border border-blue-500/10 shrink-0">
-                    <Users size={12} />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[7px] font-black text-slate-600 uppercase leading-none">Responsable</span>
-                    <span className="text-[10px] font-bold text-slate-300 uppercase">{tool.workerName}</span>
-                  </div>
-                </div>
-                
-                {tool.siteName && (
+      <div className="overflow-x-auto bg-slate-900 rounded-3xl border border-slate-800">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-950 border-b border-slate-800">
+            <tr>
+              <th className="p-4 font-black uppercase text-slate-500">Fecha/Hora</th>
+              <th className="p-4 font-black uppercase text-slate-500">Operario</th>
+              <th className="p-4 font-black uppercase text-slate-500">Obra</th>
+              <th className="p-4 font-black uppercase text-slate-500">Tipo</th>
+              <th className="p-4 font-black uppercase text-slate-500">Reporte</th>
+              <th className="p-4 font-black uppercase text-slate-500">GPS</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800">
+            {filteredLogs.map(log => (
+              <tr key={log.id} className="hover:bg-slate-800/50 transition">
+                <td className="p-4">
+                  <div className="font-bold text-white">{log.dateStr}</div>
+                  <div className="text-[10px] text-slate-500">{log.timeStr}</div>
+                </td>
+                <td className="p-4 font-bold text-white uppercase">{log.workerName}</td>
+                <td className="p-4 font-bold text-blue-400 uppercase">{log.siteName}</td>
+                <td className="p-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-emerald-600/20 flex items-center justify-center text-emerald-500 border border-emerald-500/10 shrink-0">
-                      <MapPin size={12} />
+                    <LogIcon type={log.type} size={14} />
+                    <span className="font-black uppercase tracking-tighter">{log.type}</span>
+                  </div>
+                </td>
+                <td className="p-4">
+                  <p className="max-w-[150px] truncate text-slate-400">{log.workReport || '-'}</p>
+                </td>
+                <td className="p-4">
+                  {log.locationWarning ? (
+                    <div className="text-rose-500 flex items-center gap-1">
+                      <AlertTriangle size={14} />
+                      <span className="font-bold text-[9px] uppercase">Lejos ({log.distanceMeters}m)</span>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[7px] font-black text-slate-600 uppercase leading-none">Ubicación / Obra</span>
-                      <span className="text-[10px] font-bold text-slate-300 uppercase">{tool.siteName}</span>
+                  ) : (
+                    <div className="text-emerald-500 flex items-center gap-1">
+                      <CheckCircle2 size={14} />
+                      <span className="font-bold text-[9px] uppercase">OK</span>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  // Fix for error: renderTools was referenced but not defined.
+  const renderTools = () => (
+    <div className="space-y-4 animate-fadeIn pb-32">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase">Inventario de Equipos</h2>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gestión de herramientas por operario</p>
+        </div>
+        <button onClick={() => handleOpenToolModal()} className="bg-amber-600 p-3 rounded-xl text-white self-end md:self-auto">
+          <Plus size={20} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+          <input type="text" placeholder="Buscar herramienta o marca..." className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none" value={toolSearchQuery} onChange={(e) => setToolSearchQuery(e.target.value)} />
+        </div>
+        <select className="bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none" value={toolFilterWorker} onChange={(e) => setToolFilterWorker(e.target.value)}>
+          <option value="">Responsables...</option>
+          {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        <select className="bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none" value={toolFilterSite} onChange={(e) => setToolFilterSite(e.target.value)}>
+          <option value="">Obras...</option>
+          {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredTools.length > 0 ? (
+          filteredTools.map(tool => (
+            <div key={tool.id} className="bg-slate-900 p-5 rounded-[2rem] border border-slate-800 flex flex-col justify-between group hover:border-amber-500/50 transition-colors shadow-xl">
+              <div className="flex justify-between items-start mb-4">
+                <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl">
+                  <Wrench size={24} />
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleOpenToolModal(tool)} className="p-2 text-slate-400 hover:text-white transition"><Pencil size={18} /></button>
+                  <button onClick={() => StorageService.deleteTool(tool.id)} className="p-2 text-rose-500 hover:text-rose-400 transition"><Trash2 size={18} /></button>
+                </div>
+              </div>
+              
+              <div className="space-y-1 mb-4">
+                <h3 className="font-black text-white text-base uppercase leading-tight truncate">{tool.toolName}</h3>
+                <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">{tool.brand} {tool.model}</p>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400"><Users size={14} /></div>
+                  <div>
+                    <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Operario</p>
+                    <p className="text-[11px] font-bold text-white uppercase">{tool.workerName}</p>
+                  </div>
+                </div>
+                {tool.siteName && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400"><MapPin size={14} /></div>
+                    <div>
+                      <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Obra</p>
+                      <p className="text-[11px] font-bold text-white uppercase truncate max-w-[150px]">{tool.siteName}</p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
-          ))}
-          {filteredTools.length === 0 && (
-            <div className="col-span-full py-20 text-center text-slate-700 bg-slate-900/20 rounded-[3rem] border-2 border-dashed border-slate-800">
-              <Package size={48} className="mx-auto mb-4 opacity-10" />
-              <p className="text-sm font-black uppercase tracking-widest">No se encontraron herramientas con estos filtros</p>
-            </div>
-          )}
+          ))
+        ) : (
+          <div className="col-span-full text-center py-20 bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-800">
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No hay herramientas registradas</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div className="max-w-2xl space-y-6 animate-fadeIn pb-32">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase tracking-tighter">Configuración General</h2>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Personalización de CARMAGNE INSTAL SL</p>
         </div>
       </div>
-    );
-  };
+
+      <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 shadow-xl space-y-8">
+        {/* Logo Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <ImageIcon className="text-blue-500" size={24} />
+            <h3 className="text-sm font-black text-white uppercase tracking-widest">Identidad Visual (Logo)</h3>
+          </div>
+          
+          <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-slate-950/50 rounded-3xl border border-slate-800">
+            <div className="w-32 h-32 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+              {config.logoUrl ? (
+                <img src={config.logoUrl} className="w-full h-full object-contain p-2" alt="Logo preview" />
+              ) : (
+                <Zap size={32} className="text-slate-800" />
+              )}
+            </div>
+            <div className="flex-1 space-y-3">
+              <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                <span className="text-blue-500 font-black uppercase">Guía:</span> Se recomienda un logo en formato PNG o SVG con fondo transparente. Aparecerá en el login y en el panel superior.
+              </p>
+              <div className="flex gap-2">
+                <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                <button onClick={() => logoInputRef.current?.click()} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg">
+                  <Upload size={14} /> Subir Logo
+                </button>
+                {config.logoUrl && (
+                  <button onClick={handleRemoveLogo} className="p-3 bg-rose-600/10 text-rose-500 rounded-xl border border-rose-500/20">
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Favicon / PWA Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Smartphone className="text-emerald-500" size={24} />
+            <h3 className="text-sm font-black text-white uppercase tracking-widest">Icono PWA / Favicon</h3>
+          </div>
+          
+          <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-slate-950/50 rounded-3xl border border-slate-800">
+            <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+              {config.faviconUrl ? (
+                <img src={config.faviconUrl} className="w-full h-full object-contain p-1" alt="Favicon preview" />
+              ) : (
+                <Smartphone size={24} className="text-slate-800" />
+              )}
+            </div>
+            <div className="flex-1 space-y-3">
+              <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                <span className="text-emerald-500 font-black uppercase">Guía:</span> Tamaño recomendado <span className="text-white">512x512 px</span>. Este icono se mostrará al instalar la aplicación en el móvil y en la pestaña del navegador.
+              </p>
+              <div className="flex gap-2">
+                <input ref={faviconInputRef} type="file" accept="image/*" onChange={handleFaviconUpload} className="hidden" />
+                <button onClick={() => faviconInputRef.current?.click()} className="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg">
+                  <Upload size={14} /> Subir Icono PWA
+                </button>
+                {config.faviconUrl && (
+                  <button onClick={handleRemoveFavicon} className="p-3 bg-rose-600/10 text-rose-500 rounded-xl border border-rose-500/20">
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Global Config Section */}
+        <div className="space-y-4 pt-4 border-t border-slate-800">
+          <div className="flex items-center gap-3">
+            <Database className="text-indigo-500" size={24} />
+            <h3 className="text-sm font-black text-white uppercase tracking-widest">Datos del Sistema</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">URL de Sincronización (Google Sheets)</label>
+              <input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-blue-400 outline-none focus:border-blue-500" value={config.googleSheetUrl} onChange={(e)=>setConfig({...config, googleSheetUrl: e.target.value})} placeholder="https://script.google.com/..."/>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Contraseña Administrador Principal</label>
+              <div className="relative">
+                <input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-indigo-400 outline-none focus:border-indigo-500" value={config.adminPassword} onChange={(e)=>setConfig({...config, adminPassword: e.target.value})} />
+                <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-700" size={16}/>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button onClick={handleSaveConfig} disabled={isSaving} className={`w-full ${isSaving ? 'bg-slate-800 cursor-wait' : 'bg-blue-600 hover:bg-blue-500 active:scale-[0.98]'} text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3`}>
+          {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <Save size={18} />}
+          {isSaving ? 'Guardando Cambios...' : 'Guardar Toda la Configuración'}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
-      {showSaveSuccess && (<div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] animate-fadeIn"><div className="bg-emerald-600/90 backdrop-blur-md text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl border border-emerald-500/30"><div className="bg-white/20 p-1 rounded-full"><Check size={16} strokeWidth={3} /></div><span className="text-xs font-black uppercase tracking-widest">Cambios guardados</span></div></div>)}
-      <aside className="hidden md:flex flex-col w-64 border-r border-slate-900 p-6 gap-8 bg-slate-950"><div className="flex items-center gap-3"><AppLogo size="sm" logoUrl={config.logoUrl} scale={config.logoScaleDashboard} /><h1 className="text-xs font-black tracking-tighter uppercase">Admin Panel</h1></div><nav className="flex flex-col gap-2">{sidebarItems.map(item => (<button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition ${activeTab === item.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-900'}`}><item.icon size={20} />{item.label}</button>))}</nav><button onClick={() => setIsLogoutConfirmOpen(true)} className="mt-auto flex items-center gap-3 px-4 py-3 text-rose-500 font-bold hover:bg-rose-500/10 rounded-2xl transition"><LogOut size={20} /> Cerrar Sesión</button></aside>
-      <main className="flex-1 flex flex-col overflow-hidden relative"><header className="h-14 border-b border-slate-900 flex items-center justify-between px-6 bg-slate-950/50 backdrop-blur-md shrink-0"><div className="flex items-center gap-3"><button onClick={() => setIsLogoutConfirmOpen(true)} className="md:hidden p-2 bg-slate-900 rounded-xl text-slate-400 active:scale-95 transition"><ArrowLeft size={18}/></button><div className="flex flex-col"><span className="text-[10px] font-black text-blue-500 uppercase tracking-widest leading-none">Admin</span><span className="text-xs font-black text-white uppercase tracking-tight">{activeTab}</span></div></div><div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${isSuperAdmin ? 'bg-blue-600/10 border-blue-500/20 text-blue-500' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>{isSuperAdmin ? <Shield size={16} /> : <KeyRound size={16} />}</div></header><div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
-        {activeTab === 'dashboard' && renderDashboard()}
-        {activeTab === 'workers' && (<div className="space-y-4 animate-fadeIn pb-32"><div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4"><h2 className="text-xl font-black text-white uppercase">Personal</h2><div className="flex gap-2"><div className="relative flex-1 md:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} /><input type="text" placeholder="Buscar..." className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-white focus:border-blue-500 outline-none" value={workerSearchQuery} onChange={(e) => setWorkerSearchQuery(e.target.value)}/></div><button className="bg-blue-600 p-3 rounded-xl text-white hover:bg-blue-500 transition"><UserPlus size={20} /></button></div></div><div className="grid gap-2">{filteredWorkers.map(w => (<div key={w.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center active:bg-slate-800 transition-colors"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-slate-800 flex items-center justify-center border border-slate-700 text-slate-500"><Users size={18} /></div><div><p className="font-black text-white text-sm">{w.name}</p><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{w.dni || 'SIN DNI'}</p></div></div><div className="flex gap-1"><button onClick={() => setReportModal({ ...reportModal, isOpen: true, worker: w })} className="p-2 text-emerald-500"><FileText size={20}/></button><button onClick={() => StorageService.deleteWorker(w.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div></div>)}
-        {activeTab === 'hours' && renderHoursReport()}
-        {activeTab === 'sites' && (<div className="space-y-4 animate-fadeIn pb-32"><div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4"><h2 className="text-xl font-black text-white uppercase tracking-tighter">Gestión de Obras</h2><div className="flex gap-2"><div className="relative flex-1 md:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} /><input type="text" placeholder="Buscar obra..." className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-xs text-white focus:border-blue-500 outline-none" value={siteSearchQuery} onChange={(e) => setSiteSearchQuery(e.target.value)}/></div><button onClick={() => handleOpenSiteModal()} className="bg-emerald-600 p-3 rounded-xl text-white"><Plus size={20} /></button></div></div><div className="grid gap-3">{filteredSites.map(site => (<div key={site.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center active:bg-slate-800"><div className="flex items-center gap-3"><div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${site.active ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-slate-800 border-slate-700 text-slate-400'}`}><MapPin size={18} /></div><div className="max-w-[150px]"><p className="font-black text-white text-sm truncate">{site.name}</p><p className="text-[9px] text-slate-500 font-bold uppercase truncate">{site.address}</p></div></div><div className="flex gap-1"><button onClick={() => handleOpenSiteModal(site)} className="p-2 text-slate-400"><Pencil size={20}/></button><button onClick={() => StorageService.deleteSite(site.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div></div>)}
-        {activeTab === 'logs' && renderLogs()}
-        {activeTab === 'tools' && renderTools()}
-        {activeTab === 'admins' && isSuperAdmin && (<div className="space-y-6 animate-fadeIn pb-32"><div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Cuentas Admin</h2><button onClick={() => setIsAdminModalOpen(true)} className="bg-indigo-600 p-3 rounded-xl text-white"><UserPlus size={20} /></button></div><div className="grid gap-3">{admins.map(admin => (<div key={admin.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 border border-slate-700"><KeyRound size={20} /></div><div><h3 className="text-sm font-black text-white">{admin.username}</h3><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gestor</p></div></div><button onClick={() => StorageService.deleteAdmin(admin.id)} className="p-2 text-rose-500"><Trash2 size={20} /></button></div>))}</div></div>)}
-        {activeTab === 'settings' && isSuperAdmin && (<div className="max-w-xl space-y-6 pb-32 animate-fadeIn"><h2 className="text-xl font-black text-white uppercase tracking-tighter">Ajustes del Sistema</h2><div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 shadow-xl space-y-6"><div className="flex items-center gap-3 mb-2"><ImageIcon className="text-blue-500" size={24}/><h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Identidad Corporativa</h3></div><div className="flex flex-col items-center gap-4 p-8 bg-slate-950/50 rounded-3xl border-2 border-dashed border-slate-800">{config.logoUrl ? (<div className="relative group"><img src={config.logoUrl} style={{ width: 140, height: 140 }} className="object-contain rounded-2xl bg-slate-900 p-4 shadow-2xl transition-all" alt="Logo corporativo" /><button onClick={handleRemoveLogo} className="absolute -top-3 -right-3 bg-rose-600 text-white p-2 rounded-full shadow-2xl hover:bg-rose-500 transition active:scale-90"><X size={18}/></button></div>) : (<div className="flex flex-col items-center text-slate-700 py-4"><ImageIcon size={64} className="mb-4 opacity-10"/><p className="text-[10px] font-black uppercase tracking-widest">Aún no has subido un logo</p></div>)}<input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" /><button onClick={() => logoInputRef.current?.click()} className="flex items-center gap-3 bg-blue-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg hover:bg-blue-500 transition active:scale-95"><Upload size={18}/> {config.logoUrl ? 'Actualizar Logo' : 'Subir Logotipo'}</button></div><div className="flex flex-col gap-4 p-6 bg-slate-950/50 rounded-3xl border border-slate-800"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><Smartphone className="text-blue-400" size={18}/><h4 className="text-xs font-black text-white uppercase tracking-widest">Icono PWA</h4></div>{config.faviconUrl && (<button onClick={handleRemoveFavicon} className="text-rose-500 hover:text-rose-400 text-[10px] font-black uppercase tracking-widest">Eliminar</button>)}</div><div className="flex items-center gap-6"><div className="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 shadow-2xl">{config.faviconUrl ? (<img src={config.faviconUrl} className="w-full h-full object-contain p-2" alt="Favicon Preview" />) : (<Zap size={24} className="text-slate-700" />)}</div><div className="flex flex-col gap-2 flex-1"><p className="text-[10px] text-slate-500 font-bold leading-relaxed"><span className="text-blue-400 font-black uppercase">Recomendado:</span> 512x512 px. Aparecerá al instalar la app.</p><input ref={faviconInputRef} type="file" accept="image/*" onChange={handleFaviconUpload} className="hidden" /><button onClick={() => faviconInputRef.current?.click()} className="text-left flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-400 transition"><Upload size={14}/> {config.faviconUrl ? 'Cambiar Icono' : 'Seleccionar Archivo'}</button></div></div></div><div className="space-y-4 bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-xl"><div className="flex items-center gap-3 mb-2"><Database className="text-indigo-500" size={24}/><h3 className="text-sm font-black text-white uppercase tracking-[0.2em]">Configuración Base</h3></div><div className="space-y-4"><div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Google Sheets URL</label><input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-blue-400 focus:border-blue-500 outline-none transition-all" value={config.googleSheetUrl} onChange={(e)=>setConfig({...config, googleSheetUrl: e.target.value})} placeholder="https://script.google.com/..."/></div><div className="space-y-2"><label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Contraseña Maestra</label><div className="relative"><input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-indigo-400 focus:border-blue-500 outline-none" value={config.adminPassword} onChange={(e)=>setConfig({...config, adminPassword: e.target.value})} /><Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-700" size={16}/></div></div><button onClick={handleSaveConfig} disabled={isSaving} className={`w-full ${isSaving ? 'bg-indigo-800' : 'bg-indigo-600'} text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl mt-4 active:scale-95 transition-all flex items-center justify-center gap-2`}>{isSaving ? (<div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>) : (<Save size={18}/>)}{isSaving ? 'Guardando...' : 'Guardar Todos los Cambios'}</button></div></div></div></div>)}
-      </div><nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 flex items-center justify-between px-6 z-50 shadow-[0_-10px_25px_rgba(0,0,0,0.5)]"><div className="flex items-center justify-around w-full overflow-x-auto no-scrollbar gap-4 py-3">{sidebarItems.map(item => (<button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center gap-1.5 shrink-0 transition-all active:scale-90 ${activeTab === item.id ? 'text-blue-500' : 'text-slate-500'}`}><div className={`p-2 rounded-xl transition-colors ${activeTab === item.id ? 'bg-blue-500/10' : ''}`}><item.icon size={20} className={activeTab === item.id ? 'drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]' : ''} /></div><span className="text-[7px] font-black uppercase tracking-tighter">{item.label}</span></button>))}</div></nav></main>
-      {isAdminModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">Nueva Cuenta Admin</h3><p className="text-indigo-500 text-[10px] font-bold uppercase tracking-widest">Configurar Credenciales</p></div><button onClick={() => setIsAdminModalOpen(false)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input type="text" placeholder="Usuario" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-indigo-500 outline-none" value={adminForm.username} onChange={(e) => setAdminForm({ ...adminForm, username: e.target.value })}/><input type="password" placeholder="Contraseña" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-indigo-500 outline-none" value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })}/><button onClick={handleSaveAdmin} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black uppercase text-xs tracking-widest mt-4">Crear Administrador</button></div></div></div>)}
-      {isToolModalOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
-          <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden">
-            <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingTool ? 'Editar Herramienta' : 'Nueva Herramienta'}</h3><p className="text-amber-500 text-[10px] font-bold uppercase tracking-widest">Inventario</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div>
-            <div className="space-y-4">
-              <input list="admin-tools-list" type="text" placeholder="Nombre del Equipo" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.toolName} onChange={(e) => setToolForm({ ...toolForm, toolName: e.target.value })}/>
-              <div className="grid grid-cols-2 gap-3">
-                <input list="admin-brands-list" type="text" placeholder="Marca" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-white outline-none focus:border-amber-500" value={toolForm.brand} onChange={(e) => setToolForm({ ...toolForm, brand: e.target.value })}/>
-                <input type="text" placeholder="Modelo" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-white outline-none focus:border-amber-500" value={toolForm.model} onChange={(e) => setToolForm({ ...toolForm, model: e.target.value })}/>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Responsable</label>
-                <select className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.workerId} onChange={(e) => setToolForm({ ...toolForm, workerId: e.target.value })}>
-                  <option value="">Seleccionar operario...</option>
-                  {workers.map(w => (<option key={w.id} value={w.id}>{w.name}</option>))}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">Obra / Ubicación</label>
-                <select className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.siteId} onChange={(e) => setToolForm({ ...toolForm, siteId: e.target.value })}>
-                  <option value="">Seleccionar obra (Opcional)...</option>
-                  {sites.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
-                </select>
-              </div>
-
-              {toolModalError && <p className="text-rose-500 text-[10px] font-bold uppercase">{toolModalError}</p>}
-              <button onClick={handleSaveTool} className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 transition-transform">{editingTool ? 'Guardar Cambios' : 'Añadir al Inventario'}</button>
-            </div>
-            <datalist id="admin-tools-list">{ELECTRICAL_TOOLS_LIST.map(t => <option key={t} value={t} />)}</datalist>
-            <datalist id="admin-brands-list">{ELECTRICAL_BRANDS_LIST.map(b => <option key={b} value={b} />)}</datalist>
+      {showSaveSuccess && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] animate-fadeIn">
+          <div className="bg-emerald-600 text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl border border-emerald-500/30">
+            <Check size={18} strokeWidth={3} />
+            <span className="text-xs font-black uppercase tracking-widest">Configuración Guardada</span>
           </div>
         </div>
       )}
+
+      <aside className="hidden md:flex flex-col w-64 border-r border-slate-900 p-6 gap-8 bg-slate-950">
+        <div className="flex items-center gap-3">
+          <AppLogo size="sm" logoUrl={config.logoUrl} scale={config.logoScaleDashboard} />
+          <h1 className="text-xs font-black tracking-tighter uppercase leading-tight">CARMAGNE<br/>INSTAL SL</h1>
+        </div>
+        <nav className="flex flex-col gap-2">
+          {sidebarItems.map(item => (
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition ${activeTab === item.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-900'}`}>
+              <item.icon size={20} />{item.label}
+            </button>
+          ))}
+        </nav>
+        <button onClick={() => setIsLogoutConfirmOpen(true)} className="mt-auto flex items-center gap-3 px-4 py-3 text-rose-500 font-bold hover:bg-rose-500/10 rounded-2xl transition">
+          <LogOut size={20} /> Salir
+        </button>
+      </aside>
+
+      <main className="flex-1 flex flex-col overflow-hidden relative">
+        <header className="h-14 border-b border-slate-900 flex items-center justify-between px-6 bg-slate-950/50 backdrop-blur-md shrink-0">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsLogoutConfirmOpen(true)} className="md:hidden p-2 bg-slate-900 rounded-xl text-slate-400"><ArrowLeft size={18}/></button>
+            <span className="text-xs font-black text-white uppercase tracking-widest leading-none">{activeTab}</span>
+          </div>
+          <div className="flex items-center gap-3">
+             <div className="w-8 h-8 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500"><Shield size={16}/></div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+          {activeTab === 'dashboard' && renderDashboard()}
+          {activeTab === 'workers' && (
+            <div className="space-y-4 animate-fadeIn pb-32">
+              <div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Personal</h2><button className="bg-blue-600 p-3 rounded-xl text-white"><UserPlus size={20}/></button></div>
+              <div className="grid gap-2">{filteredWorkers.map(w=>(<div key={w.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between items-center"><div><p className="font-black text-white text-sm uppercase">{w.name}</p><p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{w.dni || 'S/DNI'}</p></div><div className="flex gap-1"><button onClick={()=>setReportModal({...reportModal, isOpen:true, worker:w})} className="p-2 text-emerald-500"><FileText size={20}/></button><button onClick={()=>StorageService.deleteWorker(w.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
+            </div>
+          )}
+          {activeTab === 'hours' && renderHoursReport()}
+          {activeTab === 'sites' && (
+            <div className="space-y-4 animate-fadeIn pb-32">
+              <div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Obras</h2><button onClick={() => handleOpenSiteModal()} className="bg-emerald-600 p-3 rounded-xl text-white"><Plus size={20}/></button></div>
+              <div className="grid gap-3">{filteredSites.map(s=>(<div key={s.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center active:bg-slate-800"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><MapPin size={18}/></div><div className="max-w-[150px]"><p className="font-black text-white text-sm truncate uppercase leading-tight">{s.name}</p><p className="text-[9px] text-slate-500 font-bold uppercase truncate">{s.address}</p></div></div><div className="flex gap-1"><button onClick={()=>handleOpenSiteModal(s)} className="p-2 text-slate-400"><Pencil size={20}/></button><button onClick={()=>StorageService.deleteSite(s.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
+            </div>
+          )}
+          {activeTab === 'logs' && renderLogs()}
+          {activeTab === 'tools' && renderTools()}
+          {activeTab === 'admins' && isSuperAdmin && (
+             <div className="space-y-6 animate-fadeIn pb-32"><div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Cuentas Admin</h2><button onClick={() => setIsAdminModalOpen(true)} className="bg-indigo-600 p-3 rounded-xl text-white"><UserPlus size={20} /></button></div><div className="grid gap-3">{admins.map(admin => (<div key={admin.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 border border-slate-700"><KeyRound size={20} /></div><div><h3 className="text-sm font-black text-white">{admin.username}</h3><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gestor</p></div></div><button onClick={() => StorageService.deleteAdmin(admin.id)} className="p-2 text-rose-500"><Trash2 size={20} /></button></div>))}</div></div>
+          )}
+          {activeTab === 'settings' && isSuperAdmin && renderSettings()}
+        </div>
+
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 flex items-center justify-around py-3 px-4 z-50 shadow-2xl">
+          {sidebarItems.map(item => (
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-blue-500' : 'text-slate-500'}`}>
+              <item.icon size={20} className={activeTab === item.id ? 'drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]' : ''} />
+              <span className="text-[7px] font-black uppercase tracking-tighter">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      </main>
+
+      {isToolModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
+          <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative">
+            <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingTool ? 'Editar Equipo' : 'Nuevo Equipo'}</h3><p className="text-amber-500 text-[10px] font-bold uppercase">Gestión Inventario</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-slate-500 p-2"><X size={20}/></button></div>
+            <div className="space-y-4">
+              <input type="text" placeholder="Nombre de Herramienta" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.toolName} onChange={(e)=>setToolForm({...toolForm, toolName: e.target.value})}/>
+              <input type="text" placeholder="Marca" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.brand} onChange={(e)=>setToolForm({...toolForm, brand: e.target.value})}/>
+              <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.workerId} onChange={(e)=>setToolForm({...toolForm, workerId: e.target.value})}><option value="">Responsable...</option>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
+              <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.siteId} onChange={(e)=>setToolForm({...toolForm, siteId: e.target.value})}><option value="">Obra (Opcional)...</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+              {toolModalError && <p className="text-rose-500 text-[10px] font-bold text-center uppercase">{toolModalError}</p>}
+              <button onClick={handleSaveTool} className="w-full bg-amber-600 text-white py-4 rounded-xl font-black uppercase text-xs shadow-lg active:scale-95 transition">Guardar Equipo</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isSiteModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingSite ? 'Editar Obra' : 'Nueva Obra'}</h3><p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Ubicación</p></div><button onClick={() => setIsSiteModalOpen(false)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input type="text" placeholder="Obra" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white" value={siteForm.name} onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}/><textarea placeholder="Dirección" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white h-20 resize-none" value={siteForm.address} onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })}/><button onClick={handleSaveSite} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-xs mt-2">{editingSite ? 'Guardar' : 'Crear'}</button></div></div></div>)}
-      {reportModal.isOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">Informe</h3><p className="text-blue-500 text-[10px] font-bold uppercase tracking-widest">{reportModal.worker?.name}</p></div><button onClick={() => setReportModal({ ...reportModal, isOpen: false })} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-6"><div className="flex gap-2"><button onClick={() => setReportModal({ ...reportModal, type: 'WEEK' })} className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase transition ${reportModal.type === 'WEEK' ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-500'}`}>Semanal</button><button onClick={() => setReportModal({ ...reportModal, type: 'MONTH' })} className={`flex-1 py-3 rounded-2xl text-xs font-black uppercase transition ${reportModal.type === 'MONTH' ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-500'}`}>Mensual</button></div>{reportModal.type === 'WEEK' ? (<input type="date" value={reportModal.selectedDate} onChange={(e) => setReportModal({ ...reportModal, selectedDate: e.target.value })} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-xs text-white [color-scheme:dark]"/>) : (<select value={reportModal.selectedMonth} onChange={(e) => setReportModal({ ...reportModal, selectedMonth: parseInt(e.target.value) })} className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 px-4 text-xs text-white appearance-none">{MONTH_NAMES.map((m, i) => (<option key={m} value={i}>{m}</option>))}</select>)}<button onClick={handleGenerateWorkerReport} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-lg"><Download size={18} /> Descargar PDF</button></div></div></div>)}
-      <ConfirmationModal isOpen={isLogoutConfirmOpen} title="¿Cerrar Sesión?" message="Vas a salir del panel." confirmText="Salir" cancelText="Quedarme" isDestructive={true} onConfirm={() => { setIsLogoutConfirmOpen(false); onBack(); }} onCancel={() => setIsLogoutConfirmOpen(false)} />
+
+      {reportModal.isOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
+          <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative">
+             <h3 className="text-lg font-black text-white uppercase mb-6 leading-none tracking-tighter">Generar Informe PDF</h3>
+             <div className="space-y-4">
+                <div className="flex gap-2"><button onClick={()=>setReportModal({...reportModal, type:'WEEK'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition ${reportModal.type==='WEEK'?'bg-blue-600 text-white shadow-lg':'bg-slate-950 text-slate-500'}`}>Semanal</button><button onClick={()=>setReportModal({...reportModal, type:'MONTH'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition ${reportModal.type==='MONTH'?'bg-blue-600 text-white shadow-lg':'bg-slate-950 text-slate-500'}`}>Mensual</button></div>
+                {reportModal.type==='WEEK'?(<input type="date" value={reportModal.selectedDate} onChange={(e)=>setReportModal({...reportModal, selectedDate: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white [color-scheme:dark]"/>):(<select value={reportModal.selectedMonth} onChange={(e)=>setReportModal({...reportModal, selectedMonth: parseInt(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white appearance-none">{MONTH_NAMES.map((m,i)=>(<option key={m} value={i}>{m}</option>))}</select>)}
+                <button onClick={handleGenerateWorkerReport} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl transition"><Download size={18}/> Descargar Informe</button>
+                <button onClick={()=>setReportModal({...reportModal, isOpen: false})} className="w-full text-slate-500 text-[10px] font-black uppercase mt-2">Cancelar</button>
+             </div>
+          </div>
+        </div>
+      )}
+      <ConfirmationModal isOpen={isLogoutConfirmOpen} title="¿Cerrar Sesión?" message="Vas a salir del panel de administración." confirmText="Salir" cancelText="Permanecer" isDestructive={true} onConfirm={() => { setIsLogoutConfirmOpen(false); onBack(); }} onCancel={() => setIsLogoutConfirmOpen(false)} />
     </div>
   );
 };
