@@ -40,7 +40,6 @@ const calculateTotalsFromLogs = (logs: WorkLog[]) => {
 
   sorted.forEach(log => {
     if (log.type === LogType.ENTRADA || log.type === LogType.FIN_DESCANSO) {
-      // If we were in a break, close it
       if (lastBreakStart && currentState === LogType.INICIO_DESCANSO) {
         totalBreak += Math.max(0, log.timestamp - lastBreakStart);
       }
@@ -48,7 +47,6 @@ const calculateTotalsFromLogs = (logs: WorkLog[]) => {
       lastWorkStart = log.timestamp;
       currentState = log.type;
     } else if (log.type === LogType.INICIO_DESCANSO) {
-      // If we were working, close work period
       if (lastWorkStart && (currentState === LogType.ENTRADA || currentState === LogType.FIN_DESCANSO)) {
         totalWork += Math.max(0, log.timestamp - lastWorkStart);
       }
@@ -56,7 +54,6 @@ const calculateTotalsFromLogs = (logs: WorkLog[]) => {
       lastBreakStart = log.timestamp;
       currentState = log.type;
     } else if (log.type === LogType.SALIDA) {
-      // Close whichever period was active
       if (lastWorkStart && (currentState === LogType.ENTRADA || currentState === LogType.FIN_DESCANSO)) {
         totalWork += Math.max(0, log.timestamp - lastWorkStart);
       }
@@ -69,12 +66,10 @@ const calculateTotalsFromLogs = (logs: WorkLog[]) => {
     }
   });
 
-  // Check if session is still ongoing (no SALIDA as last action)
   const isOngoing = currentState !== null && currentState !== LogType.SALIDA;
   
   if (isOngoing) {
     const now = Date.now();
-    // Only add time if the logs belong to today
     const isToday = logs.length > 0 && logs[0].dateStr === new Date().toLocaleDateString('es-ES');
     if (isToday) {
       if (lastWorkStart) totalWork += Math.max(0, now - lastWorkStart);
@@ -202,7 +197,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const dailyHoursStats = useMemo(() => {
     const filterDateFormatted = hoursFilterDate ? new Date(hoursFilterDate).toLocaleDateString('es-ES') : null;
     
-    // Group logs by worker + date
     const grouped: Record<string, WorkLog[]> = {};
     logs.forEach(log => {
       if (filterDateFormatted && log.dateStr !== filterDateFormatted) return;
@@ -292,11 +286,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const handleExportPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
-    doc.text("Reporte General de Actividad - CARMAGNE SOLU 2024", 14, 15);
+    doc.text("Reporte General de Actividad - CARMAGNE INSTAL SL", 14, 15);
     doc.setFontSize(10);
     doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, 14, 22);
 
-    // If filtered by a single worker, we can add a summary to the general report too
     let summaryText = "";
     if (logFilterWorker) {
       const { totalWork, totalBreak, isOngoing } = calculateTotalsFromLogs(filteredLogs);
@@ -365,10 +358,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       doc.text(`Periodo: Mes de ${MONTH_NAMES[reportModal.selectedMonth]} ${new Date().getFullYear()}`, 14, 34);
     }
 
-    // --- CALCULATE TOTALS ---
     const { totalWork, totalBreak, isOngoing } = calculateTotalsFromLogs(filteredReportLogs);
 
-    // Summary Box
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
     doc.roundedRect(14, 40, 182, 32, 3, 3, 'FD');
@@ -378,20 +369,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     doc.text("RESUMEN DE TIEMPOS:", 20, 47);
     
     doc.setFontSize(11);
-    doc.setTextColor(5, 150, 105); // Green
+    doc.setTextColor(5, 150, 105); 
     doc.text(`T. Trabajo (Neto): ${formatMsToTime(totalWork)}`, 20, 56);
     
-    doc.setTextColor(217, 119, 6); // Amber
+    doc.setTextColor(217, 119, 6); 
     doc.text(`T. Descanso: ${formatMsToTime(totalBreak)}`, 105, 56);
 
-    doc.setTextColor(15, 23, 42); // Dark
+    doc.setTextColor(15, 23, 42); 
     doc.setFontSize(12);
     doc.text(`JORNADA TOTAL (BRUTO): ${formatMsToTime(totalWork + totalBreak)}`, 20, 65);
 
-    // Ongoing Warning in PDF
     if (isOngoing) {
       doc.setFontSize(8);
-      doc.setTextColor(225, 29, 72); // Rose/Red
+      doc.setTextColor(225, 29, 72); 
       doc.text("(!) PENDIENTE A TERMINAR JORNADA LABORAL", 105, 65);
     }
 
@@ -530,7 +520,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
   const renderDashboard = () => {
     const stats = { totalWorkers: workers.length, activeSites: sites.filter(s => s.active).length, todayLogs: logs.filter(l => l.dateStr === new Date().toLocaleDateString('es-ES')).length };
-    const quickActions = sidebarItems.filter(item => item.id !== 'dashboard');
     return (
       <div className="space-y-6 animate-fadeIn pb-32 md:pb-0">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -538,7 +527,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex flex-col justify-center"><MapPin className="text-emerald-500 mb-1" size={24} /><h4 className="text-xl font-black text-white">{stats.activeSites}</h4><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Obras Activas</p></div>
           <div className="col-span-2 md:col-span-1 bg-slate-900 p-4 rounded-2xl border border-slate-800 flex items-center justify-between"><div><Zap className="text-amber-500 mb-1" size={24} /><h4 className="text-xl font-black text-white">{stats.todayLogs}</h4><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Fichajes Hoy</p></div><div className="md:hidden"><Clock size={32} className="text-slate-800" /></div></div>
         </div>
-        <div className="md:hidden space-y-3"><h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Acceso Directo</h3><div className="grid grid-cols-2 gap-3">{quickActions.map(action => (<button key={action.id} onClick={() => setActiveTab(action.id as any)} className="bg-slate-900 border border-slate-800 p-4 rounded-3xl flex flex-col gap-3 active:scale-95 transition-all text-left group"><div className={`w-10 h-10 rounded-2xl bg-${action.color}-500/10 flex items-center justify-center text-${action.color}-500 border border-${action.color}-500/20`}><action.icon size={20} /></div><div className="flex justify-between items-end"><span className="text-xs font-black text-white uppercase tracking-tighter">{action.label}</span><ChevronRight size={14} className="text-slate-700 group-active:text-white" /></div></button>))}</div></div>
         <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 h-[280px]"><h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Actividad Semanal</h3><ResponsiveContainer width="100%" height="100%"><BarChart data={logs.slice(0, 10)}><CartesianGrid strokeDasharray="3 3" stroke="#1e293b" /><XAxis dataKey="timeStr" stroke="#64748b" fontSize={10} /><YAxis stroke="#64748b" fontSize={10} /><RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b' }} /><Bar dataKey="timestamp" fill="#3b82f6" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div>
       </div>
     );
@@ -710,51 +698,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className="md:hidden space-y-4">
-          {filteredLogs.map(log => (
-            <div key={log.id} className="bg-slate-900 p-5 rounded-[2rem] border border-slate-800 shadow-xl space-y-4 transition-all active:scale-[0.98]">
-              <div className="flex justify-between items-start gap-3">
-                <div className="flex gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 border-2 ${log.type === LogType.ENTRADA ? 'bg-emerald-500/10 border-emerald-500/20' : log.type === LogType.SALIDA ? 'bg-rose-500/10 border-rose-500/20' : log.type === LogType.INICIO_DESCANSO ? 'bg-amber-500/10 border-amber-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
-                    <LogIcon type={log.type} size={28} />
-                  </div>
-                  <div className="flex flex-col justify-center">
-                    <h4 className="text-base font-black text-white leading-none tracking-tight">{log.workerName}</h4>
-                    <p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest mt-1.5 flex items-center gap-1.5">
-                       <MapPin size={10} className="text-blue-600" /> {log.siteName}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] font-black text-white">{log.timeStr}</p>
-                  <p className="text-[9px] font-bold text-slate-600 uppercase mt-0.5">{log.dateStr}</p>
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap items-center justify-between pt-1">
-                 <div className="flex flex-wrap gap-2">
-                    <span className={`text-[8px] font-black uppercase px-2.5 py-1.5 rounded-lg border ${log.type === LogType.ENTRADA ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : log.type === LogType.SALIDA ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' : log.type === LogType.INICIO_DESCANSO ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-blue-500/10 text-blue-500 border-blue-500/20'}`}>
-                       {log.type}
-                    </span>
-                    <span className="text-[8px] font-black uppercase bg-slate-950 px-2.5 py-1.5 rounded-lg text-slate-500 border border-slate-800">{log.workMode || 'HORAS'}</span>
-                 </div>
-              </div>
-
-              {log.workReport && (
-                <div className="bg-slate-950/60 p-4 rounded-2xl border border-white/5">
-                   <p className="text-[11px] text-slate-400 italic font-medium leading-relaxed">"{log.workReport}"</p>
-                </div>
-              )}
-
-              <div className="pt-2">
-                <a href={`https://www.google.com/maps/search/?api=1&query=${log.location.latitude},${log.location.longitude}`} target="_blank" className="flex items-center justify-center gap-2 w-full py-3 bg-slate-950 rounded-2xl border border-slate-800 text-[10px] font-black text-blue-400 uppercase tracking-widest hover:bg-slate-800 transition shadow-inner">
-                  <MapIcon size={14}/> Ubicación GPS
-                </a>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     );

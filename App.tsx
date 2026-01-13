@@ -129,10 +129,8 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Update dynamic favicon and Apple Home Screen icon
   useEffect(() => {
     if (appConfig.faviconUrl) {
-      // Standard Favicon
       let link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
       if (!link) {
         link = document.createElement('link');
@@ -141,7 +139,6 @@ export const App: React.FC = () => {
       }
       link.href = appConfig.faviconUrl;
 
-      // Apple Touch Icon (Home Screen)
       let appleLink = document.querySelector("link[rel='apple-touch-icon']") as HTMLLinkElement;
       if (!appleLink) {
         appleLink = document.createElement('link');
@@ -184,7 +181,7 @@ export const App: React.FC = () => {
     const doc = new jsPDF();
     doc.setFontSize(18);
     doc.setTextColor(15, 23, 42);
-    doc.text("Historial de Actividad - CARMAGNE SOLU 2024", 105, 15, { align: 'center' });
+    doc.text("Historial de Actividad - CARMAGNE INSTAL SL", 105, 15, { align: 'center' });
     doc.setFontSize(12);
     doc.text(`Operario: ${selectedWorker.name}`, 105, 25, { align: 'center' });
     const tableData = filteredHistory.map(l => [l.dateStr, l.timeStr, l.type, l.siteName, l.workMode || 'HORAS', l.workReport || '-']);
@@ -267,7 +264,7 @@ export const App: React.FC = () => {
     const worker = workers.find(w => w.phone && processSpanishPhone(w.phone) === formattedPhone);
     if (worker) {
       if (!worker.active) { setError("Cuenta desactivada."); return; }
-      setSelectedWorker(worker); setPinInput(''); setError(''); setCurrentStep(Step.AUTHENTICATE); // PIN is mandatory
+      setSelectedWorker(worker); setPinInput(''); setError(''); setCurrentStep(Step.AUTHENTICATE);
     } else if(confirm("Este número no está registrado. ¿Quieres crear una cuenta nueva?")) {
       setRegPhone(formattedPhone); setError(''); setCurrentStep(Step.REGISTER);
     }
@@ -388,7 +385,7 @@ export const App: React.FC = () => {
     switch(currentStep) {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
-          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="text-3xl font-black text-white tracking-tighter uppercase">CARMAGNE SOLU 2024</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
+          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="text-3xl font-black text-white tracking-tighter uppercase">CARMAGNE INSTAL SL</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
           <div className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800"><input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-5 text-2xl font-black focus:border-blue-500 outline-none text-center tracking-widest" placeholder="600000000"/><button onClick={handlePhoneLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg mt-6 flex items-center justify-center gap-3 active:scale-95 uppercase text-xs tracking-widest">Entrar <ArrowRight size={16} /></button></div>
           <button onClick={() => setShowAdminLogin(true)} className="text-slate-800 text-[10px] font-black uppercase tracking-[0.4em] text-center">Admin Panel</button>
         </div>
@@ -411,12 +408,11 @@ export const App: React.FC = () => {
       case Step.SELECT_ACTION: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
            <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Acción en Obra</h2><p className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">{selectedSite?.name}</p></div></div>
-           {workerStatus?.type === 'DESCANSO' && workerStatus.siteId === selectedSite?.id && (<div className="bg-amber-600/10 border border-amber-500/30 p-4 rounded-2xl mb-6 flex items-start gap-3 animate-pulse shrink-0"><AlertCircle size={20} className="text-amber-500 shrink-0" /><p className="text-[10px] text-amber-200 font-bold uppercase tracking-tight leading-relaxed">Estás en descanso. Debes pulsar <span className="text-white font-black underline">Fin Descanso</span> antes de poder registrar la salida.</p></div>)}
            <div className="grid grid-cols-2 gap-3 flex-1 pb-4">
-             <button disabled={workerStatus?.type !== 'INACTIVO' || (workerStatus?.type !== 'INACTIVO' && workerStatus.siteId !== selectedSite?.id)} onClick={() => handleActionSelect(LogType.ENTRADA)} className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${(workerStatus?.type !== 'INACTIVO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Zap size={32} /> <span className="text-sm font-black uppercase">Entrada</span></button>
-             <button disabled={workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id} onClick={() => handleActionSelect(LogType.SALIDA)} className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${(workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''}`}><LogOut size={32} /> <span className="text-sm font-black uppercase">Salida</span></button>
-             <button disabled={workerStatus?.type !== 'TRABAJANDO' || workerStatus?.siteId !== selectedSite?.id} onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${(workerStatus?.type !== 'TRABAJANDO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Coffee size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Ini Descanso</span></button>
-             <button disabled={workerStatus?.type !== 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id} onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} className={`bg-blue-600/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-blue-500 active:bg-blue-600 active:text-white transition-all ${(workerStatus?.type !== 'DESCANSO' || workerStatus?.siteId !== selectedSite?.id) ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Timer size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Fin Descanso</span></button>
+             <button disabled={workerStatus?.type !== 'INACTIVO'} onClick={() => handleActionSelect(LogType.ENTRADA)} className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${(workerStatus?.type !== 'INACTIVO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Zap size={32} /> <span className="text-sm font-black uppercase">Entrada</span></button>
+             <button disabled={workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO'} onClick={() => handleActionSelect(LogType.SALIDA)} className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${(workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><LogOut size={32} /> <span className="text-sm font-black uppercase">Salida</span></button>
+             <button disabled={workerStatus?.type !== 'TRABAJANDO'} onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${(workerStatus?.type !== 'TRABAJANDO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Coffee size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Ini Descanso</span></button>
+             <button disabled={workerStatus?.type !== 'DESCANSO'} onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} className={`bg-blue-600/10 border border-blue-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-blue-500 active:bg-blue-600 active:text-white transition-all ${(workerStatus?.type !== 'DESCANSO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Timer size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Fin Descanso</span></button>
            </div>
         </div>
       );
@@ -444,13 +440,6 @@ export const App: React.FC = () => {
            <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">{filteredHistory.map(log => (<div key={log.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 animate-slideUp"><div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-black uppercase tracking-widest ${log.type === LogType.ENTRADA ? 'text-emerald-400' : log.type === LogType.SALIDA ? 'text-rose-400' : 'text-blue-400'}`}>{log.type}</span><span className="text-[9px] text-slate-600 font-bold">{log.dateStr} • {log.timeStr}</span></div><p className="text-xs font-black text-white uppercase tracking-tight truncate">{log.siteName}</p>{log.workReport && <p className="text-[10px] text-slate-500 italic mt-1 line-clamp-2">"{log.workReport}"</p>}<div className="flex gap-2 mt-2"><span className="text-[8px] bg-slate-950 px-2 py-0.5 rounded text-slate-500 font-bold uppercase tracking-widest">{log.workMode || 'HORAS'}</span></div></div>))}{filteredHistory.length === 0 && (<div className="flex flex-col items-center justify-center py-20 text-slate-600"><History size={48} className="mb-4 opacity-20" /><p className="text-xs font-bold uppercase tracking-widest">Sin registros encontrados</p></div>)}</div>
         </div>
       );
-      case Step.WORKER_TOOLS: return (
-        <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-          <div className="flex items-center gap-4 mb-4 shrink-0"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Herramientas</h2></div>
-          <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 mb-4 space-y-3 shadow-lg shrink-0"><div className="space-y-1"><label htmlFor="tool-input" className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Nombre Herramienta</label><input id="tool-input" list="tools-list" type="text" placeholder="Ej: Multímetro, Taladro..." className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolName} onChange={(e)=>setNewToolName(e.target.value)}/><datalist id="tools-list">{ELECTRICAL_TOOLS_LIST.map(tool => <option key={tool} value={tool} />)}</datalist></div><div className="grid grid-cols-2 gap-2"><div className="space-y-1"><label htmlFor="brand-input" className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Marca</label><input id="brand-input" list="brands-list" type="text" placeholder="Marca" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolBrand} onChange={(e)=>setNewToolBrand(e.target.value)}/><datalist id="brands-list">{ELECTRICAL_BRANDS_LIST.map(brand => <option key={brand} value={brand} />)}</datalist></div><div className="space-y-1"><label className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Modelo (Opcional)</label><input type="text" placeholder="Modelo" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-blue-500" value={newToolModel} onChange={(e)=>setNewToolModel(e.target.value)}/></div></div><button onClick={handleAddTool} className="w-full bg-amber-600 text-white font-black py-4 rounded-xl uppercase text-xs tracking-widest shadow-lg active:scale-95 transition-all">Añadir Equipo</button></div>
-          <div className="flex-1 overflow-y-auto space-y-2 pb-4 custom-scrollbar">{allTools.filter(t => t.workerId === selectedWorker?.id).map(tool => (<div key={tool.id} className="bg-slate-900 border border-slate-800 p-3 rounded-2xl flex items-center justify-between animate-slideUp"><div className="flex items-center gap-3"><div className="bg-slate-950 p-2 rounded-lg text-amber-500"><Wrench size={14} /></div><div><h4 className="font-bold text-white text-xs">{tool.toolName}</h4><p className="text-[9px] text-slate-600 uppercase font-black">{tool.brand} • {tool.model || 'S/M'}</p></div></div><button onClick={() => StorageService.deleteTool(tool.id)} className="text-slate-700 hover:text-rose-500 p-2"><Trash2 size={16} /></button></div>))}{allTools.filter(t => t.workerId === selectedWorker?.id).length === 0 && (<div className="flex flex-col items-center justify-center py-10 opacity-20"><Wrench size={40} className="mb-2" /><p className="text-[10px] font-black uppercase tracking-widest">Sin herramientas registradas</p></div>)}</div>
-        </div>
-      );
       case Step.REGISTER: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
            <h2 className="text-2xl font-black text-white mb-4 shrink-0 tracking-tighter uppercase">Crear Cuenta</h2>
@@ -467,7 +456,7 @@ export const App: React.FC = () => {
     <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center gap-6 z-[100]">
        <AppLogo className="animate-pulse" size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} />
        <div className="flex flex-col items-center">
-         <h1 className="text-xl font-black text-white tracking-widest animate-fadeIn">CARMAGNE SOLU 2024</h1>
+         <h1 className="text-xl font-black text-white tracking-widest animate-fadeIn">CARMAGNE INSTAL SL</h1>
          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.4em] mt-2">Cargando Sistema...</p>
        </div>
        <div className="w-48 h-1 bg-slate-900 rounded-full overflow-hidden">
