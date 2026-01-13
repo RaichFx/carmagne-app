@@ -33,6 +33,66 @@ const MONTH_NAMES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
 
+// Helper to format milliseconds to HH:mm:ss
+const formatMsToTime = (ms: number) => {
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+// Helper logic for calculating totals from a set of logs
+const calculateTotalsFromLogs = (logs: WorkLog[]) => {
+  const sorted = [...logs].sort((a, b) => a.timestamp - b.timestamp);
+  let totalWork = 0;
+  let totalBreak = 0;
+  let lastWorkStart: number | null = null;
+  let lastBreakStart: number | null = null;
+  let currentState: LogType | null = null;
+
+  sorted.forEach(log => {
+    if (log.type === LogType.ENTRADA || log.type === LogType.FIN_DESCANSO) {
+      if (lastBreakStart && currentState === LogType.INICIO_DESCANSO) {
+        totalBreak += Math.max(0, log.timestamp - lastBreakStart);
+      }
+      lastBreakStart = null;
+      lastWorkStart = log.timestamp;
+      currentState = log.type;
+    } else if (log.type === LogType.INICIO_DESCANSO) {
+      if (lastWorkStart && (currentState === LogType.ENTRADA || currentState === LogType.FIN_DESCANSO)) {
+        totalWork += Math.max(0, log.timestamp - lastWorkStart);
+      }
+      lastWorkStart = null;
+      lastBreakStart = log.timestamp;
+      currentState = log.type;
+    } else if (log.type === LogType.SALIDA) {
+      if (lastWorkStart && (currentState === LogType.ENTRADA || currentState === LogType.FIN_DESCANSO)) {
+        totalWork += Math.max(0, log.timestamp - lastWorkStart);
+      }
+      if (lastBreakStart && currentState === LogType.INICIO_DESCANSO) {
+        totalBreak += Math.max(0, log.timestamp - lastBreakStart);
+      }
+      lastWorkStart = null;
+      lastBreakStart = null;
+      currentState = LogType.SALIDA;
+    }
+  });
+
+  const isOngoing = currentState !== null && currentState !== LogType.SALIDA;
+  
+  if (isOngoing) {
+    const now = Date.now();
+    // For the worker's history summary, we check if the ongoing log is from today to include current time
+    const isToday = logs.length > 0 && logs.some(l => l.dateStr === new Date().toLocaleDateString('es-ES'));
+    if (isToday) {
+      if (lastWorkStart) totalWork += Math.max(0, now - lastWorkStart);
+      if (lastBreakStart) totalBreak += Math.max(0, now - lastBreakStart);
+    }
+  }
+
+  return { totalWork, totalBreak, isOngoing };
+};
+
 const AppLogo = ({ className, size = "md", logoUrl, scale = 1.0 }: { className?: string, size?: "sm" | "md" | "lg", logoUrl?: string, scale?: number }) => {
   const baseSize = size === "sm" ? 28 : size === "md" ? 64 : size === "lg" ? 140 : 64;
   const iconSize = baseSize * scale;
@@ -82,7 +142,7 @@ export const App: React.FC = () => {
 
   // History states
   const [historySearch, setHistorySearch] = useState('');
-  const [historyPeriod, setHistoryPeriod] = useState<'ALL' | 'WEEK' | 'MONTH'>('ALL');
+  const [historyPeriod, setHistoryPeriod] = useState<'ALL' | 'DAY' | 'WEEK' | 'MONTH'>('ALL');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
@@ -152,7 +212,10 @@ export const App: React.FC = () => {
   const filteredHistory = useMemo(() => {
     if (!selectedWorker) return [];
     let baseHistory = workerLogs.filter(l => l.workerId === selectedWorker.id);
-    if (historyPeriod === 'WEEK') {
+    if (historyPeriod === 'DAY') {
+      const pickedDateStr = new Date(selectedDate).toLocaleDateString('es-ES');
+      baseHistory = baseHistory.filter(l => l.dateStr === pickedDateStr);
+    } else if (historyPeriod === 'WEEK') {
       const pickedDate = new Date(selectedDate);
       const day = pickedDate.getDay();
       const diffToMonday = pickedDate.getDate() - day + (day === 0 ? -6 : 1);
@@ -176,6 +239,9 @@ export const App: React.FC = () => {
     return baseHistory;
   }, [workerLogs, selectedWorker, historySearch, historyPeriod, selectedMonth, selectedDate]);
 
+  // Derived totals for history summary
+  const historyTotals = useMemo(() => calculateTotalsFromLogs(filteredHistory), [filteredHistory, currentTime]);
+
   const handleDownloadPDF = () => {
     if (!selectedWorker) return;
     const doc = new jsPDF();
@@ -184,9 +250,17 @@ export const App: React.FC = () => {
     doc.text("Historial de Actividad - CARMAGNE INSTAL SL", 105, 15, { align: 'center' });
     doc.setFontSize(12);
     doc.text(`Operario: ${selectedWorker.name}`, 105, 25, { align: 'center' });
+
+    // Summary in PDF
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(14, 30, 182, 20, 2, 2, 'F');
+    doc.setFontSize(9);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Trabajo Neto: ${formatMsToTime(historyTotals.totalWork)} | Descanso: ${formatMsToTime(historyTotals.totalBreak)} | Total: ${formatMsToTime(historyTotals.totalWork + historyTotals.totalBreak)}`, 20, 42);
+
     const tableData = filteredHistory.map(l => [l.dateStr, l.timeStr, l.type, l.siteName, l.workMode || 'HORAS', l.workReport || '-']);
     autoTable(doc, {
-      startY: 35,
+      startY: 55,
       head: [['Fecha', 'Hora', 'Acción', 'Obra', 'Modo', 'Reporte']],
       body: tableData,
       headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -236,13 +310,6 @@ export const App: React.FC = () => {
     }
     return { type: currentState, site: currentSite, siteId: currentSiteId, accumulatedWorkTime, currentWorkStart, accumulatedBreakTime, currentBreakStart };
   }, [workerLogs, selectedWorker]);
-
-  const formatMsToTime = (ms: number) => {
-    const hours = Math.floor(ms / 3600000);
-    const minutes = Math.floor((ms % 3600000) / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-  };
 
   const getEffectiveWorkTime = () => {
     if (!workerStatus) return 0;
@@ -435,9 +502,53 @@ export const App: React.FC = () => {
       );
       case Step.WORKER_HISTORY: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-           <div className="flex items-center justify-between gap-4 mb-4 shrink-0"><div className="flex items-center gap-4"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Mi Actividad</h2></div><button onClick={handleDownloadPDF} className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl border border-emerald-500/20 active:bg-emerald-600 active:text-white"><Download size={20}/></button></div>
-           <div className="space-y-3 mb-4 shrink-0"><div className="relative"><Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" /><input type="text" placeholder="Buscar obra o tarea..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs text-white outline-none focus:border-blue-500" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)}/></div><div className="flex gap-2">{(['ALL', 'WEEK', 'MONTH'] as const).map(p => (<button key={p} onClick={() => setHistoryPeriod(p)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${historyPeriod === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>{p === 'ALL' ? 'Todo' : p === 'WEEK' ? 'Semana' : 'Mes'}</button>))}</div>{historyPeriod === 'MONTH' && (<div className="animate-slideDown relative"><select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 px-4 text-xs font-bold text-blue-400 outline-none appearance-none">{MONTH_NAMES.map((name, idx) => (<option key={name} value={idx}>{name}</option>))}</select><ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} /></div>)}{historyPeriod === 'WEEK' && (<div className="animate-slideDown flex flex-col gap-1"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">Elegir día de la semana:</span><div className="relative"><CalendarDays size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" /><input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-white outline-none [color-scheme:dark]"/></div></div>)}</div>
-           <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">{filteredHistory.map(log => (<div key={log.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 animate-slideUp"><div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-black uppercase tracking-widest ${log.type === LogType.ENTRADA ? 'text-emerald-400' : log.type === LogType.SALIDA ? 'text-rose-400' : 'text-blue-400'}`}>{log.type}</span><span className="text-[9px] text-slate-600 font-bold">{log.dateStr} • {log.timeStr}</span></div><p className="text-xs font-black text-white uppercase tracking-tight truncate">{log.siteName}</p>{log.workReport && <p className="text-[10px] text-slate-500 italic mt-1 line-clamp-2">"{log.workReport}"</p>}<div className="flex gap-2 mt-2"><span className="text-[8px] bg-slate-950 px-2 py-0.5 rounded text-slate-500 font-bold uppercase tracking-widest">{log.workMode || 'HORAS'}</span></div></div>))}{filteredHistory.length === 0 && (<div className="flex flex-col items-center justify-center py-20 text-slate-600"><History size={48} className="mb-4 opacity-20" /><p className="text-xs font-bold uppercase tracking-widest">Sin registros encontrados</p></div>)}</div>
+           <div className="flex items-center justify-between gap-4 mb-4 shrink-0">
+             <div className="flex items-center gap-4">
+               <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button>
+               <h2 className="text-xl font-black text-white">Mi Actividad</h2>
+             </div>
+             <button onClick={handleDownloadPDF} className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl border border-emerald-500/20 active:bg-emerald-600 active:text-white"><Download size={20}/></button>
+           </div>
+
+           {/* Summary Card for Worker History */}
+           <div className="bg-slate-900/50 p-4 rounded-3xl border border-slate-800 mb-4 shrink-0 space-y-4">
+              <div className="flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                 <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Resumen del periodo</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                 <div className="flex flex-col items-center gap-1">
+                    <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest text-center leading-none">Trabajo Neto</span>
+                    <span className="text-sm font-mono font-black text-white">{formatMsToTime(historyTotals.totalWork)}</span>
+                 </div>
+                 <div className="flex flex-col items-center gap-1 border-x border-slate-800">
+                    <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest text-center leading-none">Descanso</span>
+                    <span className="text-sm font-mono font-black text-white">{formatMsToTime(historyTotals.totalBreak)}</span>
+                 </div>
+                 <div className="flex flex-col items-center gap-1">
+                    <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest text-center leading-none">Total Bruto</span>
+                    <span className="text-sm font-mono font-black text-white">{formatMsToTime(historyTotals.totalWork + historyTotals.totalBreak)}</span>
+                 </div>
+              </div>
+              {historyTotals.isOngoing && (
+                 <div className="flex items-center justify-center gap-2 pt-1 border-t border-slate-800/50">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></div>
+                    <span className="text-[8px] font-black text-emerald-500 uppercase">Jornada Activa (Contando...)</span>
+                 </div>
+              )}
+           </div>
+
+           <div className="space-y-3 mb-4 shrink-0">
+             <div className="relative"><Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" /><input type="text" placeholder="Buscar obra o tarea..." className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs text-white outline-none focus:border-blue-500" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)}/></div>
+             <div className="flex gap-2">{(['ALL', 'DAY', 'WEEK', 'MONTH'] as const).map(p => (<button key={p} onClick={() => setHistoryPeriod(p)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${historyPeriod === p ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>{p === 'ALL' ? 'Todo' : p === 'DAY' ? 'Día' : p === 'WEEK' ? 'Semana' : 'Mes'}</button>))}</div>
+             {historyPeriod === 'MONTH' && (<div className="animate-slideDown relative"><select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 px-4 text-xs font-bold text-blue-400 outline-none appearance-none">{MONTH_NAMES.map((name, idx) => (<option key={name} value={idx}>{name}</option>))}</select><ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} /></div>)}
+             {(historyPeriod === 'WEEK' || historyPeriod === 'DAY') && (<div className="animate-slideDown flex flex-col gap-1"><span className="text-[10px] text-slate-500 font-black uppercase tracking-widest ml-1">{historyPeriod === 'DAY' ? 'Elegir día:' : 'Elegir día de la semana:'}</span><div className="relative"><CalendarDays size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-500" /><input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-white outline-none [color-scheme:dark]"/></div></div>)}
+           </div>
+
+           <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">
+             {filteredHistory.map(log => (<div key={log.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 animate-slideUp"><div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-black uppercase tracking-widest ${log.type === LogType.ENTRADA ? 'text-emerald-400' : log.type === LogType.SALIDA ? 'text-rose-400' : 'text-blue-400'}`}>{log.type}</span><span className="text-[9px] text-slate-600 font-bold">{log.dateStr} • {log.timeStr}</span></div><p className="text-xs font-black text-white uppercase tracking-tight truncate">{log.siteName}</p>{log.workReport && <p className="text-[10px] text-slate-500 italic mt-1 line-clamp-2">"{log.workReport}"</p>}<div className="flex gap-2 mt-2"><span className="text-[8px] bg-slate-950 px-2 py-0.5 rounded text-slate-500 font-bold uppercase tracking-widest">{log.workMode || 'HORAS'}</span></div></div>))}
+             {filteredHistory.length === 0 && (<div className="flex flex-col items-center justify-center py-20 text-slate-600"><History size={48} className="mb-4 opacity-20" /><p className="text-xs font-bold uppercase tracking-widest">Sin registros encontrados</p></div>)}
+           </div>
         </div>
       );
       case Step.REGISTER: return (
