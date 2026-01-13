@@ -152,6 +152,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const [showLogFilters, setShowLogFilters] = useState(false);
 
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isClearLogsConfirmOpen, setIsClearLogsConfirmOpen] = useState(false);
+  const [logToDelete, setLogToDelete] = useState<string | null>(null);
 
   const [isSiteModalOpen, setIsSiteModalOpen] = useState(false);
   const [editingSite, setEditingSite] = useState<Site | null>(null);
@@ -338,6 +340,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     await StorageService.addTool(toolData); setIsToolModalOpen(false);
   };
 
+  const handleDeleteLog = async () => {
+    if (logToDelete) {
+      await StorageService.deleteLog(logToDelete);
+      setLogToDelete(null);
+    }
+  };
+
+  const handleClearAllLogs = async () => {
+    await StorageService.clearAllLogs();
+    setIsClearLogsConfirmOpen(false);
+  };
+
   const filteredWorkers = workers.filter(w => w.name.toLowerCase().includes(workerSearchQuery.toLowerCase()));
   const filteredSites = sites.filter(s => s.name.toLowerCase().includes(siteSearchQuery.toLowerCase()));
   
@@ -452,6 +466,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Historial completo con verificación GPS</p>
         </div>
         <div className="flex gap-2">
+          {isSuperAdmin && (
+            <button onClick={() => setIsClearLogsConfirmOpen(true)} className="bg-rose-600/10 border border-rose-500/30 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-rose-600 hover:text-white transition-all">
+              <RotateCcw size={14} /> Vaciar Historial
+            </button>
+          )}
           <button onClick={() => setShowLogFilters(!showLogFilters)} className={`p-3 rounded-xl transition ${showLogFilters ? 'bg-blue-600 text-white' : 'bg-slate-900 text-slate-400'}`}>
             <ListFilter size={20} />
           </button>
@@ -498,6 +517,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               <th className="p-4 font-black uppercase text-slate-500">Tipo</th>
               <th className="p-4 font-black uppercase text-slate-500">Reporte</th>
               <th className="p-4 font-black uppercase text-slate-500">Ubicación GPS</th>
+              {isSuperAdmin && <th className="p-4 font-black uppercase text-slate-500 text-right">Acciones</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
@@ -543,6 +563,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                       </a>
                    </div>
                 </td>
+                {isSuperAdmin && (
+                  <td className="p-4 text-right">
+                    <button 
+                      onClick={() => setLogToDelete(log.id)}
+                      className="p-2 text-rose-500/50 hover:text-rose-500 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -843,6 +873,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           </div>
         </div>
       )}
+      
+      <ConfirmationModal isOpen={!!logToDelete} title="Borrar Registro" message="¿Estás seguro de que quieres eliminar este registro? Esta acción no se puede deshacer." confirmText="Borrar" isDestructive={true} onConfirm={handleDeleteLog} onCancel={() => setLogToDelete(null)} />
+      
+      <ConfirmationModal isOpen={isClearLogsConfirmOpen} title="Vaciar Todo el Historial" message="¡ATENCIÓN! Vas a eliminar TODOS los registros de actividad del sistema. Esta acción es definitiva." confirmText="VACIAR TODO" isDestructive={true} onConfirm={handleClearAllLogs} onCancel={() => setIsClearLogsConfirmOpen(false)} />
+
       <ConfirmationModal isOpen={isLogoutConfirmOpen} title="¿Cerrar Sesión?" message="Vas a salir del panel de administración." confirmText="Salir" cancelText="Permanecer" isDestructive={true} onConfirm={() => { setIsLogoutConfirmOpen(false); onBack(); }} onCancel={() => setIsLogoutConfirmOpen(false)} />
     </div>
   );

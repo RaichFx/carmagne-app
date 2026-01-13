@@ -1,7 +1,7 @@
 
 import { Worker, Site, WorkLog, AppConfig, LogType, AdminUser, ToolRecord } from '../types';
 import { db } from './firebase';
-import { collection, doc, setDoc, updateDoc, onSnapshot, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, onSnapshot, deleteDoc, getDoc, getDocs, writeBatch } from 'firebase/firestore';
 
 const KEYS = {
   WORKERS: 'carmagne_workers',
@@ -46,61 +46,25 @@ const INITIAL_CONFIG: AppConfig = {
   logoScaleDashboard: 1.0
 };
 
-/**
- * Función robusta para clonar objetos y eliminar referencias circulares.
- * Especialmente útil para datos provenientes de Firebase Firestore.
- */
 const safeClone = (obj: any) => {
   const seen = new WeakMap();
-
   const clone = (item: any): any => {
-    // Manejo de nulos y no-objetos
-    if (item === null || typeof item !== 'object') {
-      return item;
-    }
-
-    // Manejo de Firebase Timestamp o cualquier objeto con toDate()
-    if (typeof item.toDate === 'function') {
-      return item.toDate().getTime();
-    }
-
-    // Manejo de instancias de Date
-    if (item instanceof Date) {
-      return item.getTime();
-    }
-
-    // Manejo de referencias circulares
-    if (seen.has(item)) {
-      return undefined;
-    }
+    if (item === null || typeof item !== 'object') return item;
+    if (typeof item.toDate === 'function') return item.toDate().getTime();
+    if (item instanceof Date) return item.getTime();
+    if (seen.has(item)) return undefined;
     seen.set(item, true);
-
-    // Manejo de Arrays
-    if (Array.isArray(item)) {
-      return item.map(clone).filter(v => v !== undefined);
-    }
-
-    // Manejo de Objetos literales
+    if (Array.isArray(item)) return item.map(clone).filter(v => v !== undefined);
     const result: any = {};
-    const keys = Object.keys(item);
-    
-    for (const key of keys) {
-      // Evitar procesar propiedades internas de Firebase que suelen causar circularidad
+    for (const key of Object.keys(item)) {
       if (key.startsWith('_')) continue;
-      
       try {
         const val = clone(item[key]);
-        if (val !== undefined) {
-          result[key] = val;
-        }
-      } catch (e) {
-        console.warn(`Error clonando propiedad ${key}:`, e);
-      }
+        if (val !== undefined) result[key] = val;
+      } catch (e) {}
     }
-
     return result;
   };
-
   return clone(obj);
 };
 
@@ -115,18 +79,14 @@ const saveLocal = <T>(key: string, data: T): void => {
   try {
     const cleaned = safeClone(data);
     localStorage.setItem(key, JSON.stringify(cleaned));
-  } catch (e) { 
-    console.error("Error al guardar en localStorage (JSON circular detectado):", e); 
-  }
+  } catch (e) { console.error("Error saving to local", e); }
 };
 
 export const StorageService = {
-  // --- TOOLS ---
   getTools: (): ToolRecord[] => loadLocal(KEYS.TOOLS, []),
   addTool: async (tool: ToolRecord) => {
     const tools = loadLocal<ToolRecord[]>(KEYS.TOOLS, []);
-    const updated = [tool, ...tools];
-    saveLocal(KEYS.TOOLS, updated);
+    saveLocal(KEYS.TOOLS, [tool, ...tools]);
     try { await setDoc(doc(db, "tools", tool.id), safeClone(tool)); } catch (e) { }
   },
   deleteTool: async (id: string) => {
@@ -136,17 +96,14 @@ export const StorageService = {
   },
   subscribeToTools: (callback: (tools: ToolRecord[]) => void) => {
     callback(loadLocal(KEYS.TOOLS, []));
-    try {
-      return onSnapshot(collection(db, "tools"), (snapshot) => {
-        const tools = snapshot.docs.map(doc => doc.data() as ToolRecord);
-        const sorted = [...tools].sort((a, b) => b.timestamp - a.timestamp);
-        saveLocal(KEYS.TOOLS, sorted);
-        callback(sorted);
-      });
-    } catch (e) { return () => {}; }
+    return onSnapshot(collection(db, "tools"), (snapshot) => {
+      const tools = snapshot.docs.map(doc => doc.data() as ToolRecord);
+      const sorted = [...tools].sort((a, b) => b.timestamp - a.timestamp);
+      saveLocal(KEYS.TOOLS, sorted);
+      callback(sorted);
+    });
   },
 
-  // --- WORKERS ---
   getWorkers: (): Worker[] => loadLocal(KEYS.WORKERS, INITIAL_WORKERS),
   registerNewWorker: async (worker: Worker) => {
     const current = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
@@ -164,16 +121,13 @@ export const StorageService = {
   },
   subscribeToWorkers: (callback: (workers: Worker[]) => void) => {
     callback(loadLocal(KEYS.WORKERS, INITIAL_WORKERS));
-    try {
-      return onSnapshot(collection(db, "workers"), (snapshot) => {
-        const workers = snapshot.docs.map(doc => doc.data() as Worker);
-        saveLocal(KEYS.WORKERS, workers);
-        callback(workers);
-      });
-    } catch (e) { return () => {}; }
+    return onSnapshot(collection(db, "workers"), (snapshot) => {
+      const workers = snapshot.docs.map(doc => doc.data() as Worker);
+      saveLocal(KEYS.WORKERS, workers);
+      callback(workers);
+    });
   },
 
-  // --- SITES ---
   getSites: (): Site[] => loadLocal(KEYS.SITES, INITIAL_SITES),
   saveSites: async (sites: Site[]) => {
     saveLocal(KEYS.SITES, sites);
@@ -191,16 +145,13 @@ export const StorageService = {
   },
   subscribeToSites: (callback: (sites: Site[]) => void) => {
     callback(loadLocal(KEYS.SITES, INITIAL_SITES));
-    try {
-      return onSnapshot(collection(db, "sites"), (snapshot) => {
-        const sites = snapshot.docs.map(doc => doc.data() as Site);
-        saveLocal(KEYS.SITES, sites);
-        callback(sites);
-      });
-    } catch (e) { return () => {}; }
+    return onSnapshot(collection(db, "sites"), (snapshot) => {
+      const sites = snapshot.docs.map(doc => doc.data() as Site);
+      saveLocal(KEYS.SITES, sites);
+      callback(sites);
+    });
   },
 
-  // --- ADMINS ---
   getAdmins: (): AdminUser[] => loadLocal(KEYS.ADMINS, []),
   addAdmin: async (admin: AdminUser) => {
     const admins = loadLocal<AdminUser[]>(KEYS.ADMINS, []);
@@ -214,16 +165,13 @@ export const StorageService = {
   },
   subscribeToAdmins: (callback: (admins: AdminUser[]) => void) => {
     callback(loadLocal(KEYS.ADMINS, []));
-    try {
-      return onSnapshot(collection(db, "admins"), (snapshot) => {
-        const admins = snapshot.docs.map(doc => doc.data() as AdminUser);
-        saveLocal(KEYS.ADMINS, admins);
-        callback(admins);
-      });
-    } catch (e) { return () => {}; }
+    return onSnapshot(collection(db, "admins"), (snapshot) => {
+      const admins = snapshot.docs.map(doc => doc.data() as AdminUser);
+      saveLocal(KEYS.ADMINS, admins);
+      callback(admins);
+    });
   },
 
-  // --- LOGS ---
   getLogs: (): WorkLog[] => loadLocal(KEYS.LOGS, []),
   addLog: async (log: WorkLog) => {
     const logs = loadLocal<WorkLog[]>(KEYS.LOGS, []);
@@ -235,37 +183,44 @@ export const StorageService = {
     saveLocal(KEYS.LOGS, logs.map(l => l.id === updatedLog.id ? updatedLog : l));
     try { await updateDoc(doc(db, "logs", updatedLog.id), safeClone(updatedLog)); } catch (e) { }
   },
+  deleteLog: async (id: string) => {
+    const logs = loadLocal<WorkLog[]>(KEYS.LOGS, []);
+    saveLocal(KEYS.LOGS, logs.filter(l => l.id !== id));
+    try { await deleteDoc(doc(db, "logs", id)); } catch (e) { }
+  },
+  clearAllLogs: async () => {
+    saveLocal(KEYS.LOGS, []);
+    try {
+      const snapshot = await getDocs(collection(db, "logs"));
+      const batch = writeBatch(db);
+      snapshot.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    } catch (e) { console.error("Error clearing logs", e); }
+  },
   subscribeToLogs: (callback: (logs: WorkLog[]) => void) => {
     callback(loadLocal(KEYS.LOGS, []));
-    try {
-      return onSnapshot(collection(db, "logs"), (snapshot) => {
-        const logs = snapshot.docs.map(doc => doc.data() as WorkLog);
-        const sorted = [...logs].sort((a, b) => b.timestamp - a.timestamp);
-        saveLocal(KEYS.LOGS, sorted);
-        callback(sorted);
-      });
-    } catch (e) { return () => {}; }
+    return onSnapshot(collection(db, "logs"), (snapshot) => {
+      const logs = snapshot.docs.map(doc => doc.data() as WorkLog);
+      const sorted = [...logs].sort((a, b) => b.timestamp - a.timestamp);
+      saveLocal(KEYS.LOGS, sorted);
+      callback(sorted);
+    });
   },
 
-  // --- CONFIG ---
   getConfig: (): AppConfig => loadLocal(KEYS.CONFIG, INITIAL_CONFIG),
   saveConfig: async (config: AppConfig) => {
     saveLocal(KEYS.CONFIG, config);
-    try {
-      await setDoc(doc(db, "config", "global"), safeClone(config));
-    } catch (e) { console.error("Firebase Config Save failed", e); }
+    try { await setDoc(doc(db, "config", "global"), safeClone(config)); } catch (e) { }
   },
   subscribeToConfig: (callback: (config: AppConfig) => void) => {
     callback(loadLocal(KEYS.CONFIG, INITIAL_CONFIG));
-    try {
-      return onSnapshot(doc(db, "config", "global"), (snapshot) => {
-        if (snapshot.exists()) {
-          const config = snapshot.data() as AppConfig;
-          saveLocal(KEYS.CONFIG, config);
-          callback(config);
-        }
-      });
-    } catch (e) { return () => {}; }
+    return onSnapshot(doc(db, "config", "global"), (snapshot) => {
+      if (snapshot.exists()) {
+        const config = snapshot.data() as AppConfig;
+        saveLocal(KEYS.CONFIG, config);
+        callback(config);
+      }
+    });
   },
   
   syncLog: async (log: WorkLog): Promise<boolean> => {
