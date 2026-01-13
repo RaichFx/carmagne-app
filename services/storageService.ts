@@ -29,7 +29,11 @@ export const ELECTRICAL_BRANDS_LIST = [
   "Facom", "Palmerá", "Irazola", "Weller", "Hikoki", "Festool"
 ];
 
-const INITIAL_WORKERS: Worker[] = [];
+// Brayan recuperado añadido a la lista inicial
+const INITIAL_WORKERS: Worker[] = [
+  { id: 'W-BRAYAN-01', name: 'Brayan', dni: '', phone: '', pin: '1234', qrCode: 'QR_BRAYAN', active: true, defaultMode: 'HORAS' }
+];
+
 const INITIAL_SITES: Site[] = [
   { id: 'S001', name: 'Barakaldo 106', address: '13 Av. Altos Hornos de Vizcaya', active: true, coordinates: { latitude: 43.30087, longitude: -2.99256 } }
 ];
@@ -44,24 +48,19 @@ const INITIAL_CONFIG: AppConfig = {
 
 const safeClone = (obj: any) => {
   if (obj === null || typeof obj !== 'object') return obj;
-  
   const cache = new WeakSet();
-  
   const deepCopy = (item: any): any => {
     if (item === null || typeof item !== 'object') return item;
     if (item && typeof item.toDate === 'function') return item.toDate().getTime(); 
     if (item instanceof Date) return item.getTime();
     if (cache.has(item)) return undefined;
     cache.add(item);
-    
     if (Array.isArray(item)) return item.map(deepCopy).filter(v => v !== undefined);
-    
     const prototype = Object.getPrototypeOf(item);
     if (prototype !== null && prototype !== Object.prototype) {
       if (typeof item.toJSON === 'function') return deepCopy(item.toJSON());
       return undefined;
     }
-
     const copy: any = {};
     Object.keys(item).forEach(key => {
       const value = deepCopy(item[key]);
@@ -69,7 +68,6 @@ const safeClone = (obj: any) => {
     });
     return copy;
   };
-  
   return deepCopy(obj);
 };
 
@@ -177,7 +175,7 @@ export const StorageService = {
   deleteAdmin: async (id: string) => {
     const admins = loadLocal<AdminUser[]>(KEYS.ADMINS, []);
     saveLocal(KEYS.ADMINS, admins.filter(a => a.id !== id));
-    try { await deleteDoc(doc(db, "admins", id)); } catch(e) { }
+    try { await deleteDoc(doc(db, "admins", id)); } catch (e) { }
   },
   subscribeToAdmins: (callback: (admins: AdminUser[]) => void) => {
     callback(loadLocal(KEYS.ADMINS, []));
