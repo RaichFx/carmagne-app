@@ -29,7 +29,6 @@ export const ELECTRICAL_BRANDS_LIST = [
   "Facom", "Palmerá", "Irazola", "Weller", "Hikoki", "Festool"
 ];
 
-// Brayan recuperado añadido a la lista inicial
 const INITIAL_WORKERS: Worker[] = [
   { id: 'W-BRAYAN-01', name: 'Brayan', dni: '', phone: '', pin: '1234', qrCode: 'QR_BRAYAN', active: true, defaultMode: 'HORAS' }
 ];
@@ -37,6 +36,7 @@ const INITIAL_WORKERS: Worker[] = [
 const INITIAL_SITES: Site[] = [
   { id: 'S001', name: 'Barakaldo 106', address: '13 Av. Altos Hornos de Vizcaya', active: true, coordinates: { latitude: 43.30087, longitude: -2.99256 } }
 ];
+
 const INITIAL_CONFIG: AppConfig = { 
   adminPhone: '34631400010', 
   googleSheetUrl: '', 
@@ -46,29 +46,62 @@ const INITIAL_CONFIG: AppConfig = {
   logoScaleDashboard: 1.0
 };
 
+/**
+ * Función robusta para clonar objetos y eliminar referencias circulares.
+ * Especialmente útil para datos provenientes de Firebase Firestore.
+ */
 const safeClone = (obj: any) => {
-  if (obj === null || typeof obj !== 'object') return obj;
-  const cache = new WeakSet();
-  const deepCopy = (item: any): any => {
-    if (item === null || typeof item !== 'object') return item;
-    if (item && typeof item.toDate === 'function') return item.toDate().getTime(); 
-    if (item instanceof Date) return item.getTime();
-    if (cache.has(item)) return undefined;
-    cache.add(item);
-    if (Array.isArray(item)) return item.map(deepCopy).filter(v => v !== undefined);
-    const prototype = Object.getPrototypeOf(item);
-    if (prototype !== null && prototype !== Object.prototype) {
-      if (typeof item.toJSON === 'function') return deepCopy(item.toJSON());
+  const seen = new WeakMap();
+
+  const clone = (item: any): any => {
+    // Manejo de nulos y no-objetos
+    if (item === null || typeof item !== 'object') {
+      return item;
+    }
+
+    // Manejo de Firebase Timestamp o cualquier objeto con toDate()
+    if (typeof item.toDate === 'function') {
+      return item.toDate().getTime();
+    }
+
+    // Manejo de instancias de Date
+    if (item instanceof Date) {
+      return item.getTime();
+    }
+
+    // Manejo de referencias circulares
+    if (seen.has(item)) {
       return undefined;
     }
-    const copy: any = {};
-    Object.keys(item).forEach(key => {
-      const value = deepCopy(item[key]);
-      if (value !== undefined) copy[key] = value;
-    });
-    return copy;
+    seen.set(item, true);
+
+    // Manejo de Arrays
+    if (Array.isArray(item)) {
+      return item.map(clone).filter(v => v !== undefined);
+    }
+
+    // Manejo de Objetos literales
+    const result: any = {};
+    const keys = Object.keys(item);
+    
+    for (const key of keys) {
+      // Evitar procesar propiedades internas de Firebase que suelen causar circularidad
+      if (key.startsWith('_')) continue;
+      
+      try {
+        const val = clone(item[key]);
+        if (val !== undefined) {
+          result[key] = val;
+        }
+      } catch (e) {
+        console.warn(`Error clonando propiedad ${key}:`, e);
+      }
+    }
+
+    return result;
   };
-  return deepCopy(obj);
+
+  return clone(obj);
 };
 
 const loadLocal = <T>(key: string, initial: T): T => {
@@ -82,7 +115,9 @@ const saveLocal = <T>(key: string, data: T): void => {
   try {
     const cleaned = safeClone(data);
     localStorage.setItem(key, JSON.stringify(cleaned));
-  } catch (e) { console.error("Error saving local storage data:", e); }
+  } catch (e) { 
+    console.error("Error al guardar en localStorage (JSON circular detectado):", e); 
+  }
 };
 
 export const StorageService = {
