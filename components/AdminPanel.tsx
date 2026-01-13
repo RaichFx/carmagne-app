@@ -765,7 +765,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             <span className="text-xs font-black text-white uppercase tracking-widest leading-none">{activeTab}</span>
           </div>
           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500"><Shield size={16}/></div>
+             <div className="flex items-center gap-4">
+                <div className="hidden sm:flex flex-col items-end">
+                   <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">Conectado como</span>
+                   <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">
+                     {isSuperAdmin ? 'Admin Principal' : `Hola, ${currentUser?.username}`}
+                   </span>
+                </div>
+                <div className="w-8 h-8 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500">
+                  <Shield size={16}/>
+                </div>
+             </div>
           </div>
         </header>
 
