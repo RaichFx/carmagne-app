@@ -57,6 +57,8 @@ export interface ToolRecord {
   timestamp: number;
   dateStr: string;
   timeStr: string;
+  siteId?: string;
+  siteName?: string;
 }
 
 export interface WorkLog {
