@@ -382,7 +382,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     </div>
   );
 
-  // Fix for error: renderHoursReport was referenced but not defined.
   const renderHoursReport = () => (
     <div className="space-y-4 animate-fadeIn pb-32">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -445,13 +444,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     </div>
   );
 
-  // Fix for error: renderLogs was referenced but not defined.
   const renderLogs = () => (
     <div className="space-y-4 animate-fadeIn pb-32">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-white uppercase">Registros de Actividad</h2>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Historial completo de fichajes</p>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Historial completo con verificación GPS</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowLogFilters(!showLogFilters)} className={`p-3 rounded-xl transition ${showLogFilters ? 'bg-blue-600 text-white' : 'bg-slate-900 text-slate-400'}`}>
@@ -499,7 +497,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               <th className="p-4 font-black uppercase text-slate-500">Obra</th>
               <th className="p-4 font-black uppercase text-slate-500">Tipo</th>
               <th className="p-4 font-black uppercase text-slate-500">Reporte</th>
-              <th className="p-4 font-black uppercase text-slate-500">GPS</th>
+              <th className="p-4 font-black uppercase text-slate-500">Ubicación GPS</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
@@ -521,17 +519,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                   <p className="max-w-[150px] truncate text-slate-400">{log.workReport || '-'}</p>
                 </td>
                 <td className="p-4">
-                  {log.locationWarning ? (
-                    <div className="text-rose-500 flex items-center gap-1">
-                      <AlertTriangle size={14} />
-                      <span className="font-bold text-[9px] uppercase">Lejos ({log.distanceMeters}m)</span>
-                    </div>
-                  ) : (
-                    <div className="text-emerald-500 flex items-center gap-1">
-                      <CheckCircle2 size={14} />
-                      <span className="font-bold text-[9px] uppercase">OK</span>
-                    </div>
-                  )}
+                   <div className="flex flex-col gap-1.5">
+                      {log.locationWarning ? (
+                        <div className="text-rose-500 flex items-center gap-1">
+                          <AlertTriangle size={14} />
+                          <span className="font-black text-[9px] uppercase tracking-widest">Lejos ({log.distanceMeters}m)</span>
+                        </div>
+                      ) : (
+                        <div className="text-emerald-500 flex items-center gap-1">
+                          <CheckCircle2 size={14} />
+                          <span className="font-black text-[9px] uppercase tracking-widest">OK (En Obra)</span>
+                        </div>
+                      )}
+                      <a 
+                        href={`https://www.google.com/maps?q=${log.location.latitude},${log.location.longitude}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors group"
+                      >
+                         <MapIcon size={12} className="group-hover:scale-110 transition-transform" />
+                         <span className="font-bold text-[8px] uppercase tracking-widest border-b border-blue-400/30">Ver en Mapa</span>
+                         <ExternalLink size={10} className="opacity-50" />
+                      </a>
+                   </div>
                 </td>
               </tr>
             ))}
@@ -541,7 +551,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     </div>
   );
 
-  // Fix for error: renderTools was referenced but not defined.
   const renderTools = () => (
     <div className="space-y-4 animate-fadeIn pb-32">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -627,7 +636,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       </div>
 
       <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 shadow-xl space-y-8">
-        {/* Logo Section */}
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <ImageIcon className="text-blue-500" size={24} />
@@ -661,7 +669,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           </div>
         </div>
 
-        {/* Favicon / PWA Section */}
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <Smartphone className="text-emerald-500" size={24} />
@@ -695,7 +702,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           </div>
         </div>
 
-        {/* Global Config Section */}
         <div className="space-y-4 pt-4 border-t border-slate-800">
           <div className="flex items-center gap-3">
             <Database className="text-indigo-500" size={24} />

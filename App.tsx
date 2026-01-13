@@ -122,11 +122,19 @@ export const App: React.FC = () => {
   const [confirmState, setConfirmState] = useState<{isOpen: boolean; action: LogType | null;}>({ isOpen: false, action: null });
   const [currentTime, setCurrentTime] = useState(new Date());
   const [appConfig, setAppConfig] = useState<AppConfig>(StorageService.getConfig());
+  
+  // History and Tools state
   const [historySearch, setHistorySearch] = useState('');
+  const [toolSearch, setToolSearch] = useState('');
   const [historyPeriod, setHistoryPeriod] = useState<'ALL' | 'DAY' | 'WEEK' | 'MONTH'>('ALL');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [allTools, setAllTools] = useState<ToolRecord[]>([]);
+  
+  // New Tool Form State
+  const [isToolModalOpen, setIsToolModalOpen] = useState(false);
+  const [newToolForm, setNewToolForm] = useState({ name: '', brand: '', model: '' });
+  
   const [exitReportText, setExitReportText] = useState('');
   const [exitWorkMode, setExitWorkMode] = useState<WorkMode>('HORAS');
   const [pinInput, setPinInput] = useState('');
@@ -161,19 +169,16 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  // Lógica de recuperación de Brayan
-  useEffect(() => {
-    if (workers.length > 0) {
-      const brayan = workers.find(w => w.name.toLowerCase().includes('brayan'));
-      if (!brayan) {
-        const recoveredBrayan: Worker = { 
-          id: 'W-BRAYAN-RECOVERED', name: 'Brayan', pin: '1234', 
-          qrCode: 'QR_BRAYAN', active: true, dni: '', phone: '', defaultMode: 'HORAS' 
-        };
-        StorageService.registerNewWorker(recoveredBrayan);
-      }
+  // Worker tools filtered list
+  const workerTools = useMemo(() => {
+    if (!selectedWorker) return [];
+    let base = allTools.filter(t => t.workerId === selectedWorker.id);
+    if (toolSearch) {
+      const q = toolSearch.toLowerCase();
+      base = base.filter(t => t.toolName.toLowerCase().includes(q) || t.brand.toLowerCase().includes(q));
     }
-  }, [workers]);
+    return base;
+  }, [allTools, selectedWorker, toolSearch]);
 
   const filteredHistory = useMemo(() => {
     if (!selectedWorker) return [];
@@ -281,6 +286,24 @@ export const App: React.FC = () => {
     } else if(confirm("Este número no está registrado. ¿Quieres crear una cuenta nueva?")) {
       setRegPhone(formattedPhone); setError(''); setCurrentStep(Step.REGISTER);
     }
+  };
+
+  const handleAddWorkerTool = async () => {
+    if (!newToolForm.name || !newToolForm.brand || !selectedWorker) return;
+    const tool: ToolRecord = {
+      id: `T-W-${Date.now()}`,
+      workerId: selectedWorker.id,
+      workerName: selectedWorker.name,
+      toolName: newToolForm.name,
+      brand: newToolForm.brand,
+      model: newToolForm.model,
+      timestamp: Date.now(),
+      dateStr: new Date().toLocaleDateString('es-ES'),
+      timeStr: new Date().toLocaleTimeString('es-ES')
+    };
+    await StorageService.addTool(tool);
+    setNewToolForm({ name: '', brand: '', model: '' });
+    setIsToolModalOpen(false);
   };
 
   const handleRegistration = async () => {
@@ -434,6 +457,122 @@ export const App: React.FC = () => {
            </div>
         </div>
       );
+      case Step.WORKER_TOOLS: return (
+        <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
+          <div className="flex items-center justify-between gap-4 mb-4 shrink-0">
+            <div className="flex items-center gap-4">
+              <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400">
+                <ChevronLeft size={20}/>
+              </button>
+              <h2 className="text-xl font-black text-white uppercase tracking-tighter">Mis Herramientas</h2>
+            </div>
+            <button 
+              onClick={() => setIsToolModalOpen(true)}
+              className="p-2.5 bg-amber-600 text-white rounded-xl shadow-lg active:scale-95"
+            >
+              <Plus size={20}/>
+            </button>
+          </div>
+
+          <div className="relative mb-4 shrink-0">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
+            <input 
+              type="text" 
+              placeholder="Buscar por nombre o marca..." 
+              className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 pl-11 pr-4 text-xs text-white outline-none focus:border-amber-500" 
+              value={toolSearch} 
+              onChange={(e) => setToolSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">
+            {workerTools.map(tool => (
+              <div key={tool.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-600/10 rounded-xl flex items-center justify-center text-amber-500 border border-amber-500/10 shrink-0">
+                  <Wrench size={24} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-black text-white uppercase text-sm truncate">{tool.toolName}</h4>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase truncate">{tool.brand} • {tool.model || 'S/M'}</p>
+                </div>
+                <button 
+                  onClick={() => StorageService.deleteTool(tool.id)}
+                  className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+            {workerTools.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-20 opacity-20 text-center">
+                <Wrench size={64} className="mb-4" />
+                <p className="text-xs font-black uppercase tracking-widest">Sin herramientas registradas</p>
+              </div>
+            )}
+          </div>
+
+          {/* Add Tool Modal */}
+          {isToolModalOpen && (
+            <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
+              <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative">
+                <div className="flex justify-between items-center mb-6">
+                  <div>
+                    <h3 className="text-lg font-black text-white uppercase tracking-tighter">Añadir Herramienta</h3>
+                    <p className="text-amber-500 text-[10px] font-bold uppercase tracking-widest">Nueva Ficha</p>
+                  </div>
+                  <button onClick={() => setIsToolModalOpen(false)} className="text-slate-500 p-2">
+                    <X size={20}/>
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Nombre del Equipo *</label>
+                    <input list="worker-tools-list" type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={newToolForm.name} onChange={(e)=>setNewToolForm({...newToolForm, name: e.target.value})} placeholder="Ej: Taladro Percutor"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Marca *</label>
+                    <input list="worker-brands-list" type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={newToolForm.brand} onChange={(e)=>setNewToolForm({...newToolForm, brand: e.target.value})} placeholder="Ej: Milwaukee"/>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[9px] font-black text-slate-500 uppercase ml-1">Modelo (Opcional)</label>
+                    <input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={newToolForm.model} onChange={(e)=>setNewToolForm({...newToolForm, model: e.target.value})} placeholder="Ej: M18 FUEL"/>
+                  </div>
+                  <button 
+                    onClick={handleAddWorkerTool}
+                    className="w-full bg-amber-600 text-white py-4 rounded-2xl font-black uppercase text-xs shadow-lg active:scale-95 transition mt-2"
+                  >
+                    Guardar Equipo
+                  </button>
+                </div>
+                <datalist id="worker-tools-list">{ELECTRICAL_TOOLS_LIST.map(t => <option key={t} value={t} />)}</datalist>
+                <datalist id="worker-brands-list">{ELECTRICAL_BRANDS_LIST.map(b => <option key={b} value={b} />)}</datalist>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+      case Step.SUCCESS: return (
+        <div className="flex flex-col items-center justify-center h-full gap-6 animate-fadeIn text-center">
+           <div className="w-24 h-24 bg-emerald-600 rounded-[2rem] flex items-center justify-center shadow-2xl animate-bounce"><CheckCircle size={48} className="text-white" /></div>
+           <div><h2 className="text-3xl font-black text-white">¡Operación con Éxito!</h2><p className="text-slate-500 text-sm mt-2 font-medium">Fichaje guardado correctamente.</p></div>
+           <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black border border-slate-800 uppercase tracking-widest text-xs shadow-lg active:scale-95">Ir al Panel</button>
+        </div>
+      );
+      case Step.REGISTER: return (
+        <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
+           <h2 className="text-2xl font-black text-white mb-4 shrink-0 tracking-tighter uppercase">Crear Cuenta</h2>
+           <div className="bg-slate-900 p-5 rounded-[2.5rem] border border-slate-800 space-y-3 shadow-xl overflow-y-auto custom-scrollbar flex-1">
+             <input type="text" placeholder="Nombre completo" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regName} onChange={(e)=>setRegName(e.target.value)}/>
+             <input type="text" placeholder="DNI / NIE" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/>
+             <input type="tel" placeholder="Teléfono" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/>
+             <div className="grid grid-cols-2 gap-3">
+               <input type="password" placeholder="PIN" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPin} onChange={(e)=>setRegPin(e.target.value.replace(/\D/g,''))}/>
+               <input type="password" placeholder="Confirm" maxLength={4} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white text-center tracking-[1em] outline-none" value={regPinConfirm} onChange={(e)=>setRegPinConfirm(e.target.value.replace(/\D/g,''))}/>
+             </div>
+             <button onClick={handleRegistration} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs mt-4 active:scale-95 shadow-lg shrink-0">Registrarme</button>
+           </div>
+        </div>
+      );
       default: return null;
     }
   };
@@ -447,10 +586,10 @@ export const App: React.FC = () => {
           <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden">
              <div className="flex justify-between items-center mb-6"><div className="flex items-center gap-3"><div className="p-2 bg-blue-600/10 rounded-xl text-blue-500"><Shield size={24}/></div><h2 className="text-xl font-black text-white uppercase tracking-tighter">Admin Login</h2></div><button onClick={() => setShowAdminLogin(false)} className="text-slate-500 hover:text-white"><X size={20}/></button></div>
              <div className="space-y-4">
-                <input type="text" placeholder="Usuario" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none" value={adminUsernameInput} onChange={(e) => setAdminUsernameInput(e.target.value)}/>
-                <input type="password" placeholder="Contraseña" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)}/>
+                <input type="text" placeholder="Usuario" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-blue-500" value={adminUsernameInput} onChange={(e) => setAdminUsernameInput(e.target.value)}/>
+                <input type="password" placeholder="Contraseña" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-white outline-none focus:border-blue-500" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)}/>
                 {adminError && <p className="text-rose-500 text-[10px] font-bold uppercase text-center">{adminError}</p>}
-                <button onClick={verifyAdminPassword} className="w-full bg-blue-600 py-4 rounded-xl font-black uppercase text-xs">Acceder al Panel</button>
+                <button onClick={verifyAdminPassword} className="w-full bg-blue-600 py-4 rounded-xl font-black uppercase text-xs tracking-widest shadow-lg">Acceder al Panel</button>
              </div>
           </div>
         </div>
