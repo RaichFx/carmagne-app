@@ -36,41 +36,50 @@ const calculateTotalsFromLogs = (logs: WorkLog[]) => {
   let totalBreak = 0;
   let lastWorkStart: number | null = null;
   let lastBreakStart: number | null = null;
-  let isOngoing = false;
+  let currentState: LogType | null = null;
 
   sorted.forEach(log => {
     if (log.type === LogType.ENTRADA || log.type === LogType.FIN_DESCANSO) {
-      if (lastBreakStart) {
-        totalBreak += (log.timestamp - lastBreakStart);
-        lastBreakStart = null;
+      // If we were in a break, close it
+      if (lastBreakStart && currentState === LogType.INICIO_DESCANSO) {
+        totalBreak += Math.max(0, log.timestamp - lastBreakStart);
       }
+      lastBreakStart = null;
       lastWorkStart = log.timestamp;
-      isOngoing = true;
+      currentState = log.type;
     } else if (log.type === LogType.INICIO_DESCANSO) {
-      if (lastWorkStart) {
-        totalWork += (log.timestamp - lastWorkStart);
-        lastWorkStart = null;
+      // If we were working, close work period
+      if (lastWorkStart && (currentState === LogType.ENTRADA || currentState === LogType.FIN_DESCANSO)) {
+        totalWork += Math.max(0, log.timestamp - lastWorkStart);
       }
+      lastWorkStart = null;
       lastBreakStart = log.timestamp;
-      isOngoing = true;
+      currentState = log.type;
     } else if (log.type === LogType.SALIDA) {
-      if (lastWorkStart) {
-        totalWork += (log.timestamp - lastWorkStart);
-        lastWorkStart = null;
+      // Close whichever period was active
+      if (lastWorkStart && (currentState === LogType.ENTRADA || currentState === LogType.FIN_DESCANSO)) {
+        totalWork += Math.max(0, log.timestamp - lastWorkStart);
       }
-      if (lastBreakStart) {
-        totalBreak += (log.timestamp - lastBreakStart);
-        lastBreakStart = null;
+      if (lastBreakStart && currentState === LogType.INICIO_DESCANSO) {
+        totalBreak += Math.max(0, log.timestamp - lastBreakStart);
       }
-      isOngoing = false;
+      lastWorkStart = null;
+      lastBreakStart = null;
+      currentState = LogType.SALIDA;
     }
   });
 
-  // If ongoing, add time up to now
+  // Check if session is still ongoing (no SALIDA as last action)
+  const isOngoing = currentState !== null && currentState !== LogType.SALIDA;
+  
   if (isOngoing) {
     const now = Date.now();
-    if (lastWorkStart) totalWork += (now - lastWorkStart);
-    if (lastBreakStart) totalBreak += (now - lastWorkStart); // Break time usually calculated from start of break
+    // Only add time if the logs belong to today
+    const isToday = logs.length > 0 && logs[0].dateStr === new Date().toLocaleDateString('es-ES');
+    if (isToday) {
+      if (lastWorkStart) totalWork += Math.max(0, now - lastWorkStart);
+      if (lastBreakStart) totalBreak += Math.max(0, now - lastBreakStart);
+    }
   }
 
   return { totalWork, totalBreak, isOngoing };
