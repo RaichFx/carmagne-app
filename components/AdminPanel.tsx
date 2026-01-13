@@ -300,7 +300,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     let summaryText = "";
     if (logFilterWorker) {
       const { totalWork, totalBreak, isOngoing } = calculateTotalsFromLogs(filteredLogs);
-      summaryText = `TRABAJO: ${formatMsToTime(totalWork)} | DESCANSO: ${formatMsToTime(totalBreak)}${isOngoing ? ' (JORNADA EN CURSO)' : ''}`;
+      summaryText = `TRABAJO NETO: ${formatMsToTime(totalWork)} | DESCANSO: ${formatMsToTime(totalBreak)} | TOTAL (BRUTO): ${formatMsToTime(totalWork + totalBreak)}${isOngoing ? ' (ACTIVO)' : ''}`;
       doc.setFontSize(9);
       doc.setTextColor(59, 130, 246);
       doc.text(summaryText, 14, 28);
@@ -371,24 +371,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     // Summary Box
     doc.setFillColor(248, 250, 252);
     doc.setDrawColor(226, 232, 240);
-    doc.roundedRect(14, 40, 182, 28, 3, 3, 'FD');
+    doc.roundedRect(14, 40, 182, 32, 3, 3, 'FD');
     
     doc.setFontSize(9);
     doc.setTextColor(71, 85, 105);
     doc.text("RESUMEN DE TIEMPOS:", 20, 47);
     
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setTextColor(5, 150, 105); // Green
-    doc.text(`Horas Trabajo: ${formatMsToTime(totalWork)}`, 20, 56);
+    doc.text(`T. Trabajo (Neto): ${formatMsToTime(totalWork)}`, 20, 56);
     
     doc.setTextColor(217, 119, 6); // Amber
-    doc.text(`Horas Descanso: ${formatMsToTime(totalBreak)}`, 110, 56);
+    doc.text(`T. Descanso: ${formatMsToTime(totalBreak)}`, 105, 56);
+
+    doc.setTextColor(15, 23, 42); // Dark
+    doc.setFontSize(12);
+    doc.text(`JORNADA TOTAL (BRUTO): ${formatMsToTime(totalWork + totalBreak)}`, 20, 65);
 
     // Ongoing Warning in PDF
     if (isOngoing) {
       doc.setFontSize(8);
       doc.setTextColor(225, 29, 72); // Rose/Red
-      doc.text("(!) PENDIENTE A TERMINAR JORNADA LABORAL", 20, 64);
+      doc.text("(!) PENDIENTE A TERMINAR JORNADA LABORAL", 105, 65);
     }
 
     const tableData = filteredReportLogs
@@ -405,7 +409,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     autoTable(doc, { 
       head: [['Fecha', 'Hora', 'Obra', 'Acción', 'Modo', 'Reporte de Tareas']], 
       body: tableData, 
-      startY: 75,
+      startY: 78,
       styles: { fontSize: 8, cellPadding: 3, valign: 'middle' },
       headStyles: { fillColor: [59, 130, 246], fontStyle: 'bold' },
       columnStyles: {
@@ -578,9 +582,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               <tr>
                 <th className="p-4">Trabajador</th>
                 <th className="p-4">Fecha</th>
-                <th className="p-4 text-emerald-500">Horas Trabajo</th>
+                <th className="p-4 text-emerald-500">Trabajo Neto</th>
                 <th className="p-4 text-amber-500">Horas Descanso</th>
-                <th className="p-4">Total Jornada</th>
+                <th className="p-4 text-blue-400">Total (Bruto)</th>
                 <th className="p-4 text-right">Estado</th>
               </tr>
             </thead>
@@ -591,7 +595,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                   <td className="p-4 text-slate-500 font-medium">{stat.dateStr}</td>
                   <td className="p-4 font-mono text-emerald-400 font-black">{formatMsToTime(stat.workMs)}</td>
                   <td className="p-4 font-mono text-amber-400 font-black">{formatMsToTime(stat.breakMs)}</td>
-                  <td className="p-4 font-mono text-slate-300">{formatMsToTime(stat.totalMs)}</td>
+                  <td className="p-4 font-mono text-blue-300 font-black">{formatMsToTime(stat.totalMs)}</td>
                   <td className="p-4 text-right">
                     {stat.isCurrentlyActive ? (
                       <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-500 text-[8px] font-black px-2 py-1 rounded-full uppercase animate-pulse">
@@ -628,19 +632,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
                <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-950/80 p-4 rounded-3xl border border-white/5 flex flex-col items-center">
-                     <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1.5">Tiempo Trabajo</p>
+                     <p className="text-[8px] font-black text-emerald-500 uppercase tracking-widest mb-1.5">Trabajo (Neto)</p>
                      <p className="text-xl font-mono font-black text-white tracking-tighter">{formatMsToTime(stat.workMs)}</p>
                   </div>
                   <div className="bg-slate-950/80 p-4 rounded-3xl border border-white/5 flex flex-col items-center">
-                     <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1.5">Tiempo Pausa</p>
+                     <p className="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1.5">Descanso</p>
                      <p className="text-xl font-mono font-black text-white tracking-tighter">{formatMsToTime(stat.breakMs)}</p>
                   </div>
                </div>
 
                <div className="pt-2 px-1">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-[9px] font-black text-slate-600 uppercase tracking-wider">Jornada Total</span>
-                    <span className="text-sm font-mono font-black text-slate-400">{formatMsToTime(stat.totalMs)}</span>
+                    <span className="text-[9px] font-black text-blue-400 uppercase tracking-wider">Jornada Total (Bruto)</span>
+                    <span className="text-sm font-mono font-black text-slate-200">{formatMsToTime(stat.totalMs)}</span>
                   </div>
                   <div className="w-full h-2.5 bg-slate-950 rounded-full overflow-hidden flex border border-white/5">
                     <div style={{ width: `${stat.totalMs > 0 ? (stat.workMs/stat.totalMs)*100 : 0}%` }} className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400"></div>
