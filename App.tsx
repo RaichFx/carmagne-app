@@ -8,6 +8,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { StorageService, ELECTRICAL_TOOLS_LIST, ELECTRICAL_BRANDS_LIST } from './services/storageService';
 import { LocationService } from './services/locationService';
+import { TelegramService } from './services/telegramService';
 import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser, ToolRecord, AppConfig } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
@@ -15,7 +16,6 @@ import { ConfirmationModal } from './components/ConfirmationModal';
 
 enum Step {
   LOGIN_PHONE = 0,
-  AUTHENTICATE = 1,
   WORKER_DASHBOARD = 15,
   WORKER_HISTORY = 16,
   WORKER_TOOLS = 17,
@@ -28,39 +28,6 @@ enum Step {
 }
 
 const MAX_DISTANCE_METERS = 500;
-const TELEGRAM_BOT_TOKEN = "8656800481:AAGa7YhlVpRlqbl6PrH--TzDp6HsAHFYK8E"; // RELLENAR AQUÍ
-const TELEGRAM_CHAT_ID = "-5134853617";    // RELLENAR AQUÍ
-
-const enviarNotificacionTelegram = async (mensaje: string, location?: GeoLocationData | null) => {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.warn("Telegram Token o Chat ID no configurados.");
-    return;
-  }
-  
-  let finalMessage = mensaje;
-  if (location && location.latitude && location.longitude && location.latitude !== 0) {
-    const mapUrl = `https://www.google.com/maps?q=${location.latitude},${location.longitude}`;
-    finalMessage += `\n📍 *Ubicación*: [Ver en Google Maps](${mapUrl})`;
-  } else {
-    finalMessage += `\n📍 *Ubicación*: No disponible / GPS desactivado`;
-  }
-
-  try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: finalMessage,
-        parse_mode: "Markdown"
-      }),
-    });
-  } catch (error) {
-    console.error("Error enviando a Telegram:", error);
-  }
-};
-
 const MONTH_NAMES = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -132,8 +99,8 @@ const AppLogo = ({ className, size = "md", logoUrl, scale = 1.0 }: { className?:
     );
   }
   return (
-    <div className={`relative flex items-center justify-center ${className} text-[#CCFF00]`}>
-      <Zap size={iconSize} className="drop-shadow-[0_0_20px_rgba(204,255,0,0.6)] fill-[#CCFF00]/20" strokeWidth={2.5}/>
+    <div className={`relative flex items-center justify-center ${className} text-blue-500`}>
+      <Zap size={iconSize} className="drop-shadow-[0_0_20px_rgba(59,130,246,0.6)] fill-blue-500/20" strokeWidth={2.5}/>
     </div>
   );
 };
@@ -185,26 +152,34 @@ export const App: React.FC = () => {
     const timer = setTimeout(() => setIsAppLoading(false), 2000);
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     
-    // Cargar datos iniciales
-    setWorkers(StorageService.getWorkers());
+    // Load data from storage
+    const storedWorkers = StorageService.getWorkers();
+    setWorkers(storedWorkers);
     setSites(StorageService.getSites());
     setWorkerLogs(StorageService.getLogs()); 
     setAdmins(StorageService.getAdmins());
     setAllTools(StorageService.getTools());
     setAppConfig(StorageService.getConfig());
 
-    // Recuperar Sesión Automática
+    // Check for existing session
     const savedWorkerId = localStorage.getItem('carmagne_session_worker_id');
     if (savedWorkerId) {
-      const allWorkers = StorageService.getWorkers();
-      const worker = allWorkers.find(w => w.id === savedWorkerId);
+      const worker = storedWorkers.find(w => w.id === savedWorkerId);
       if (worker && worker.active) {
         setSelectedWorker(worker);
         setCurrentStep(Step.WORKER_DASHBOARD);
       }
     }
 
-    const unsubWorkers = StorageService.subscribeToWorkers(setWorkers);
+    const unsubWorkers = StorageService.subscribeToWorkers((ws) => {
+      setWorkers(ws);
+      // Update session if worker data changed
+      const currentId = localStorage.getItem('carmagne_session_worker_id');
+      if (currentId) {
+        const found = ws.find(w => w.id === currentId);
+        if (found) setSelectedWorker(found);
+      }
+    });
     const unsubSites = StorageService.subscribeToSites(setSites);
     const unsubLogs = StorageService.subscribeToLogs(setWorkerLogs);
     const unsubAdmins = StorageService.subscribeToAdmins(setAdmins);
@@ -394,27 +369,64 @@ export const App: React.FC = () => {
     let loc: GeoLocationData | null = null;
     try {
       loc = await LocationService.getCurrentPosition();
-    } catch (e) {
-      console.warn("Ubicación no obtenida:", e);
+    } catch (err) {
+      console.warn("Ubicación no disponible para el fichaje:", err);
     }
 
     try {
       let distance = 0; let warning = false;
       const targetSite = selectedSite || sites.find(s => s.name === workerStatus?.site);
+      
       if (loc && targetSite?.coordinates) {
         distance = LocationService.calculateDistance(loc.latitude, loc.longitude, targetSite.coordinates.latitude, targetSite.coordinates.longitude);
         if (distance > MAX_DISTANCE_METERS) warning = true;
       }
-      const newLog: WorkLog = { id: `LOG-${Date.now()}`, workerId: selectedWorker!.id, workerName: selectedWorker!.name, siteId: targetSite?.id || 'UNKNOWN', siteName: targetSite?.name || workerStatus?.site || 'UNKNOWN', type, timestamp: Date.now(), dateStr: new Date().toLocaleDateString('es-ES'), timeStr: new Date().toLocaleTimeString('es-ES'), location: loc || { latitude: 0, longitude: 0, accuracy: 0, address: 'No disponible' }, sentToWhatsapp: false, syncedToSheets: false, distanceMeters: distance, locationWarning: warning, workReport: report, workMode: mode };
+
+      const now = new Date();
+      const actualLoc = loc || { latitude: 0, longitude: 0, accuracy: 0, address: 'Ubicación no disponible' };
+      
+      const newLog: WorkLog = { 
+        id: `LOG-${Date.now()}`, 
+        workerId: selectedWorker!.id, 
+        workerName: selectedWorker!.name, 
+        siteId: targetSite?.id || 'UNKNOWN', 
+        siteName: targetSite?.name || workerStatus?.site || 'UNKNOWN', 
+        type, 
+        timestamp: Date.now(), 
+        dateStr: now.toLocaleDateString('es-ES'), 
+        timeStr: now.toLocaleTimeString('es-ES'), 
+        location: actualLoc, 
+        sentToWhatsapp: false, 
+        syncedToSheets: false, 
+        distanceMeters: distance, 
+        locationWarning: warning, 
+        workReport: report, 
+        workMode: mode 
+      };
+      
       await StorageService.addLog(newLog); 
       
-      // Notificación Telegram
-      const hora = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-      await enviarNotificacionTelegram(`👷‍♂️ *${selectedWorker!.name}* ha marcado *${type}* a las ${hora}\n🏗️ Obra: ${newLog.siteName}${report ? `\n📝 Reporte: ${report}` : ''}`, loc);
+      // Send Telegram Notification
+      const timeStr = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      const actionEmoji = type === LogType.ENTRADA ? '🚀' : type === LogType.SALIDA ? '🏠' : type === LogType.INICIO_DESCANSO ? '☕' : '⚙️';
+      
+      let locationText = '📍 Ubicación: No disponible';
+      if (loc) {
+        locationText = `📍 Ubicación: <a href="https://www.google.com/maps?q=${loc.latitude},${loc.longitude}">Ver en Google Maps</a>`;
+      }
+
+      const telegramMessage = `👷‍♂️ <b>${selectedWorker!.name}</b> ha marcado <b>${type}</b> a las <b>${timeStr}</b> ${actionEmoji}\n🏢 Obra: ${newLog.siteName}${report ? `\n📝 Reporte: ${report}` : ''}\n${locationText}`;
+      
+      TelegramService.enviarNotificacionTelegram(telegramMessage);
 
       setExitReportText('');
       setCurrentStep(Step.SUCCESS);
-    } catch (err) { setError('Error al registrar fichaje.'); } finally { setLoading(false); setConfirmState({ isOpen: false, action: null }); }
+    } catch (err) { 
+      setError('Error al registrar el fichaje.'); 
+    } finally { 
+      setLoading(false); 
+      setConfirmState({ isOpen: false, action: null }); 
+    }
   };
 
   const resetApp = () => { 
@@ -495,26 +507,11 @@ export const App: React.FC = () => {
     switch(currentStep) {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
-          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="text-4xl font-bebas text-[#CCFF00] tracking-widest uppercase">CARMAGNE INSTAL SL</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
-          <div className="bg-slate-900/50 px-3 py-7 rounded-[2.5rem] border border-slate-800">
-            <input 
-              type="tel" 
-              value={loginPhone} 
-              onChange={(e) => setLoginPhone(e.target.value)} 
-              className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-5 text-2xl font-black focus:border-[#CCFF00] outline-none text-center tracking-widest min-h-[60px]" 
-              placeholder="600000000"
-            />
-            <button 
-              onClick={handlePhoneLogin} 
-              className="w-full bg-[#CCFF00] text-black font-black h-[58px] rounded-2xl shadow-[0_0_20px_rgba(204,255,0,0.3)] mt-6 flex items-center justify-center gap-3 active:scale-95 uppercase text-sm tracking-widest"
-            >
-              Entrar <ArrowRight size={18} />
-            </button>
-          </div>
+          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="text-3xl font-black text-white tracking-tighter uppercase">CARMAGNE INSTAL SL</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
+          <div className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800"><input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-white rounded-2xl p-5 text-2xl font-black focus:border-blue-500 outline-none text-center tracking-widest" placeholder="600000000"/><button onClick={handlePhoneLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg mt-6 flex items-center justify-center gap-3 active:scale-95 uppercase text-xs tracking-widest">Entrar <ArrowRight size={16} /></button></div>
           <button onClick={() => setShowAdminLogin(true)} className="text-slate-800 text-[10px] font-black uppercase tracking-[0.4em] text-center">Admin Panel</button>
         </div>
       );
-      case Step.AUTHENTICATE: return null; // PIN Bypass
       case Step.WORKER_DASHBOARD: return renderWorkerDashboard();
       case Step.SELECT_SITE: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
@@ -535,8 +532,8 @@ export const App: React.FC = () => {
       );
       case Step.REPORT_EXIT: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
-           <div className="flex items-center gap-4 mb-6 px-1 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_ACTION)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Finalizar Jornada</h2><p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">{workerStatus?.site}</p></div></div>
-           <div className="flex-1 bg-slate-900 border border-slate-800 rounded-[2.5rem] px-3 py-6 shadow-xl space-y-6 overflow-y-auto custom-scrollbar">
+           <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_ACTION)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Finalizar Jornada</h2><p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">{workerStatus?.site}</p></div></div>
+           <div className="flex-1 bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 shadow-xl space-y-6 overflow-y-auto custom-scrollbar">
               <div className="space-y-3">
                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Modo de Trabajo</label>
                  <div className="flex gap-2">
@@ -630,12 +627,12 @@ export const App: React.FC = () => {
       );
       case Step.REGISTER: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
-           <h2 className="text-2xl font-black text-white mb-4 shrink-0 px-1 tracking-tighter uppercase">Crear Cuenta</h2>
-           <div className="bg-slate-900 px-3 py-6 rounded-[2.5rem] border border-slate-800 space-y-4 shadow-xl overflow-y-auto custom-scrollbar flex-1">
-             <input type="text" placeholder="Nombre completo" className="w-full h-[54px] bg-slate-950 border border-slate-800 rounded-xl p-4 text-white focus:border-blue-500 outline-none" value={regName} onChange={(e)=>setRegName(e.target.value)}/>
-             <input type="text" placeholder="DNI / NIE" className="w-full h-[54px] bg-slate-950 border border-slate-800 rounded-xl p-4 text-white focus:border-blue-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/>
-             <input type="tel" placeholder="Teléfono" className="w-full h-[54px] bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/>
-             <button onClick={handleRegistration} className="w-full h-[58px] bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs mt-4 active:scale-95 shadow-lg shrink-0">Registrarme</button>
+           <h2 className="text-2xl font-black text-white mb-4 shrink-0 tracking-tighter uppercase">Crear Cuenta</h2>
+           <div className="bg-slate-900 p-5 rounded-[2.5rem] border border-slate-800 space-y-3 shadow-xl overflow-y-auto custom-scrollbar flex-1">
+             <input type="text" placeholder="Nombre completo" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regName} onChange={(e)=>setRegName(e.target.value)}/>
+             <input type="text" placeholder="DNI / NIE" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white focus:border-blue-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/>
+             <input type="tel" placeholder="Teléfono" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/>
+             <button onClick={handleRegistration} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-xs mt-4 active:scale-95 shadow-lg shrink-0">Registrarme</button>
            </div>
         </div>
       );
@@ -649,7 +646,7 @@ export const App: React.FC = () => {
 
   if (isAdmin) return <AdminPanel onBack={() => setIsAdmin(false)} currentUser={currentAdminUser} />;
   return (
-    <div className="max-w-md mx-auto h-screen flex flex-col bg-slate-950 text-white px-2.5 py-4 relative overflow-hidden">
+    <div className="max-w-md mx-auto h-screen flex flex-col bg-slate-950 text-white p-4 relative overflow-hidden">
       {renderStep()}
       {showAdminLogin && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
