@@ -496,7 +496,7 @@ export const App: React.FC = () => {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
           <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="text-4xl font-bebas text-[#CCFF00] tracking-widest uppercase">CARMAGNE INSTAL SL</h2><p className="text-slate-500 text-xs font-bold uppercase tracking-[0.2em]">Acceso Operario</p></div>
-          <div className="bg-slate-900/50 p-6 rounded-[2.5rem] border border-slate-800">
+          <div className="bg-slate-900/50 px-3 py-7 rounded-[2.5rem] border border-slate-800">
             <input 
               type="tel" 
               value={loginPhone} 
@@ -535,8 +535,8 @@ export const App: React.FC = () => {
       );
       case Step.REPORT_EXIT: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
-           <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_ACTION)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Finalizar Jornada</h2><p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">{workerStatus?.site}</p></div></div>
-           <div className="flex-1 bg-slate-900 border border-slate-800 rounded-[2.5rem] p-6 shadow-xl space-y-6 overflow-y-auto custom-scrollbar">
+           <div className="flex items-center gap-4 mb-6 px-1 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_ACTION)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Finalizar Jornada</h2><p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">{workerStatus?.site}</p></div></div>
+           <div className="flex-1 bg-slate-900 border border-slate-800 rounded-[2.5rem] px-3 py-6 shadow-xl space-y-6 overflow-y-auto custom-scrollbar">
               <div className="space-y-3">
                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Modo de Trabajo</label>
                  <div className="flex gap-2">
@@ -630,8 +630,8 @@ export const App: React.FC = () => {
       );
       case Step.REGISTER: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
-           <h2 className="text-2xl font-black text-white mb-4 shrink-0 tracking-tighter uppercase">Crear Cuenta</h2>
-           <div className="bg-slate-900 p-5 rounded-[2.5rem] border border-slate-800 space-y-4 shadow-xl overflow-y-auto custom-scrollbar flex-1">
+           <h2 className="text-2xl font-black text-white mb-4 shrink-0 px-1 tracking-tighter uppercase">Crear Cuenta</h2>
+           <div className="bg-slate-900 px-3 py-6 rounded-[2.5rem] border border-slate-800 space-y-4 shadow-xl overflow-y-auto custom-scrollbar flex-1">
              <input type="text" placeholder="Nombre completo" className="w-full h-[54px] bg-slate-950 border border-slate-800 rounded-xl p-4 text-white focus:border-blue-500 outline-none" value={regName} onChange={(e)=>setRegName(e.target.value)}/>
              <input type="text" placeholder="DNI / NIE" className="w-full h-[54px] bg-slate-950 border border-slate-800 rounded-xl p-4 text-white focus:border-blue-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/>
              <input type="tel" placeholder="Teléfono" className="w-full h-[54px] bg-slate-950 border border-slate-800 rounded-xl p-4 text-white font-bold" value={regPhone} onChange={(e)=>setRegPhone(e.target.value)}/>
@@ -649,7 +649,7 @@ export const App: React.FC = () => {
 
   if (isAdmin) return <AdminPanel onBack={() => setIsAdmin(false)} currentUser={currentAdminUser} />;
   return (
-    <div className="max-w-md mx-auto h-screen flex flex-col bg-slate-950 text-white p-4 relative overflow-hidden">
+    <div className="max-w-md mx-auto h-screen flex flex-col bg-slate-950 text-white px-2.5 py-4 relative overflow-hidden">
       {renderStep()}
       {showAdminLogin && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
