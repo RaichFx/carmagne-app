@@ -327,6 +327,11 @@ export const App: React.FC = () => {
       timeStr: new Date().toLocaleTimeString('es-ES')
     };
     await StorageService.addTool(tool);
+
+    // Notificación Telegram: Nueva Herramienta
+    const telegramMessage = `🛠️ <b>Nueva Herramienta Registrada</b>\n👷‍♂️ Operario: <b>${selectedWorker.name}</b>\n🔧 Equipo: <b>${tool.toolName}</b>\n🏷️ Marca: ${tool.brand}\n📦 Modelo: ${tool.model || 'S/M'}`;
+    TelegramService.enviarNotificacionTelegram(telegramMessage);
+
     setNewToolForm({ name: '', brand: '', model: '' });
     setIsToolModalOpen(false);
   };
@@ -341,6 +346,11 @@ export const App: React.FC = () => {
       await StorageService.registerNewWorker(newWorker); 
       setSelectedWorker(newWorker); 
       localStorage.setItem('carmagne_session_worker_id', newWorker.id);
+
+      // Notificación Telegram: Nuevo Operario
+      const telegramMessage = `🆕 <b>Nuevo Operario Registrado</b>\n👷‍♂️ Nombre: <b>${newWorker.name}</b>\n🆔 DNI: ${newWorker.dni}\n📱 Teléfono: ${newWorker.phone}`;
+      TelegramService.enviarNotificacionTelegram(telegramMessage);
+
       setCurrentStep(Step.WORKER_DASHBOARD); 
     } catch (err) { setError('Error al registrar.'); } finally { setLoading(false); }
   };
