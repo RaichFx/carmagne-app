@@ -4,5 +4,6 @@
   "requestFramePermissions": [
     "microphone",
     "geolocation"
-  ]
+  ],
+  "majorCapabilities": []
 }
