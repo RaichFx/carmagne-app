@@ -9,6 +9,7 @@ import autoTable from 'jspdf-autotable';
 import { StorageService, ELECTRICAL_TOOLS_LIST, ELECTRICAL_BRANDS_LIST } from './services/storageService';
 import { LocationService } from './services/locationService';
 import { TelegramService } from './services/telegramService';
+import { testFirebaseConnection } from './services/firebase';
 import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser, ToolRecord, AppConfig } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
@@ -152,6 +153,8 @@ export const App: React.FC = () => {
     const timer = setTimeout(() => setIsAppLoading(false), 2000);
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     
+    testFirebaseConnection();
+
     // Load data from storage
     const storedWorkers = StorageService.getWorkers();
     setWorkers(storedWorkers);
