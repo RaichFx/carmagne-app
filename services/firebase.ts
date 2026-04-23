@@ -1,21 +1,18 @@
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
-import firebaseConfig from '../firebase-applet-config.json';
+import { getFirestore } from 'firebase/firestore';
 
+// *** CREDENCIALES DE FIREBASE ***
+const firebaseConfig = {
+  apiKey: "AIzaSyCelLg2pqp1-lYi_IUgsv4FAoH4mN0WsAc",
+  authDomain: "carmagne-instal-2024.firebaseapp.com",
+  projectId: "carmagne-instal-2024",
+  storageBucket: "carmagne-instal-2024.firebasestorage.app",
+  messagingSenderId: "318117443518",
+  appId: "1:318117443518:web:d9f257212f153373046bef",
+  measurementId: "G-LGCXHWMQQC"
+};
+
+// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);
-
-export async function testFirebaseConnection() {
-  try {
-    // Attempt to fetch a non-existent doc to verify connection
-    await getDocFromServer(doc(db, 'system', 'connection_test'));
-    console.log("Firebase connection verified.");
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('offline')) {
-      console.error("Firebase is offline. Check configuration.");
-    }
-  }
-}
+export const db = getFirestore(app);
