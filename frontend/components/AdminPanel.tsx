@@ -167,6 +167,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [adminForm, setAdminForm] = useState({ username: '', password: '' });
+  const [showAdminConfigPwd, setShowAdminConfigPwd] = useState(false);
 
   const [reportModal, setReportModal] = useState<{ isOpen: boolean; worker: Worker | null; type: 'WEEK' | 'MONTH'; selectedDate: string; selectedMonth: number; }>({
     isOpen: false, worker: null, type: 'MONTH', selectedDate: new Date().toISOString().split('T')[0], selectedMonth: new Date().getMonth()
@@ -1247,7 +1248,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             <div className="space-y-2">
               <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Contraseña Administrador Principal</label>
               <div className="relative">
-                <input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-indigo-400 outline-none focus:border-indigo-500" value={config.adminPassword} onChange={(e)=>setConfig({...config, adminPassword: e.target.value})} />
+                <input
+                  type={showAdminConfigPwd ? 'text' : 'password'}
+                  data-testid="admin-config-password-input"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pr-20 text-xs text-indigo-400 outline-none focus:border-indigo-500"
+                  value={config.adminPassword}
+                  onChange={(e)=>setConfig({...config, adminPassword: e.target.value})}
+                />
+                <button
+                  type="button"
+                  data-testid="admin-config-password-toggle"
+                  onClick={() => setShowAdminConfigPwd(v => !v)}
+                  className="absolute right-12 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400 transition"
+                  aria-label={showAdminConfigPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showAdminConfigPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
                 <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-700" size={16}/>
               </div>
             </div>

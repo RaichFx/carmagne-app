@@ -50,15 +50,31 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
       r.weekEnd === currentWeekRange.end
   );
 
+  // Keep the active stream in a ref so the unmount cleanup always sees the latest tracks.
+  // Prevents the stale-closure bug where the cleanup captured the initial (null) stream.
+  const streamRef = useRef<MediaStream | null>(null);
+  useEffect(() => { streamRef.current = stream; }, [stream]);
+
   const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
+    const s = streamRef.current;
+    if (s) {
+      s.getTracks().forEach(t => t.stop());
       setStream(null);
+      streamRef.current = null;
     }
     setCameraOpen(false);
   };
 
-  useEffect(() => () => stopCamera(), []);
+  // On unmount only, stop any active camera stream.
+  useEffect(() => {
+    return () => {
+      const s = streamRef.current;
+      if (s) {
+        s.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, []);
 
   const startCamera = async () => {
     setCameraError('');
