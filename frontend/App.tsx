@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   User, MapPin, CheckCircle, 
-  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays, Zap, Wrench, Package, Info, Plus, Trash2, Timer, Filter, ChevronDown, Shield, AlertTriangle, AlertCircle
+  LogOut, Coffee, ArrowRight, ShieldAlert, Lock, Fingerprint, Delete, UserPlus, Save, ChevronLeft, Calendar, History, Clock, Smartphone, X, Mic, MicOff, FileText, Cloud, ExternalLink, Briefcase, Phone, KeyRound, BellRing, Search, Download, CalendarDays, Zap, Wrench, Package, Info, Plus, Trash2, Timer, Filter, ChevronDown, Shield, AlertTriangle, AlertCircle, CheckCircle2
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -14,12 +14,14 @@ import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
 import { ConfirmationModal } from './components/ConfirmationModal';
 import { WeeklyReportModal } from './components/WeeklyReportModal';
+import { WeeklyReportService } from './services/weeklyReportService';
 
 enum Step {
   LOGIN_PHONE = 0,
   WORKER_DASHBOARD = 15,
   WORKER_HISTORY = 16,
   WORKER_TOOLS = 17,
+  WORKER_WEEKLY_HISTORY = 18,
   SELECT_SITE = 2,
   SELECT_ACTION = 3,
   REPORT_EXIT = 4, 
@@ -506,24 +508,52 @@ export const App: React.FC = () => {
          </div>
       </div>
       <div className="grid grid-cols-1 gap-3 flex-1 overflow-hidden">
+         {(() => {
+           const range = WeeklyReportService.getWeekRange(new Date());
+           const submitted = weeklyReports.some(r => r.workerId === selectedWorker?.id && r.weekStart === range.start);
+           const todayDow = new Date().getDay(); // 0 sun, 5 fri, 6 sat
+           const showReminder = !submitted && (todayDow === 5 || todayDow === 6 || todayDow === 0);
+           if (!showReminder) return null;
+           return (
+             <div data-testid="weekly-report-reminder" className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 flex items-center gap-3 animate-fadeIn">
+               <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400 shrink-0"><AlertTriangle size={16} /></div>
+               <div className="flex-1 min-w-0">
+                 <p className="text-[11px] font-black text-amber-200 uppercase tracking-tight leading-tight">No has enviado tu parte semanal</p>
+                 <p className="text-[9px] text-amber-400/80 font-bold uppercase tracking-widest mt-0.5">Recuerda enviarlo antes del lunes</p>
+               </div>
+               <button onClick={() => setShowWeeklyReportModal(true)} className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-[10px] font-black uppercase tracking-widest shrink-0 active:scale-95 transition" data-testid="reminder-enviar-btn">Enviar</button>
+             </div>
+           );
+         })()}
          <button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="group bg-slate-900 border border-slate-800 p-5 rounded-[2rem] flex items-center justify-between shadow-lg active:scale-95 transition-all">
            <div><span className="block text-xl font-black text-white">Nuevo Fichaje</span><span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Registrar Movimiento</span></div>
            <div className="bg-blue-600/10 p-4 rounded-2xl text-blue-500"><Timer size={28} /></div>
          </button>
-         <button
-           data-testid="weekly-report-btn"
-           onClick={() => setShowWeeklyReportModal(true)}
-           className="group bg-gradient-to-br from-indigo-900/60 to-purple-900/40 border border-indigo-500/20 p-5 rounded-[2rem] flex items-center justify-between shadow-lg active:scale-95 transition-all"
-         >
-           <div>
-             <span className="block text-xl font-black text-white flex items-center gap-2">
-               Parte Semanal
-               <span className="px-1.5 py-0.5 bg-indigo-500/20 border border-indigo-400/30 rounded-md text-[8px] font-black text-indigo-300 uppercase tracking-widest">IA</span>
-             </span>
-             <span className="text-indigo-300/70 text-[10px] font-bold uppercase tracking-widest">Foto o archivo → extracción auto</span>
-           </div>
-           <div className="bg-indigo-500/10 p-4 rounded-2xl text-indigo-400"><FileText size={28} /></div>
-         </button>
+         <div className="grid grid-cols-[1fr_auto] gap-2">
+           <button
+             data-testid="weekly-report-btn"
+             onClick={() => setShowWeeklyReportModal(true)}
+             className="group bg-gradient-to-br from-indigo-900/60 to-purple-900/40 border border-indigo-500/20 p-5 rounded-[2rem] flex items-center justify-between shadow-lg active:scale-95 transition-all"
+           >
+             <div className="text-left">
+               <span className="block text-xl font-black text-white flex items-center gap-2">
+                 Parte Semanal
+                 <span className="px-1.5 py-0.5 bg-indigo-500/20 border border-indigo-400/30 rounded-md text-[8px] font-black text-indigo-300 uppercase tracking-widest">IA</span>
+               </span>
+               <span className="text-indigo-300/70 text-[10px] font-bold uppercase tracking-widest">Foto o archivo → extracción auto</span>
+             </div>
+             <div className="bg-indigo-500/10 p-4 rounded-2xl text-indigo-400"><FileText size={28} /></div>
+           </button>
+           <button
+             data-testid="my-weekly-reports-btn"
+             onClick={() => setCurrentStep(Step.WORKER_WEEKLY_HISTORY)}
+             title="Mis partes anteriores"
+             className="bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-indigo-500/40 rounded-[2rem] flex flex-col items-center justify-center gap-1 px-4 active:scale-95 transition-all text-slate-400 hover:text-indigo-400"
+           >
+             <History size={20} />
+             <span className="text-[8px] font-black uppercase tracking-widest">Mis Partes</span>
+           </button>
+         </div>
          <div className="grid grid-cols-2 gap-3">
            <button onClick={() => setCurrentStep(Step.WORKER_HISTORY)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-slate-800"><div className="text-emerald-500"><History size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Historial</span></button>
            <button onClick={() => setCurrentStep(Step.WORKER_TOOLS)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-slate-800"><div className="text-amber-500"><Wrench size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Equipos</span></button>
@@ -611,6 +641,71 @@ export const App: React.FC = () => {
            </div>
         </div>
       );
+      case Step.WORKER_WEEKLY_HISTORY: {
+        const myReports = weeklyReports.filter(r => r.workerId === selectedWorker?.id);
+        const currentRange = WeeklyReportService.getWeekRange(new Date());
+        const submittedThisWeek = myReports.some(r => r.weekStart === currentRange.start);
+        return (
+          <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
+            <div className="flex items-center justify-between gap-4 mb-4 shrink-0">
+              <div className="flex items-center gap-4 min-w-0">
+                <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400 shrink-0"><ChevronLeft size={20}/></button>
+                <div className="min-w-0">
+                  <h2 className="text-xl font-black text-white uppercase tracking-tighter truncate">Mis Partes</h2>
+                  <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest">{myReports.length} parte{myReports.length === 1 ? '' : 's'} enviado{myReports.length === 1 ? '' : 's'}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowWeeklyReportModal(true)} className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-lg active:scale-95" data-testid="weekly-history-new-btn"><Plus size={20}/></button>
+            </div>
+
+            <div className={`shrink-0 mb-4 p-4 rounded-2xl border ${submittedThisWeek ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-amber-500/10 border-amber-500/30'}`}>
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-xl ${submittedThisWeek ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                  {submittedThisWeek ? <CheckCircle2 size={18}/> : <AlertTriangle size={18}/>}
+                </div>
+                <div className="flex-1">
+                  <p className={`text-[10px] font-black uppercase tracking-widest ${submittedThisWeek ? 'text-emerald-200' : 'text-amber-200'}`}>Semana actual</p>
+                  <p className={`text-xs font-bold ${submittedThisWeek ? 'text-emerald-300' : 'text-amber-300'}`}>{submittedThisWeek ? '✓ Parte enviado' : 'Pendiente de envío'}</p>
+                </div>
+                <p className="text-[9px] text-slate-400 font-mono font-bold">{currentRange.start} → {currentRange.end}</p>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">
+              {myReports.length === 0 && (
+                <div className="text-center py-16 bg-slate-900/30 rounded-3xl border border-dashed border-slate-800">
+                  <FileText size={36} className="text-slate-700 mx-auto mb-3" />
+                  <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Sin partes enviados</p>
+                  <p className="text-slate-600 text-[10px] mt-1">Pulsa + para enviar tu primer parte</p>
+                </div>
+              )}
+              {myReports.map(r => (
+                <div key={r.id} data-testid={`worker-report-${r.id}`} className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
+                  <div className="flex gap-3 p-3">
+                    {r.photoBase64 && <img src={r.photoBase64} alt="" className="w-20 h-20 object-cover rounded-xl shrink-0 border border-slate-800" />}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest truncate">{r.weekStart} → {r.weekEnd}</p>
+                          {r.extracted?.totalHours != null && (
+                            <span className="px-1.5 py-0.5 bg-indigo-500/20 border border-indigo-400/30 rounded text-[7px] font-black text-indigo-300 uppercase tracking-widest">IA</span>
+                          )}
+                        </div>
+                        <p className="text-sm font-black text-white uppercase truncate">{r.siteName || 'Sin obra'}</p>
+                        <p className="text-[10px] text-slate-500 line-clamp-2 leading-tight mt-1">{r.tasks || '—'}</p>
+                      </div>
+                      <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800">
+                        <span className="text-[8px] font-bold text-slate-600 uppercase tracking-widest">{r.dateStr} • {r.timeStr}</span>
+                        <span className="text-base font-mono font-black text-white">{r.totalHours.toFixed(1)}<span className="text-[10px] text-slate-500 ml-0.5">h</span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
       case Step.WORKER_TOOLS: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
           <div className="flex items-center justify-between gap-4 mb-4 shrink-0">

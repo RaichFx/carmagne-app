@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { StorageService } from '../services/storageService';
 import { WeeklyReportService } from '../services/weeklyReportService';
+import { TelegramService } from '../services/telegramService';
 import { Worker, WeeklyReport, WeeklyReportExtracted } from '../types';
 
 interface WeeklyReportModalProps {
@@ -191,6 +192,22 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
     };
     try {
       await StorageService.addWeeklyReport(report);
+
+      // Send Telegram notification to admin (non-blocking)
+      const tasksLines = report.tasks
+        ? '\n' + report.tasks.split('\n').slice(0, 4).map(l => `• ${l.replace(/^[-•]\s*/, '')}`).join('\n')
+        : '';
+      const message =
+        `📋 <b>Nuevo Parte Semanal</b>\n\n` +
+        `👷 <b>${report.workerName}</b>\n` +
+        `📅 ${report.weekStart} → ${report.weekEnd}\n` +
+        `⏱ ${report.totalHours.toFixed(1)} horas\n` +
+        (report.siteName ? `📍 ${report.siteName}\n` : '') +
+        (tasksLines ? `\n<b>Tareas:</b>${tasksLines}` : '') +
+        (report.notes ? `\n\n📝 ${report.notes}` : '') +
+        `\n\n<i>Enviado: ${report.dateStr} ${report.timeStr}</i>`;
+      TelegramService.enviarNotificacionTelegram(message).catch(() => {});
+
       setPhase('SUCCESS');
     } catch (err) {
       setExtractError('Error guardando el parte semanal.');

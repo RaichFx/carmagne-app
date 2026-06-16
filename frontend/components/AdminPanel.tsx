@@ -362,6 +362,95 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     setIsClearLogsConfirmOpen(false);
   };
 
+  const handleExportReportsPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Partes Semanales - CARMAGNE INSTAL SL", 14, 15);
+    doc.setFontSize(9);
+    const filterDesc: string[] = [];
+    if (reportsFilterWorker) filterDesc.push(`Trabajador: ${workers.find(w => w.id === reportsFilterWorker)?.name || ''}`);
+    if (reportsFilterWeek) filterDesc.push(`Semana de: ${reportsFilterWeek}`);
+    if (reportsSearch) filterDesc.push(`Búsqueda: "${reportsSearch}"`);
+    doc.text(filterDesc.length ? `Filtros: ${filterDesc.join(' • ')}` : 'Todos los partes', 14, 22);
+    doc.text(`Total: ${filteredWeeklyReports.length} parte(s)`, 14, 28);
+    const tableData = filteredWeeklyReports.map(r => [
+      r.workerName,
+      `${r.weekStart}\n${r.weekEnd}`,
+      r.siteName || '-',
+      r.totalHours.toFixed(1) + 'h',
+      (r.tasks || '-').slice(0, 80),
+      r.dateStr
+    ]);
+    autoTable(doc, {
+      head: [['Trabajador', 'Semana', 'Obra', 'Horas', 'Tareas', 'Enviado']],
+      body: tableData,
+      startY: 34,
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [79, 70, 229] },
+      columnStyles: { 1: { cellWidth: 22 }, 4: { cellWidth: 60 } }
+    });
+    doc.save(`partes_semanales_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleExportSingleReportPDF = (r: WeeklyReport) => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Parte Semanal", 14, 18);
+    doc.setFontSize(11);
+    doc.text(`Trabajador: ${r.workerName}`, 14, 28);
+    doc.text(`Semana: ${r.weekStart}  →  ${r.weekEnd}`, 14, 34);
+    doc.text(`Obra: ${r.siteName || '-'}`, 14, 40);
+    doc.text(`Total horas: ${r.totalHours.toFixed(1)} h`, 14, 46);
+    doc.text(`Enviado: ${r.dateStr} ${r.timeStr}`, 14, 52);
+    if (r.tasks) {
+      doc.setFontSize(10);
+      doc.text("Tareas:", 14, 62);
+      const taskLines = doc.splitTextToSize(r.tasks, 180);
+      doc.text(taskLines, 14, 68);
+    }
+    if (r.notes) {
+      const noteY = r.tasks ? 68 + Math.min(60, doc.splitTextToSize(r.tasks, 180).length * 5) : 68;
+      doc.text("Notas:", 14, noteY);
+      const noteLines = doc.splitTextToSize(r.notes, 180);
+      doc.text(noteLines, 14, noteY + 6);
+    }
+    // Embed image on next page if available
+    if (r.photoBase64) {
+      doc.addPage();
+      doc.setFontSize(11);
+      doc.text(`Imagen del parte - ${r.workerName} (${r.weekStart} → ${r.weekEnd})`, 14, 15);
+      try {
+        const mime = r.photoBase64.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+        doc.addImage(r.photoBase64, mime, 14, 22, 180, 240, undefined, 'FAST');
+      } catch (e) { /* ignore */ }
+    }
+    doc.save(`parte_${r.workerName.replace(/\s+/g, '_')}_${r.weekStart}.pdf`);
+  };
+
+  const handleExportReportsCSV = () => {
+    const escape = (v: string) => `"${(v || '').replace(/"/g, '""')}"`;
+    const header = ['Trabajador', 'Semana Inicio', 'Semana Fin', 'Horas', 'Obra', 'Tareas', 'Notas', 'Enviado'];
+    const rows = filteredWeeklyReports.map(r => [
+      r.workerName,
+      r.weekStart,
+      r.weekEnd,
+      r.totalHours.toFixed(1),
+      r.siteName || '',
+      (r.tasks || '').replace(/\n/g, ' | '),
+      (r.notes || '').replace(/\n/g, ' | '),
+      `${r.dateStr} ${r.timeStr}`
+    ].map(escape).join(','));
+    // BOM for Excel UTF-8 compatibility
+    const csv = '\uFEFF' + [header.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `partes_semanales_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const filteredWeeklyReports = useMemo(() => {
     return weeklyReports.filter(r => {
       const matchesWorker = !reportsFilterWorker || r.workerId === reportsFilterWorker;
@@ -401,6 +490,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             </span>
           </h2>
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Partes enviados por los trabajadores</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            data-testid="export-reports-pdf-btn"
+            onClick={handleExportReportsPDF}
+            disabled={filteredWeeklyReports.length === 0}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition active:scale-95 ${filteredWeeklyReports.length === 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-rose-600/10 text-rose-400 border border-rose-500/20 hover:bg-rose-600/20'}`}
+          >
+            <FileText size={14} /> PDF
+          </button>
+          <button
+            data-testid="export-reports-csv-btn"
+            onClick={handleExportReportsCSV}
+            disabled={filteredWeeklyReports.length === 0}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition active:scale-95 ${filteredWeeklyReports.length === 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20'}`}
+          >
+            <Download size={14} /> Excel
+          </button>
         </div>
       </div>
 
@@ -509,7 +616,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               <div className="flex items-center justify-between gap-2 pt-2 mt-auto border-t border-slate-800">
                 <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">{report.dateStr} • {report.timeStr}</span>
                 <div className="flex gap-1">
-                  <button data-testid={`view-report-${report.id}`} onClick={() => setViewingReport(report)} className="p-1.5 text-indigo-400 hover:text-indigo-300 transition"><Eye size={14} /></button>
+                  <button data-testid={`view-report-${report.id}`} onClick={() => setViewingReport(report)} className="p-1.5 text-indigo-400 hover:text-indigo-300 transition" title="Ver detalle"><Eye size={14} /></button>
+                  <button data-testid={`download-report-${report.id}`} onClick={() => handleExportSingleReportPDF(report)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition" title="Descargar PDF"><Download size={14} /></button>
                   {isSuperAdmin && (
                     <button data-testid={`delete-report-${report.id}`} onClick={() => setReportToDelete(report.id)} className="p-1.5 text-rose-500 hover:text-rose-400 transition"><Trash2 size={14} /></button>
                   )}
@@ -1081,6 +1189,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               <button onClick={() => setViewingReport(null)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5">
+              <div className="flex gap-2">
+                <button
+                  data-testid="modal-download-pdf-btn"
+                  onClick={() => handleExportSingleReportPDF(viewingReport)}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg transition"
+                >
+                  <Download size={14} /> Descargar PDF
+                </button>
+              </div>
               {viewingReport.photoBase64 && (
                 <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
                   <img src={viewingReport.photoBase64} alt="Parte" className="w-full max-h-[60vh] object-contain" />
