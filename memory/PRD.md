@@ -39,7 +39,15 @@ Carmagne Instal SL internal app: worker check-in/clock-out, work logs by site, t
 - **Notificación Telegram al admin**: Mensaje HTML formateado (📋 nombre, semana, horas, obra, tareas, notas) enviado al canal cuando un trabajador envía un parte (silent no-op si los tokens son placeholders).
 - **Exportaciones**: Botones PDF (resumen tabular de partes filtrados) y Excel/CSV (UTF-8 con BOM) en la cabecera del admin. Botón "Descargar PDF" por parte individual con imagen incrustada (en la tarjeta y en el modal de detalle).
 
-100% test pass en ambas iteraciones.
+### 2026-01 — Iteración 3: Vista comparativa mensual
+- Nueva pestaña **Comparativa** en el sidebar admin (entre Partes y Obras).
+- Selector de mes/año (4 años: -2 / -1 / actual / +1).
+- KPIs: Total Partes, Horas Reporte, Horas Fichaje (formato HH:MM:SS), Trabajadores Activos / Total.
+- Tabla con ranking por trabajador (medallas oro/plata/bronce top 3), barra de progreso proporcional, métricas Partes/Horas/Fichaje/Obras. Inactivos con opacity-50.
+- Ordenación por Horas (default) / Partes / Nombre.
+- Exportar comparativa a PDF (autoTable) y CSV con BOM UTF-8.
+
+100% test pass en las tres iteraciones.
 
 ## Prioritized Backlog
 - P2: Configurar VITE_TELEGRAM_BOT_TOKEN / VITE_TELEGRAM_CHAT_ID reales (cliente) para activar las notificaciones
