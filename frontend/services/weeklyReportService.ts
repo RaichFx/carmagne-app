@@ -1,6 +1,8 @@
 import { WeeklyReportExtracted } from '../types';
 
-const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
+// Use a relative path. In production the platform's ingress routes /api/* to the
+// backend (port 8001). In dev, vite.config.ts has a proxy that forwards /api to
+// http://localhost:8001. No backend URL needs to be configured in .env.
 
 export interface ExtractResult {
   success: boolean;
@@ -14,8 +16,7 @@ export const WeeklyReportService = {
    * The backend uses GPT-4o (via Emergent LLM Key) to extract structured weekly report data.
    */
   extractFromImage: async (imageBase64: string, mimeType: string = 'image/jpeg'): Promise<ExtractResult> => {
-    const url = `${BACKEND_URL}/api/weekly-report/extract`;
-    const response = await fetch(url, {
+    const response = await fetch('/api/weekly-report/extract', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ image_base64: imageBase64, mime_type: mimeType }),
