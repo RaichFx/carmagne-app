@@ -9,10 +9,11 @@ import autoTable from 'jspdf-autotable';
 import { StorageService, ELECTRICAL_TOOLS_LIST, ELECTRICAL_BRANDS_LIST } from './services/storageService';
 import { LocationService } from './services/locationService';
 import { TelegramService } from './services/telegramService';
-import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser, ToolRecord, AppConfig } from './types';
+import { Worker, Site, WorkLog, LogType, GeoLocationData, WorkMode, AdminUser, ToolRecord, AppConfig, WeeklyReport } from './types';
 import { AdminPanel } from './components/AdminPanel';
 import { InstallTutorial } from './components/InstallTutorial';
 import { ConfirmationModal } from './components/ConfirmationModal';
+import { WeeklyReportModal } from './components/WeeklyReportModal';
 
 enum Step {
   LOGIN_PHONE = 0,
@@ -147,6 +148,8 @@ export const App: React.FC = () => {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [showWeeklyReportModal, setShowWeeklyReportModal] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsAppLoading(false), 2000);
@@ -160,6 +163,7 @@ export const App: React.FC = () => {
     setAdmins(StorageService.getAdmins());
     setAllTools(StorageService.getTools());
     setAppConfig(StorageService.getConfig());
+    setWeeklyReports(StorageService.getWeeklyReports());
 
     // Check for existing session
     const savedWorkerId = localStorage.getItem('carmagne_session_worker_id');
@@ -185,9 +189,10 @@ export const App: React.FC = () => {
     const unsubAdmins = StorageService.subscribeToAdmins(setAdmins);
     const unsubTools = StorageService.subscribeToTools(setAllTools);
     const unsubConfig = StorageService.subscribeToConfig(setAppConfig);
+    const unsubWeekly = StorageService.subscribeToWeeklyReports(setWeeklyReports);
     return () => {
       clearTimeout(timer); clearInterval(interval);
-      unsubWorkers(); unsubSites(); unsubLogs(); unsubAdmins(); unsubTools(); unsubConfig();
+      unsubWorkers(); unsubSites(); unsubLogs(); unsubAdmins(); unsubTools(); unsubConfig(); unsubWeekly();
     };
   }, []);
 
@@ -505,6 +510,20 @@ export const App: React.FC = () => {
            <div><span className="block text-xl font-black text-white">Nuevo Fichaje</span><span className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Registrar Movimiento</span></div>
            <div className="bg-blue-600/10 p-4 rounded-2xl text-blue-500"><Timer size={28} /></div>
          </button>
+         <button
+           data-testid="weekly-report-btn"
+           onClick={() => setShowWeeklyReportModal(true)}
+           className="group bg-gradient-to-br from-indigo-900/60 to-purple-900/40 border border-indigo-500/20 p-5 rounded-[2rem] flex items-center justify-between shadow-lg active:scale-95 transition-all"
+         >
+           <div>
+             <span className="block text-xl font-black text-white flex items-center gap-2">
+               Parte Semanal
+               <span className="px-1.5 py-0.5 bg-indigo-500/20 border border-indigo-400/30 rounded-md text-[8px] font-black text-indigo-300 uppercase tracking-widest">IA</span>
+             </span>
+             <span className="text-indigo-300/70 text-[10px] font-bold uppercase tracking-widest">Foto o archivo → extracción auto</span>
+           </div>
+           <div className="bg-indigo-500/10 p-4 rounded-2xl text-indigo-400"><FileText size={28} /></div>
+         </button>
          <div className="grid grid-cols-2 gap-3">
            <button onClick={() => setCurrentStep(Step.WORKER_HISTORY)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-slate-800"><div className="text-emerald-500"><History size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Historial</span></button>
            <button onClick={() => setCurrentStep(Step.WORKER_TOOLS)} className="bg-slate-900 border border-slate-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-slate-800"><div className="text-amber-500"><Wrench size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Equipos</span></button>
@@ -679,6 +698,13 @@ export const App: React.FC = () => {
         onConfirm={() => executeLogSubmission(confirmState.action!, exitReportText, exitWorkMode)} 
         onCancel={() => setConfirmState({ isOpen: false, action: null })} 
       />
+      {showWeeklyReportModal && selectedWorker && (
+        <WeeklyReportModal
+          worker={selectedWorker}
+          onClose={() => setShowWeeklyReportModal(false)}
+          existingReports={weeklyReports}
+        />
+      )}
     </div>
   );
 };

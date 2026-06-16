@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageService, ELECTRICAL_TOOLS_LIST, ELECTRICAL_BRANDS_LIST } from '../services/storageService';
-import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType, AdminUser, ToolRecord } from '../types';
+import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType, AdminUser, ToolRecord, WeeklyReport } from '../types';
 import { 
   Users, MapPin, Download, Settings, FileText, 
-  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap, Wrench, ChevronDown, ArrowLeft, BarChart3, LogOut, CalendarDays, CheckCircle2, AlertCircle, AlertTriangle, Map as MapIcon, ExternalLink, Coffee, Package, KeyRound, ChevronRight, ListFilter, RotateCcw, Image as ImageIcon, Upload, Layout, Maximize2, Smartphone, Check, Timer, History
+  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap, Wrench, ChevronDown, ArrowLeft, BarChart3, LogOut, CalendarDays, CheckCircle2, AlertCircle, AlertTriangle, Map as MapIcon, ExternalLink, Coffee, Package, KeyRound, ChevronRight, ListFilter, RotateCcw, Image as ImageIcon, Upload, Layout, Maximize2, Smartphone, Check, Timer, History, Sparkles, FileImage
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { jsPDF } from 'jspdf';
@@ -125,12 +125,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const isSuperAdmin = currentUser === null;
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'workers' | 'sites' | 'logs' | 'tools' | 'hours' | 'admins' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'workers' | 'sites' | 'logs' | 'tools' | 'hours' | 'reports' | 'admins' | 'settings'>('dashboard');
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [logs, setLogs] = useState<WorkLog[]>([]);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [tools, setTools] = useState<ToolRecord[]>([]);
+  const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
   const [config, setConfig] = useState<AppConfig>(StorageService.getConfig());
   
   const [isSaving, setIsSaving] = useState(false);
@@ -171,6 +172,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     isOpen: false, worker: null, type: 'MONTH', selectedDate: new Date().toISOString().split('T')[0], selectedMonth: new Date().getMonth()
   });
 
+  // Weekly reports tab state
+  const [reportsFilterWorker, setReportsFilterWorker] = useState('');
+  const [reportsFilterWeek, setReportsFilterWeek] = useState('');
+  const [reportsSearch, setReportsSearch] = useState('');
+  const [viewingReport, setViewingReport] = useState<WeeklyReport | null>(null);
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+
   useEffect(() => {
     setWorkers(StorageService.getWorkers());
     setSites(StorageService.getSites());
@@ -178,6 +186,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     setAdmins(StorageService.getAdmins());
     setTools(StorageService.getTools());
     setConfig(StorageService.getConfig());
+    setWeeklyReports(StorageService.getWeeklyReports());
 
     const unsubWorkers = StorageService.subscribeToWorkers(setWorkers);
     const unsubSites = StorageService.subscribeToSites(setSites);
@@ -185,9 +194,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     const unsubAdmins = StorageService.subscribeToAdmins(setAdmins);
     const unsubTools = StorageService.subscribeToTools(setTools);
     const unsubConfig = StorageService.subscribeToConfig(setConfig);
+    const unsubReports = StorageService.subscribeToWeeklyReports(setWeeklyReports);
 
     return () => {
-      unsubWorkers(); unsubSites(); unsubLogs(); unsubAdmins(); unsubTools(); unsubConfig();
+      unsubWorkers(); unsubSites(); unsubLogs(); unsubAdmins(); unsubTools(); unsubConfig(); unsubReports();
     };
   }, []);
 
@@ -352,8 +362,167 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     setIsClearLogsConfirmOpen(false);
   };
 
-  const filteredWorkers = workers.filter(w => w.name.toLowerCase().includes(workerSearchQuery.toLowerCase()));
+  const filteredWeeklyReports = useMemo(() => {
+    return weeklyReports.filter(r => {
+      const matchesWorker = !reportsFilterWorker || r.workerId === reportsFilterWorker;
+      const matchesWeek = !reportsFilterWeek || (r.weekStart <= reportsFilterWeek && r.weekEnd >= reportsFilterWeek);
+      const q = reportsSearch.toLowerCase();
+      const matchesSearch = !q || r.workerName.toLowerCase().includes(q) || (r.siteName || '').toLowerCase().includes(q) || (r.tasks || '').toLowerCase().includes(q);
+      return matchesWorker && matchesWeek && matchesSearch;
+    }).sort((a, b) => b.createdAt - a.createdAt);
+  }, [weeklyReports, reportsFilterWorker, reportsFilterWeek, reportsSearch]);
+
+  // Compute current week range
+  const currentWeekRange = useMemo(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
+    const start = new Date(d);
+    start.setDate(diffToMonday); start.setHours(0,0,0,0);
+    const end = new Date(start); end.setDate(start.getDate()+6); end.setHours(23,59,59,999);
+    return { start: start.toISOString().split('T')[0], end: end.toISOString().split('T')[0] };
+  }, []);
+
+  const workersWithCurrentWeekStatus = useMemo(() => {
+    return workers.map(w => {
+      const submitted = weeklyReports.some(r => r.workerId === w.id && r.weekStart === currentWeekRange.start);
+      return { ...w, currentWeekSubmitted: submitted };
+    });
+  }, [workers, weeklyReports, currentWeekRange]);
+
+  const renderWeeklyReports = () => (
+    <div className="space-y-4 animate-fadeIn pb-32" data-testid="admin-weekly-reports-tab">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
+            Partes Semanales
+            <span className="px-2 py-0.5 bg-indigo-500/20 border border-indigo-400/30 rounded-md text-[9px] font-black text-indigo-300 uppercase tracking-widest flex items-center gap-1">
+              <Sparkles size={9} /> IA
+            </span>
+          </h2>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Partes enviados por los trabajadores</p>
+        </div>
+      </div>
+
+      {/* Current week worker status grid */}
+      <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-black text-white uppercase tracking-tighter">Esta Semana</h3>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{currentWeekRange.start} → {currentWeekRange.end}</p>
+          </div>
+          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest">
+            <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 size={12} /> Enviado</span>
+            <span className="flex items-center gap-1 text-slate-500"><AlertCircle size={12} /> Pendiente</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {workersWithCurrentWeekStatus.map(w => (
+            <button
+              key={w.id}
+              data-testid={`worker-week-status-${w.id}`}
+              onClick={() => { setReportsFilterWorker(w.id); }}
+              className={`p-3 rounded-2xl border text-left transition-all active:scale-95 ${w.currentWeekSubmitted ? 'bg-emerald-500/10 border-emerald-500/30 hover:border-emerald-500/60' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[11px] font-black text-white uppercase truncate">{w.name}</p>
+                {w.currentWeekSubmitted ? <CheckCircle2 size={14} className="text-emerald-400 shrink-0" /> : <AlertCircle size={14} className="text-slate-500 shrink-0" />}
+              </div>
+              <p className={`text-[8px] font-black uppercase tracking-widest ${w.currentWeekSubmitted ? 'text-emerald-400' : 'text-slate-500'}`}>
+                {w.currentWeekSubmitted ? 'Parte Enviado' : 'Sin Parte'}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input
+            data-testid="reports-search-input"
+            type="text"
+            placeholder="Buscar trabajador, obra o tareas..."
+            value={reportsSearch}
+            onChange={(e) => setReportsSearch(e.target.value)}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-indigo-500"
+          />
+        </div>
+        <select
+          data-testid="reports-filter-worker"
+          value={reportsFilterWorker}
+          onChange={(e) => setReportsFilterWorker(e.target.value)}
+          className="bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:border-indigo-500"
+        >
+          <option value="">Todos los trabajadores</option>
+          {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+        <input
+          data-testid="reports-filter-week"
+          type="date"
+          value={reportsFilterWeek}
+          onChange={(e) => setReportsFilterWeek(e.target.value)}
+          placeholder="Filtrar por semana"
+          className="bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]"
+        />
+      </div>
+
+      {/* Reports list */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filteredWeeklyReports.length === 0 ? (
+          <div className="col-span-full text-center py-16 bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-800">
+            <FileText size={32} className="text-slate-700 mx-auto mb-3" />
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No hay partes que coincidan con los filtros</p>
+          </div>
+        ) : filteredWeeklyReports.map(report => (
+          <div key={report.id} data-testid={`weekly-report-card-${report.id}`} className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden flex flex-col hover:border-indigo-500/40 transition group">
+            <div className="relative h-40 bg-slate-950 overflow-hidden cursor-pointer" onClick={() => setViewingReport(report)}>
+              {report.photoBase64 ? (
+                <img src={report.photoBase64} alt="Parte" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-slate-700"><FileImage size={32} /></div>
+              )}
+              <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-full text-[9px] font-black text-white uppercase tracking-widest flex items-center gap-1">
+                <Calendar size={9} /> {report.weekStart} → {report.weekEnd}
+              </div>
+              {report.extracted?.totalHours != null && (
+                <div className="absolute top-2 right-2 px-2 py-1 bg-indigo-500/80 backdrop-blur-md rounded-full text-[9px] font-black text-white uppercase tracking-widest flex items-center gap-1">
+                  <Sparkles size={9} /> IA
+                </div>
+              )}
+            </div>
+            <div className="p-4 flex flex-col gap-2 flex-1">
+              <div className="flex justify-between items-start">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-black text-white uppercase truncate">{report.workerName}</p>
+                  <p className="text-[10px] text-indigo-400 font-bold uppercase truncate">{report.siteName || '—'}</p>
+                </div>
+                <div className="text-right shrink-0 ml-2">
+                  <p className="text-base font-mono font-black text-white">{report.totalHours.toFixed(1)}h</p>
+                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">horas</p>
+                </div>
+              </div>
+              {report.tasks && (
+                <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">{report.tasks}</p>
+              )}
+              <div className="flex items-center justify-between gap-2 pt-2 mt-auto border-t border-slate-800">
+                <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">{report.dateStr} • {report.timeStr}</span>
+                <div className="flex gap-1">
+                  <button data-testid={`view-report-${report.id}`} onClick={() => setViewingReport(report)} className="p-1.5 text-indigo-400 hover:text-indigo-300 transition"><Eye size={14} /></button>
+                  {isSuperAdmin && (
+                    <button data-testid={`delete-report-${report.id}`} onClick={() => setReportToDelete(report.id)} className="p-1.5 text-rose-500 hover:text-rose-400 transition"><Trash2 size={14} /></button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
   const filteredSites = sites.filter(s => s.name.toLowerCase().includes(siteSearchQuery.toLowerCase()));
+  const filteredWorkers = workers.filter(w => w.name.toLowerCase().includes(workerSearchQuery.toLowerCase()));
   
   const filteredTools = useMemo(() => {
     return tools.filter(t => {
@@ -380,6 +549,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       { id: 'dashboard', icon: BarChart3, label: 'Panel' },
       { id: 'workers', icon: Users, label: 'Personal' },
       { id: 'hours', icon: History, label: 'Horas' },
+      { id: 'reports', icon: FileText, label: 'Partes' },
       { id: 'sites', icon: MapPin, label: 'Obras' },
       { id: 'logs', icon: ClipboardList, label: 'Registros' },
       { id: 'tools', icon: Wrench, label: 'Equipos' },
@@ -826,6 +996,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           )}
           {activeTab === 'logs' && renderLogs()}
           {activeTab === 'tools' && renderTools()}
+          {activeTab === 'reports' && renderWeeklyReports()}
           {activeTab === 'admins' && isSuperAdmin && (
              <div className="space-y-6 animate-fadeIn pb-32"><div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Cuentas Admin</h2><button onClick={() => setIsAdminModalOpen(true)} className="bg-indigo-600 p-3 rounded-xl text-white"><UserPlus size={20} /></button></div><div className="grid gap-3">{admins.map(admin => (<div key={admin.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 border border-slate-700"><KeyRound size={20} /></div><div><h3 className="text-sm font-black text-white">{admin.username}</h3><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gestor</p></div></div><button onClick={() => StorageService.deleteAdmin(admin.id)} className="p-2 text-rose-500"><Trash2 size={20} /></button></div>))}</div></div>
           )}
@@ -879,6 +1050,86 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       <ConfirmationModal isOpen={isClearLogsConfirmOpen} title="Vaciar Todo el Historial" message="¡ATENCIÓN! Vas a eliminar TODOS los registros de actividad del sistema. Esta acción es definitiva." confirmText="VACIAR TODO" isDestructive={true} onConfirm={handleClearAllLogs} onCancel={() => setIsClearLogsConfirmOpen(false)} />
 
       <ConfirmationModal isOpen={isLogoutConfirmOpen} title="¿Cerrar Sesión?" message="Vas a salir del panel de administración." confirmText="Salir" cancelText="Permanecer" isDestructive={true} onConfirm={() => { setIsLogoutConfirmOpen(false); onBack(); }} onCancel={() => setIsLogoutConfirmOpen(false)} />
+
+      <ConfirmationModal
+        isOpen={!!reportToDelete}
+        title="Borrar Parte Semanal"
+        message="¿Seguro que quieres eliminar este parte semanal? Esta acción no se puede deshacer."
+        confirmText="Borrar"
+        isDestructive={true}
+        onConfirm={async () => {
+          if (reportToDelete) {
+            await StorageService.deleteWeeklyReport(reportToDelete);
+            setReportToDelete(null);
+            if (viewingReport && viewingReport.id === reportToDelete) setViewingReport(null);
+          }
+        }}
+        onCancel={() => setReportToDelete(null)}
+      />
+
+      {viewingReport && (
+        <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fadeIn" data-testid="view-report-modal">
+          <div className="bg-slate-900 w-full max-w-2xl rounded-[2rem] border border-slate-800 shadow-2xl relative overflow-hidden max-h-[95vh] flex flex-col">
+            <div className="flex justify-between items-center p-5 border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-indigo-600/10 rounded-xl text-indigo-400 shrink-0"><FileText size={20} /></div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-black text-white uppercase tracking-tighter truncate">{viewingReport.workerName}</h3>
+                  <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">{viewingReport.weekStart} → {viewingReport.weekEnd}</p>
+                </div>
+              </div>
+              <button onClick={() => setViewingReport(null)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5">
+              {viewingReport.photoBase64 && (
+                <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+                  <img src={viewingReport.photoBase64} alt="Parte" className="w-full max-h-[60vh] object-contain" />
+                </div>
+              )}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
+                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Total Horas</p>
+                  <p className="text-lg font-mono font-black text-white mt-1">{viewingReport.totalHours.toFixed(1)}</p>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
+                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Obra</p>
+                  <p className="text-xs font-black text-white mt-1 truncate uppercase">{viewingReport.siteName || '—'}</p>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
+                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Enviado</p>
+                  <p className="text-[11px] font-black text-white mt-1">{viewingReport.dateStr}</p>
+                  <p className="text-[9px] text-slate-500 font-bold">{viewingReport.timeStr}</p>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
+                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Estado</p>
+                  <p className="text-[11px] font-black mt-1 flex items-center gap-1 text-emerald-400"><CheckCircle2 size={12} /> {viewingReport.status}</p>
+                </div>
+              </div>
+              {viewingReport.tasks && (
+                <div>
+                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-2">Tareas Realizadas</p>
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">{viewingReport.tasks}</div>
+                </div>
+              )}
+              {viewingReport.notes && (
+                <div>
+                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-2">Notas</p>
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">{viewingReport.notes}</div>
+                </div>
+              )}
+              {viewingReport.extracted && (viewingReport.extracted.rawText || viewingReport.extracted.daysWorked != null) && (
+                <div>
+                  <p className="text-[9px] text-indigo-400 font-black uppercase tracking-widest mb-2 flex items-center gap-1"><Sparkles size={10} /> Datos extraídos por IA</p>
+                  <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 space-y-2 text-[11px] text-slate-300">
+                    {viewingReport.extracted.daysWorked != null && (<p><span className="font-black text-indigo-400">Días trabajados:</span> {viewingReport.extracted.daysWorked}</p>)}
+                    {viewingReport.extracted.rawText && (<p className="leading-relaxed"><span className="font-black text-indigo-400">Texto detectado:</span> {viewingReport.extracted.rawText}</p>)}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

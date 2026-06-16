@@ -90,3 +90,33 @@ export interface AppConfig {
   logoScaleLogin?: number;
   logoScaleDashboard?: number;
 }
+
+export interface WeeklyReportExtracted {
+  weekStart?: string | null;
+  weekEnd?: string | null;
+  totalHours?: number | null;
+  daysWorked?: number | null;
+  siteName?: string | null;
+  tasks?: string[] | null;
+  notes?: string | null;
+  rawText?: string | null;
+}
+
+export interface WeeklyReport {
+  id: string;
+  workerId: string;
+  workerName: string;
+  weekStart: string;   // ISO date (YYYY-MM-DD) of Monday
+  weekEnd: string;     // ISO date (YYYY-MM-DD) of Sunday
+  totalHours: number;
+  siteName: string;
+  tasks: string;       // free text summary
+  notes?: string;
+  photoBase64: string; // data URL
+  fileName?: string;
+  extracted?: WeeklyReportExtracted;
+  status: 'PENDIENTE' | 'ENVIADO';
+  createdAt: number;
+  dateStr: string;
+  timeStr: string;
+}

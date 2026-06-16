@@ -1,5 +1,5 @@
 
-import { Worker, Site, WorkLog, AppConfig, LogType, AdminUser, ToolRecord } from '../types';
+import { Worker, Site, WorkLog, AppConfig, LogType, AdminUser, ToolRecord, WeeklyReport } from '../types';
 import { db } from './firebase';
 import { collection, doc, setDoc, updateDoc, onSnapshot, deleteDoc, getDoc, getDocs, writeBatch } from 'firebase/firestore';
 
@@ -10,6 +10,7 @@ const KEYS = {
   CONFIG: 'carmagne_config',
   ADMINS: 'carmagne_admins',
   TOOLS: 'carmagne_tools',
+  WEEKLY_REPORTS: 'carmagne_weekly_reports',
 };
 
 export const ELECTRICAL_TOOLS_LIST = [
@@ -230,5 +231,26 @@ export const StorageService = {
       await fetch(config.googleSheetUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'LOG', ...safeClone(log) }) });
       return true;
     } catch (error) { return false; }
+  },
+
+  getWeeklyReports: (): WeeklyReport[] => loadLocal(KEYS.WEEKLY_REPORTS, []),
+  addWeeklyReport: async (report: WeeklyReport) => {
+    const reports = loadLocal<WeeklyReport[]>(KEYS.WEEKLY_REPORTS, []);
+    saveLocal(KEYS.WEEKLY_REPORTS, [report, ...reports]);
+    try { await setDoc(doc(db, "weekly_reports", report.id), safeClone(report)); } catch (e) { console.error("Error saving weekly report to Firestore", e); }
+  },
+  deleteWeeklyReport: async (id: string) => {
+    const reports = loadLocal<WeeklyReport[]>(KEYS.WEEKLY_REPORTS, []);
+    saveLocal(KEYS.WEEKLY_REPORTS, reports.filter(r => r.id !== id));
+    try { await deleteDoc(doc(db, "weekly_reports", id)); } catch (e) { }
+  },
+  subscribeToWeeklyReports: (callback: (reports: WeeklyReport[]) => void) => {
+    callback(loadLocal(KEYS.WEEKLY_REPORTS, []));
+    return onSnapshot(collection(db, "weekly_reports"), (snapshot) => {
+      const reports = snapshot.docs.map(d => d.data() as WeeklyReport);
+      const sorted = [...reports].sort((a, b) => b.createdAt - a.createdAt);
+      saveLocal(KEYS.WEEKLY_REPORTS, sorted);
+      callback(sorted);
+    });
   }
 };
