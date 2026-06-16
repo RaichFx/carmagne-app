@@ -125,7 +125,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const isSuperAdmin = currentUser === null;
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'workers' | 'sites' | 'logs' | 'tools' | 'hours' | 'reports' | 'admins' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'workers' | 'sites' | 'logs' | 'tools' | 'hours' | 'reports' | 'comparison' | 'admins' | 'settings'>('dashboard');
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [logs, setLogs] = useState<WorkLog[]>([]);
@@ -178,6 +178,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const [reportsSearch, setReportsSearch] = useState('');
   const [viewingReport, setViewingReport] = useState<WeeklyReport | null>(null);
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+
+  // Monthly comparison tab state
+  const now = new Date();
+  const [comparisonMonth, setComparisonMonth] = useState<number>(now.getMonth());
+  const [comparisonYear, setComparisonYear] = useState<number>(now.getFullYear());
+  const [comparisonSortBy, setComparisonSortBy] = useState<'hours' | 'reports' | 'name'>('hours');
 
   useEffect(() => {
     setWorkers(StorageService.getWorkers());
@@ -479,6 +485,223 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     });
   }, [workers, weeklyReports, currentWeekRange]);
 
+  const monthlyComparison = useMemo(() => {
+    // Filter weekly reports whose midpoint of the week falls in the selected month/year
+    const monthStart = new Date(comparisonYear, comparisonMonth, 1).getTime();
+    const monthEnd = new Date(comparisonYear, comparisonMonth + 1, 0, 23, 59, 59, 999).getTime();
+    const reportsInMonth = weeklyReports.filter(r => {
+      const ws = new Date(r.weekStart).getTime();
+      const we = new Date(r.weekEnd).getTime();
+      return we >= monthStart && ws <= monthEnd;
+    });
+
+    // Also include logs (clock-in time tracking) for the same period
+    const logsInMonth = logs.filter(l => l.timestamp >= monthStart && l.timestamp <= monthEnd);
+
+    const stats = workers.map(w => {
+      const wReports = reportsInMonth.filter(r => r.workerId === w.id);
+      const reportHours = wReports.reduce((sum, r) => sum + (r.totalHours || 0), 0);
+      const wLogs = logsInMonth.filter(l => l.workerId === w.id);
+      const { totalWork, totalBreak } = calculateTotalsFromLogs(wLogs);
+      const fichajeHoursMs = totalWork;
+      const sites = Array.from(new Set(wReports.map(r => r.siteName).filter(Boolean) as string[]));
+      const submittedWeeks = new Set(wReports.map(r => r.weekStart));
+      return {
+        worker: w,
+        reportCount: wReports.length,
+        reportHours,
+        fichajeHoursMs,
+        breakMs: totalBreak,
+        sites,
+        submittedWeeks: submittedWeeks.size,
+      };
+    });
+
+    const sorted = [...stats].sort((a, b) => {
+      if (comparisonSortBy === 'name') return a.worker.name.localeCompare(b.worker.name);
+      if (comparisonSortBy === 'reports') return b.reportCount - a.reportCount;
+      return b.reportHours - a.reportHours; // hours
+    });
+
+    const totals = {
+      reportCount: stats.reduce((s, x) => s + x.reportCount, 0),
+      reportHours: stats.reduce((s, x) => s + x.reportHours, 0),
+      fichajeHoursMs: stats.reduce((s, x) => s + x.fichajeHoursMs, 0),
+      activeWorkers: stats.filter(x => x.reportCount > 0).length,
+    };
+
+    const maxHours = Math.max(1, ...stats.map(s => s.reportHours));
+    return { stats: sorted, totals, maxHours };
+  }, [workers, weeklyReports, logs, comparisonMonth, comparisonYear, comparisonSortBy]);
+
+  const handleExportComparisonCSV = () => {
+    const escape = (v: string) => `"${(v || '').replace(/"/g, '""')}"`;
+    const header = ['Trabajador', 'DNI', 'Partes Enviados', 'Horas Reportadas', 'Horas Fichaje', 'Semanas con Parte', 'Obras'];
+    const rows = monthlyComparison.stats.map(s => [
+      s.worker.name,
+      s.worker.dni || '',
+      String(s.reportCount),
+      s.reportHours.toFixed(1),
+      formatMsToTime(s.fichajeHoursMs),
+      String(s.submittedWeeks),
+      s.sites.join(' | ')
+    ].map(escape).join(','));
+    const csv = '\uFEFF' + [header.map(escape).join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comparativa_${MONTH_NAMES[comparisonMonth]}_${comparisonYear}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportComparisonPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`Comparativa Mensual — ${MONTH_NAMES[comparisonMonth]} ${comparisonYear}`, 14, 15);
+    doc.setFontSize(9);
+    doc.text(`Total partes: ${monthlyComparison.totals.reportCount}  •  Total horas: ${monthlyComparison.totals.reportHours.toFixed(1)}h  •  Trabajadores activos: ${monthlyComparison.totals.activeWorkers}`, 14, 22);
+    const tableData = monthlyComparison.stats.map(s => [
+      s.worker.name,
+      String(s.reportCount),
+      s.reportHours.toFixed(1) + 'h',
+      formatMsToTime(s.fichajeHoursMs),
+      String(s.submittedWeeks),
+      s.sites.join(', ').slice(0, 50) || '-',
+    ]);
+    autoTable(doc, {
+      head: [['Trabajador', 'Partes', 'Horas Reporte', 'Horas Fichaje', 'Semanas', 'Obras']],
+      body: tableData,
+      startY: 28,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [79, 70, 229] }
+    });
+    doc.save(`comparativa_${MONTH_NAMES[comparisonMonth]}_${comparisonYear}.pdf`);
+  };
+
+  const renderComparison = () => (
+    <div className="space-y-4 animate-fadeIn pb-32" data-testid="admin-comparison-tab">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
+            Comparativa Mensual
+            <BarChart3 className="text-indigo-400" size={18} />
+          </h2>
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Totales por trabajador</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            data-testid="comparison-month-select"
+            value={comparisonMonth}
+            onChange={(e) => setComparisonMonth(parseInt(e.target.value))}
+            className="bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-bold text-white outline-none focus:border-indigo-500"
+          >
+            {MONTH_NAMES.map((m, i) => <option key={m} value={i}>{m}</option>)}
+          </select>
+          <select
+            data-testid="comparison-year-select"
+            value={comparisonYear}
+            onChange={(e) => setComparisonYear(parseInt(e.target.value))}
+            className="bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-bold text-white outline-none focus:border-indigo-500"
+          >
+            {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <button data-testid="comparison-export-pdf-btn" onClick={handleExportComparisonPDF} className="flex items-center gap-2 px-3 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest bg-rose-600/10 text-rose-400 border border-rose-500/20 hover:bg-rose-600/20 transition active:scale-95">
+            <FileText size={12} /> PDF
+          </button>
+          <button data-testid="comparison-export-csv-btn" onClick={handleExportComparisonCSV} className="flex items-center gap-2 px-3 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20 transition active:scale-95">
+            <Download size={12} /> Excel
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total Partes</p>
+          <p className="text-2xl font-mono font-black text-white mt-1" data-testid="comparison-total-reports">{monthlyComparison.totals.reportCount}</p>
+        </div>
+        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Horas Reporte</p>
+          <p className="text-2xl font-mono font-black text-indigo-400 mt-1">{monthlyComparison.totals.reportHours.toFixed(1)}<span className="text-sm text-slate-600 ml-1">h</span></p>
+        </div>
+        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Horas Fichaje</p>
+          <p className="text-2xl font-mono font-black text-blue-400 mt-1">{formatMsToTime(monthlyComparison.totals.fichajeHoursMs)}</p>
+        </div>
+        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Trabajadores Activos</p>
+          <p className="text-2xl font-mono font-black text-emerald-400 mt-1">{monthlyComparison.totals.activeWorkers}<span className="text-sm text-slate-600 ml-1">/ {workers.length}</span></p>
+        </div>
+      </div>
+
+      <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+          <h3 className="text-sm font-black text-white uppercase tracking-tighter">Detalle por trabajador</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Ordenar:</span>
+            {(['hours', 'reports', 'name'] as const).map(s => (
+              <button
+                key={s}
+                data-testid={`comparison-sort-${s}`}
+                onClick={() => setComparisonSortBy(s)}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${comparisonSortBy === s ? 'bg-indigo-600 text-white' : 'bg-slate-950 text-slate-500 border border-slate-800 hover:border-slate-700'}`}
+              >
+                {s === 'hours' ? 'Horas' : s === 'reports' ? 'Partes' : 'Nombre'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="divide-y divide-slate-800">
+          {monthlyComparison.stats.length === 0 && (
+            <div className="text-center py-12 text-slate-500 text-xs font-bold uppercase tracking-widest">No hay trabajadores</div>
+          )}
+          {monthlyComparison.stats.map((s, idx) => {
+            const pct = (s.reportHours / monthlyComparison.maxHours) * 100;
+            const isInactive = s.reportCount === 0;
+            return (
+              <div key={s.worker.id} data-testid={`comparison-row-${s.worker.id}`} className={`p-4 flex items-center gap-4 ${isInactive ? 'opacity-50' : ''} hover:bg-slate-800/30 transition`}>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${idx === 0 && !isInactive ? 'bg-amber-500/20 text-amber-400' : idx === 1 && !isInactive ? 'bg-slate-400/20 text-slate-300' : idx === 2 && !isInactive ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-800 text-slate-500'}`}>
+                  {idx + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <p className="text-sm font-black text-white uppercase truncate">{s.worker.name}</p>
+                    <div className="flex items-center gap-3 shrink-0 text-right">
+                      <div>
+                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Partes</p>
+                        <p className="text-sm font-mono font-black text-white">{s.reportCount}</p>
+                      </div>
+                      <div>
+                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Horas</p>
+                        <p className="text-sm font-mono font-black text-indigo-400">{s.reportHours.toFixed(1)}h</p>
+                      </div>
+                      <div>
+                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Fichaje</p>
+                        <p className="text-sm font-mono font-black text-blue-400">{formatMsToTime(s.fichajeHoursMs)}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-1.5 bg-slate-950 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${isInactive ? 'bg-slate-700' : 'bg-gradient-to-r from-indigo-500 to-purple-500'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  {s.sites.length > 0 && (
+                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1.5 truncate">
+                      <span className="text-indigo-400">Obras:</span> {s.sites.join(' • ')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
   const renderWeeklyReports = () => (
     <div className="space-y-4 animate-fadeIn pb-32" data-testid="admin-weekly-reports-tab">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -658,6 +881,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       { id: 'workers', icon: Users, label: 'Personal' },
       { id: 'hours', icon: History, label: 'Horas' },
       { id: 'reports', icon: FileText, label: 'Partes' },
+      { id: 'comparison', icon: BarChart3, label: 'Comparativa' },
       { id: 'sites', icon: MapPin, label: 'Obras' },
       { id: 'logs', icon: ClipboardList, label: 'Registros' },
       { id: 'tools', icon: Wrench, label: 'Equipos' },
@@ -1105,6 +1329,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           {activeTab === 'logs' && renderLogs()}
           {activeTab === 'tools' && renderTools()}
           {activeTab === 'reports' && renderWeeklyReports()}
+          {activeTab === 'comparison' && renderComparison()}
           {activeTab === 'admins' && isSuperAdmin && (
              <div className="space-y-6 animate-fadeIn pb-32"><div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Cuentas Admin</h2><button onClick={() => setIsAdminModalOpen(true)} className="bg-indigo-600 p-3 rounded-xl text-white"><UserPlus size={20} /></button></div><div className="grid gap-3">{admins.map(admin => (<div key={admin.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 border border-slate-700"><KeyRound size={20} /></div><div><h3 className="text-sm font-black text-white">{admin.username}</h3><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gestor</p></div></div><button onClick={() => StorageService.deleteAdmin(admin.id)} className="p-2 text-rose-500"><Trash2 size={20} /></button></div>))}</div></div>
           )}

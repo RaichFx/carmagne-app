@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend testing of iteration 3 'Vista comparativa mensual' in Carmagne admin. Verified sidebar entry, period selectors, KPI cards, rank table with medals/progress/inactive opacity, sortable buttons, and reviewed export handlers in code. Regression on Partes/Panel/Obras passed. All required data-testid attributes present and behavior matches spec.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Comparativa header", "issues": ["Selectors and KPI cards render correctly on dark theme; layout is consistent with other admin tabs"]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AdminPanel.tsx — file size keeps growing (now ~1480 lines). Consider extracting renderComparison + handleExportComparisonPDF/CSV + monthlyComparison useMemo into a dedicated MonthlyComparisonTab.tsx for maintainability.",
+    "monthlyComparison.maxHours uses Math.max(1, ...) — good fallback to avoid /0 in progress bar width when the month has no reports.",
+    "Inside renderComparison the local variable `sites` (s.sites) shadows the outer Site[] state `sites` — not a bug since it's scoped inside a closure, but readers of the JSX may be confused. Rename to `siteNames` for clarity.",
+    "The 'now' constant (`const now = new Date()`) is captured at component mount and reused inside renderComparison for the year-select options. If the admin keeps the panel open across midnight on Jan 1, options won't refresh. Acceptable for current MVP but worth noting.",
+    "Comparativa item uses BarChart3 icon (same as 'Panel'). Visually distinct labels in sidebar so OK, but consider a different icon (e.g. Trophy or LineChart) for stronger affordance.",
+    "Sidebar buttons in AdminPanel still lack data-testid attributes (only inner content has). Adding data-testid='sidebar-tab-comparison' etc. would make Playwright testing more robust; current tests rely on text role lookup."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (not tested per request)", "frontend": "100%" },
+  "test_credentials": "Admin: admin / admin (modal opened via 'ADMIN PANEL' link, button label is 'Acceder al Panel'). Worker: phone +34 600999888 (Test Usuario, 12345678Z).",
+  "seed_data_creation": "add_init_script seeded localStorage workers/sites/weekly_reports/logs but Firestore offline-cache rehydrated with the pre-existing dataset of ~20 workers from previous iterations, including 2 'TEST USUARIO' entries with 37.0h reports in week 2026-01-12. The live data (Total Partes=2, Horas Reporte=74.0h, Horas Fichaje=953:41:10, Trabajadores Activos=2/20 in January 2026) was used for visual + behavioral validation instead.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Seeding via localStorage is overridden by Firestore offline cache from earlier sessions: ~20 workers persist. To get clean data, clear localStorage AND IndexedDB ('firebase-installations-database', 'firestore/...'). Verified results in Enero 2026 (the month where Test Usuario reports live). Sort buttons toggle correctly: only the active one has bg-indigo-600 (verified). Rank medals (gold/silver/bronze on top 3) and opacity-50 on inactive workers (0 partes) are rendered. Exports: handleExportComparisonCSV writes BOM+UTF-8 with columns Trabajador,DNI,Partes Enviados,Horas Reportadas,Horas Fichaje,Semanas con Parte,Obras and filename comparativa_<MesNombre>_<año>.csv. handleExportComparisonPDF uses jsPDF + autoTable with same dataset and filename comparativa_<MesNombre>_<año>.pdf — both verified by code review (lines 537-581 of AdminPanel.tsx).",
+  "rca of the issue": "No bugs found. Implementation matches problem statement: data-testid='admin-comparison-tab', month/year selects, KPI cards with comparison-total-reports, sort buttons with comparison-sort-{hours,reports,name}, export buttons with the correct filenames, rows with comparison-row-<workerId>, medals + opacity-50 styling, progress bar proportional to maxHours."
+}
