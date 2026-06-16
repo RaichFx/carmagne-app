@@ -7,10 +7,7 @@ import pytest
 import requests
 from PIL import Image, ImageDraw, ImageFont
 
-BASE_URL = os.environ.get(
-    "BASE_URL",
-    "https://f32bdd86-ed9f-495e-9fac-7ee6ee63f8c7.preview.emergentagent.com",
-).rstrip("/")
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8001").rstrip("/")
 
 
 def _generate_weekly_report_image() -> str:
