@@ -1,0 +1,70 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Prepare remote web shell
+        working-directory: frontend
+        run: |
+          mkdir -p build
+          cat > build/index.html <<'HTML'
+          <!doctype html>
+          <html lang="es">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width,initial-scale=1" />
+              <title>CARMAGNE INSTAL</title>
+            </head>
+            <body>
+              <script>location.replace('https://carmagne-app.vercel.app');</script>
+              <a href="https://carmagne-app.vercel.app">Abrir CARMAGNE INSTAL</a>
+            </body>
+          </html>
+          HTML
+
+      - name: Create Android project
+        working-directory: frontend
+        run: npx cap add android
+
+      - name: Sync Android project
+        working-directory: frontend
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: frontend/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: carmagne-instal-debug-apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
