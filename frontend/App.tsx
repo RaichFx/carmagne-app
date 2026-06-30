@@ -320,8 +320,11 @@ export const App: React.FC = () => {
       localStorage.setItem('carmagne_session_worker_id', worker.id);
       setError(''); 
       setCurrentStep(Step.WORKER_DASHBOARD);
-    } else if(confirm("Este número no está registrado. ¿Quieres crear una cuenta nueva?")) {
-      setRegPhone(formattedPhone); setError(''); setCurrentStep(Step.REGISTER);
+    } else {
+      setRegPhone(formattedPhone);
+      setLoginPhone(formattedPhone);
+      setError('');
+      setCurrentStep(Step.REGISTER);
     }
   };
 
