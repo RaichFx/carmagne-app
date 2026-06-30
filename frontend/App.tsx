@@ -313,7 +313,7 @@ export const App: React.FC = () => {
   const handlePhoneLogin = async () => {
     const formattedPhone = processSpanishPhone(loginPhone);
     if(!isPhoneValidSpain(formattedPhone)) { setError("Solo se permiten números de España (+34)"); return; }
-    const worker = workers.find(w => w.phone &    const worker = workers.find(w => w.phone && processSpanishPhone(w.phone) === formattedPhone) || await StorageService.findWorkerByPhone(formattedPhone););;
+        const worker = workers.find(w => w.phone && processSpanishPhone(w.phone) === formattedPhone) || await StorageService.findWorkerByPhone(formattedPhone);
     if (worker) {
       if (!worker.active) { setError("Cuenta desactivada."); return; }
       setSelectedWorker(worker); 
