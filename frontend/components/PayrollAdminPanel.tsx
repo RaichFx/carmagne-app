@@ -53,7 +53,7 @@ export const PayrollAdminPanel: React.FC<PayrollAdminPanelProps> = ({ workers, p
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
-    if (f.size > 10 * 1024 * 1024) { setErrorMsg('El archivo no puede superar los 10MB.'); return; }
+    if (f.size > 700 * 1024) { setErrorMsg('El archivo no puede superar los 700KB (límite de almacenamiento). Comprime el PDF si es necesario.'); return; }
     if (!/(pdf|image\/)/i.test(f.type)) { setErrorMsg('Solo se permiten PDF o imágenes.'); return; }
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -183,7 +183,7 @@ export const PayrollAdminPanel: React.FC<PayrollAdminPanelProps> = ({ workers, p
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredPayrolls.map(p => (
-            <div key={p.id} data-testid={`payroll-card-${p.id}`} className="bg-stone-900/60 backdrop-blur-sm border border-stone-800 rounded-3xl p-5 hover:border-amber-500/40 transition group">
+            <div key={p.id} data-testid={`payroll-card-${p.id}`} className="liquid-glass liquid-hover rounded-3xl p-5 group">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-serif-display text-2xl text-white leading-none truncate">{MONTH_NAMES[p.month]}</p>
@@ -220,11 +220,12 @@ export const PayrollAdminPanel: React.FC<PayrollAdminPanelProps> = ({ workers, p
       {/* Upload modal */}
       {uploadOpen && (
         <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-xl flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-stone-900 w-full max-w-lg rounded-[2rem] border border-stone-800 shadow-2xl max-h-[95vh] flex flex-col">
+          <div className="liquid-glass-strong w-full max-w-lg rounded-[2rem] shadow-2xl max-h-[95vh] flex flex-col">
+            <div className="liquid-shimmer-bg"></div>
             <div className="flex justify-between items-center p-5 border-b border-stone-800 shrink-0">
               <div>
                 <h3 className="font-serif-display text-2xl text-white leading-none">Subir Nómina</h3>
-                <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.25em] mt-1">PDF o imagen, hasta 10 MB</p>
+                <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.25em] mt-1">PDF o imagen, hasta 700 KB</p>
               </div>
               <button data-testid="close-upload-payroll-btn" onClick={() => { setUploadOpen(false); resetForm(); }} className="text-stone-500 hover:text-white p-2"><X size={20} /></button>
             </div>

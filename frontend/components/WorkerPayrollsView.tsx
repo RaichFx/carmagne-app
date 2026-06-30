@@ -87,7 +87,7 @@ export const WorkerPayrollsView: React.FC<WorkerPayrollsViewProps> = ({ worker, 
             key={p.id}
             data-testid={`my-payroll-${p.id}`}
             onClick={() => handleDownload(p)}
-            className="w-full bg-stone-900/60 backdrop-blur-sm border border-stone-800 rounded-2xl p-4 flex items-center gap-4 hover:border-amber-500/40 hover:bg-stone-900 transition active:scale-[0.99] text-left"
+            className="w-full liquid-glass liquid-hover rounded-2xl p-4 flex items-center gap-4 active:scale-[0.99] text-left"
           >
             <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col items-center justify-center text-amber-500 shrink-0">
               <p className="font-mono text-[8px] font-bold leading-none">{p.year}</p>

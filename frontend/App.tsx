@@ -488,26 +488,27 @@ export const App: React.FC = () => {
         <div className="flex flex-col"><span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Trabajador</span><span className="text-lg font-black text-white leading-none">{selectedWorker?.name}</span></div>
         <button onClick={resetApp} className="text-stone-400 p-2.5 bg-stone-900 rounded-xl border border-stone-800"><LogOut size={18} /></button>
       </div>
-      <div className={`rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col gap-4 border border-white/5 transition-colors duration-500 ${workerStatus?.type === 'TRABAJANDO' ? 'bg-gradient-to-r from-emerald-600 to-teal-800' : workerStatus?.type === 'DESCANSO' ? 'bg-gradient-to-r from-amber-500/80 to-orange-700/80' : 'bg-gradient-to-r from-blue-600 to-amber-800'}`}>
+      <div className={`rounded-3xl p-5 relative flex flex-col gap-4 transition-colors duration-500 ${workerStatus?.type === 'TRABAJANDO' ? 'liquid-mirror !border-emerald-500/40' : workerStatus?.type === 'DESCANSO' ? 'liquid-mirror !border-amber-500/40' : 'liquid-mirror'}`}>
+         <div className="liquid-shimmer-bg"></div>
          <div className="relative z-10 flex items-center justify-between">
            <div className="flex items-center gap-4">
-              <div className="bg-white/20 p-3 rounded-2xl backdrop-blur-md">
-                {workerStatus?.type === 'TRABAJANDO' ? <Zap size={28} className="text-white fill-white/20" /> : workerStatus?.type === 'DESCANSO' ? <Coffee size={28} className="text-white" /> : <Clock size={28} className="text-white" />}
+              <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md border border-white/10">
+                {workerStatus?.type === 'TRABAJANDO' ? <Zap size={28} className="text-emerald-300 fill-emerald-500/20" /> : workerStatus?.type === 'DESCANSO' ? <Coffee size={28} className="text-amber-300" /> : <Clock size={28} className="text-amber-400" />}
               </div>
               <div>
-                <h2 className="text-xl font-black text-white leading-none">{workerStatus?.type === 'TRABAJANDO' ? 'Trabajando' : workerStatus?.type === 'DESCANSO' ? 'En Pausa' : 'Sin Obra'}</h2>
-                {workerStatus?.site && <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mt-1 flex items-center gap-1"><MapPin size={10} /> {workerStatus.site}</p>}
+                <h2 className="font-serif-display text-3xl text-white leading-none">{workerStatus?.type === 'TRABAJANDO' ? 'Trabajando' : workerStatus?.type === 'DESCANSO' ? 'En Pausa' : 'Sin Obra'}</h2>
+                {workerStatus?.site && <p className="text-white/70 text-[10px] font-medium uppercase tracking-[0.2em] mt-2 flex items-center gap-1"><MapPin size={10} /> {workerStatus.site}</p>}
               </div>
            </div>
          </div>
          <div className="relative z-10 flex flex-col gap-2">
-            <div className="flex justify-between items-end bg-black/20 p-4 rounded-2xl backdrop-blur-sm border border-white/10">
-               <div className="flex flex-col"><span className="text-[8px] font-black text-white/50 uppercase tracking-widest">Tiempo de Trabajo</span><span className={`text-2xl font-mono font-black text-white ${workerStatus?.type === 'TRABAJANDO' ? 'animate-pulse' : ''}`}>{formatMsToTime(getEffectiveWorkTime())}</span></div>
+            <div className="flex justify-between items-end bg-black/30 p-4 rounded-2xl backdrop-blur-sm border border-white/10">
+               <div className="flex flex-col"><span className="text-[8px] font-bold text-white/50 uppercase tracking-[0.25em]">Tiempo de Trabajo</span><span className={`font-mono font-bold text-3xl text-white mt-1.5 ${workerStatus?.type === 'TRABAJANDO' ? 'animate-pulse' : ''}`}>{formatMsToTime(getEffectiveWorkTime())}</span></div>
             </div>
             {(getEffectiveBreakTime() > 0 || workerStatus?.type === 'DESCANSO') && (
               <div className="flex justify-between items-center bg-amber-900/40 p-3 rounded-xl border border-amber-500/20">
-                <div className="flex items-center gap-2"><Coffee size={14} className="text-amber-400" /><span className="text-[9px] font-black text-amber-200 uppercase tracking-widest">Tiempo de Descanso</span></div>
-                <span className={`text-sm font-mono font-black text-amber-400 ${workerStatus?.type === 'DESCANSO' ? 'animate-pulse' : ''}`}>{formatMsToTime(getEffectiveBreakTime())}</span>
+                <div className="flex items-center gap-2"><Coffee size={14} className="text-amber-400" /><span className="text-[9px] font-bold text-amber-200 uppercase tracking-[0.2em]">Tiempo de Descanso</span></div>
+                <span className={`text-sm font-mono font-bold text-amber-300 ${workerStatus?.type === 'DESCANSO' ? 'animate-pulse' : ''}`}>{formatMsToTime(getEffectiveBreakTime())}</span>
               </div>
             )}
          </div>
@@ -530,7 +531,7 @@ export const App: React.FC = () => {
              </div>
            );
          })()}
-         <button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="group bg-stone-900 border border-stone-800 p-5 rounded-[2rem] flex items-center justify-between shadow-lg active:scale-95 transition-all">
+         <button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="group liquid-glass liquid-hover p-5 rounded-[2rem] flex items-center justify-between active:scale-95 transition-all">
            <div><span className="block text-xl font-black text-white">Nuevo Fichaje</span><span className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Registrar Movimiento</span></div>
            <div className="bg-amber-500/10 p-4 rounded-2xl text-amber-500"><Timer size={28} /></div>
          </button>
@@ -538,7 +539,7 @@ export const App: React.FC = () => {
            <button
              data-testid="weekly-report-btn"
              onClick={() => setShowWeeklyReportModal(true)}
-             className="group bg-gradient-to-br from-amber-900/60 to-orange-900/40 border border-amber-500/20 p-5 rounded-[2rem] flex items-center justify-between shadow-lg active:scale-95 transition-all"
+             className="group liquid-glass-strong liquid-hover p-5 rounded-[2rem] flex items-center justify-between active:scale-95 transition-all"
            >
              <div className="text-left">
                <span className="block text-xl font-black text-white flex items-center gap-2">
@@ -553,20 +554,20 @@ export const App: React.FC = () => {
              data-testid="my-weekly-reports-btn"
              onClick={() => setCurrentStep(Step.WORKER_WEEKLY_HISTORY)}
              title="Mis partes anteriores"
-             className="bg-stone-900 hover:bg-stone-800 border border-stone-800 hover:border-amber-500/40 rounded-[2rem] flex flex-col items-center justify-center gap-1 px-4 active:scale-95 transition-all text-stone-400 hover:text-amber-400"
+             className="liquid-glass liquid-hover rounded-[2rem] flex flex-col items-center justify-center gap-1 px-4 active:scale-95 transition-all text-stone-400 hover:text-amber-400"
            >
              <History size={20} />
              <span className="text-[8px] font-black uppercase tracking-widest">Mis Partes</span>
            </button>
          </div>
          <div className="grid grid-cols-2 gap-3">
-           <button onClick={() => setCurrentStep(Step.WORKER_HISTORY)} className="bg-stone-900 border border-stone-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-stone-800"><div className="text-emerald-500"><History size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Historial</span></button>
-           <button onClick={() => setCurrentStep(Step.WORKER_TOOLS)} className="bg-stone-900 border border-stone-800 p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:bg-stone-800"><div className="text-amber-500"><Wrench size={24} /></div><span className="text-xs font-black text-white uppercase tracking-widest">Equipos</span></button>
+           <button onClick={() => setCurrentStep(Step.WORKER_HISTORY)} className="liquid-glass liquid-hover p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:scale-95"><div className="text-emerald-400"><History size={24} /></div><span className="text-xs font-medium text-white uppercase tracking-[0.2em]">Historial</span></button>
+           <button onClick={() => setCurrentStep(Step.WORKER_TOOLS)} className="liquid-glass liquid-hover p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:scale-95"><div className="text-amber-400"><Wrench size={24} /></div><span className="text-xs font-medium text-white uppercase tracking-[0.2em]">Equipos</span></button>
          </div>
          <button
            data-testid="worker-payrolls-btn"
            onClick={() => setCurrentStep(Step.WORKER_PAYROLLS)}
-           className="bg-stone-900 border border-stone-800 hover:border-amber-500/40 p-4 rounded-2xl flex items-center justify-between gap-3 active:bg-stone-800 transition group"
+           className="liquid-glass liquid-hover p-4 rounded-2xl flex items-center justify-between gap-3 active:scale-95 transition group"
          >
            <div className="flex items-center gap-3 min-w-0">
              <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-500 shrink-0"><ScrollText size={20} /></div>
@@ -586,7 +587,7 @@ export const App: React.FC = () => {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
           <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="font-serif-display text-5xl text-white tracking-tight">Carmagne Instal</h2><p className="text-stone-500 text-[10px] font-medium uppercase tracking-[0.3em] mt-3">Acceso Operario</p></div>
-          <div className="bg-stone-900/50 p-6 rounded-[2.5rem] border border-stone-800"><input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-stone-950 border border-stone-800 text-white rounded-2xl p-5 text-2xl font-black focus:border-amber-500 outline-none text-center tracking-widest" placeholder="600000000"/><button onClick={handlePhoneLogin} className="w-full bg-amber-500 text-stone-950 font-bold py-5 rounded-2xl shadow-xl shadow-amber-500/20 mt-6 flex items-center justify-center gap-3 active:scale-95 uppercase text-xs tracking-widest">Entrar <ArrowRight size={16} /></button></div>
+          <div className="liquid-mirror p-6 rounded-[2.5rem]"><div className="liquid-shimmer-bg"></div><input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-stone-950/70 border border-stone-800 text-white rounded-2xl p-5 text-2xl font-bold focus:border-amber-500 outline-none text-center tracking-widest backdrop-blur-md" placeholder="600000000"/><button onClick={handlePhoneLogin} className="w-full bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold py-5 rounded-2xl shadow-xl shadow-amber-500/30 mt-6 flex items-center justify-center gap-3 active:scale-95 uppercase text-xs tracking-[0.3em] transition">Entrar <ArrowRight size={16} /></button></div>
           <button onClick={() => setShowAdminLogin(true)} className="text-stone-800 text-[10px] font-black uppercase tracking-[0.4em] text-center">Admin Panel</button>
         </div>
       );
