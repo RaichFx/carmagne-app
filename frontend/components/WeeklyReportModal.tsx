@@ -234,16 +234,16 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fadeIn" data-testid="weekly-report-modal">
-      <div className="bg-slate-900 w-full max-w-md rounded-[2rem] border border-slate-800 shadow-2xl relative overflow-hidden max-h-[95vh] flex flex-col">
+      <div className="bg-stone-900 w-full max-w-md rounded-[2rem] border border-stone-800 shadow-2xl relative overflow-hidden max-h-[95vh] flex flex-col">
         {/* Header */}
-        <div className="flex justify-between items-center p-5 border-b border-slate-800 shrink-0">
+        <div className="flex justify-between items-center p-5 border-b border-stone-800 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-600/10 rounded-xl text-indigo-400">
+            <div className="p-2 bg-amber-600/10 rounded-xl text-amber-400">
               <FileText size={20} />
             </div>
             <div>
               <h3 className="text-base font-black text-white uppercase tracking-tighter leading-none">Parte Semanal</h3>
-              <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1">
+              <p className="text-[9px] text-stone-500 font-bold uppercase tracking-widest mt-1">
                 {phase === 'CAPTURE' && 'Subir / Hacer Foto'}
                 {phase === 'PREVIEW' && 'Vista Previa'}
                 {phase === 'EXTRACTING' && 'Analizando con IA...'}
@@ -252,7 +252,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
               </p>
             </div>
           </div>
-          <button data-testid="close-weekly-report-btn" onClick={onClose} className="text-slate-500 hover:text-white p-2"><X size={20} /></button>
+          <button data-testid="close-weekly-report-btn" onClick={onClose} className="text-stone-500 hover:text-white p-2"><X size={20} /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-4">
@@ -268,14 +268,14 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                 </div>
               )}
 
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-stone-400 leading-relaxed">
                 Sube una foto o un archivo de tu parte semanal. La IA extraerá automáticamente las horas, días y tareas para que solo tengas que confirmar.
               </p>
 
               <button
                 data-testid="open-camera-btn"
                 onClick={startCamera}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-lg transition"
+                className="w-full bg-amber-600 hover:bg-amber-500 active:scale-[0.98] text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-lg transition"
               >
                 <CameraIcon size={20} /> Usar Cámara
               </button>
@@ -291,7 +291,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
               <button
                 data-testid="upload-file-btn"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-slate-800 hover:bg-slate-700 active:scale-[0.98] text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 border border-slate-700 transition"
+                className="w-full bg-stone-800 hover:bg-stone-700 active:scale-[0.98] text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 border border-stone-700 transition"
               >
                 <Upload size={20} /> Subir Archivo
               </button>
@@ -308,14 +308,14 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
           {/* CAMERA VIEW */}
           {phase === 'CAPTURE' && cameraOpen && (
             <div className="space-y-3">
-              <div className="relative rounded-2xl overflow-hidden bg-black border border-indigo-500/40">
+              <div className="relative rounded-2xl overflow-hidden bg-black border border-amber-500/40">
                 <video ref={videoRef} autoPlay playsInline className="w-full h-72 object-cover" />
                 <canvas ref={canvasRef} className="hidden" />
                 <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 rounded-full text-[9px] font-black text-white uppercase tracking-widest">EN VIVO</div>
               </div>
               <div className="flex gap-3">
-                <button data-testid="cancel-camera-btn" onClick={stopCamera} className="flex-1 bg-slate-800 text-slate-300 py-3 rounded-2xl font-black uppercase text-xs tracking-widest">Cancelar</button>
-                <button data-testid="capture-photo-btn" onClick={capturePhoto} className="flex-1 bg-indigo-600 text-white py-3 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2">
+                <button data-testid="cancel-camera-btn" onClick={stopCamera} className="flex-1 bg-stone-800 text-stone-300 py-3 rounded-2xl font-black uppercase text-xs tracking-widest">Cancelar</button>
+                <button data-testid="capture-photo-btn" onClick={capturePhoto} className="flex-1 bg-amber-600 text-white py-3 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2">
                   <CameraIcon size={16} /> Capturar
                 </button>
               </div>
@@ -325,7 +325,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
           {/* PREVIEW */}
           {phase === 'PREVIEW' && (
             <div className="space-y-4">
-              <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 relative">
+              <div className="rounded-2xl overflow-hidden border border-stone-800 bg-stone-950 relative">
                 <img src={imageBase64} alt="Parte semanal" className="w-full max-h-80 object-contain" />
                 {fileName && (
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
@@ -339,14 +339,14 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                 <button
                   data-testid="retake-photo-btn"
                   onClick={() => { setImageBase64(''); setFileName(''); setPhase('CAPTURE'); }}
-                  className="flex-1 bg-slate-800 text-slate-300 py-3 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2"
+                  className="flex-1 bg-stone-800 text-stone-300 py-3 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2"
                 >
                   <RefreshCw size={14} /> Cambiar
                 </button>
                 <button
                   data-testid="extract-with-ai-btn"
                   onClick={runExtraction}
-                  className="flex-[2] bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 shadow-lg"
+                  className="flex-[2] bg-gradient-to-r from-amber-600 to-orange-600 text-white py-3 rounded-2xl font-black uppercase text-[11px] tracking-widest flex items-center justify-center gap-2 shadow-lg"
                 >
                   <Sparkles size={14} /> Extraer con IA
                 </button>
@@ -354,7 +354,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
               <button
                 data-testid="skip-extract-btn"
                 onClick={() => setPhase('FORM')}
-                className="w-full text-slate-500 hover:text-slate-300 text-[10px] font-black uppercase tracking-[0.2em] py-2"
+                className="w-full text-stone-500 hover:text-stone-300 text-[10px] font-black uppercase tracking-[0.2em] py-2"
               >
                 Saltar y rellenar manualmente
               </button>
@@ -365,12 +365,12 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
           {phase === 'EXTRACTING' && (
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <div className="relative">
-                <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-                <Sparkles size={20} className="absolute inset-0 m-auto text-indigo-400" />
+                <div className="w-16 h-16 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin" />
+                <Sparkles size={20} className="absolute inset-0 m-auto text-amber-400" />
               </div>
               <div className="text-center">
                 <p className="text-sm font-black text-white uppercase tracking-widest">Analizando imagen</p>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Esto puede tardar unos segundos</p>
+                <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest mt-1">Esto puede tardar unos segundos</p>
               </div>
             </div>
           )}
@@ -379,10 +379,10 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
           {phase === 'FORM' && (
             <div className="space-y-4">
               {imageBase64 && (
-                <div className="flex items-center gap-3 p-3 bg-slate-950 border border-slate-800 rounded-2xl">
+                <div className="flex items-center gap-3 p-3 bg-stone-950 border border-stone-800 rounded-2xl">
                   <img src={imageBase64} alt="thumb" className="w-14 h-14 object-cover rounded-lg" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Adjunto</p>
+                    <p className="text-[10px] text-stone-500 font-black uppercase tracking-widest">Adjunto</p>
                     <p className="text-xs text-white font-bold truncate">{fileName || 'Imagen'}</p>
                   </div>
                   {extracted.totalHours != null && (
@@ -402,7 +402,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1">
+                  <label className="text-[9px] font-black text-stone-500 uppercase tracking-widest ml-1 flex items-center gap-1">
                     <Calendar size={10} /> Inicio Semana
                   </label>
                   <input
@@ -410,11 +410,11 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                     type="date"
                     value={form.weekStart}
                     onChange={(e) => setForm({ ...form, weekStart: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]"
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white outline-none focus:border-amber-500 [color-scheme:dark]"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1">
+                  <label className="text-[9px] font-black text-stone-500 uppercase tracking-widest ml-1 flex items-center gap-1">
                     <Calendar size={10} /> Fin Semana
                   </label>
                   <input
@@ -422,13 +422,13 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                     type="date"
                     value={form.weekEnd}
                     onChange={(e) => setForm({ ...form, weekEnd: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]"
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white outline-none focus:border-amber-500 [color-scheme:dark]"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1">
+                <label className="text-[9px] font-black text-stone-500 uppercase tracking-widest ml-1 flex items-center gap-1">
                   <Clock size={10} /> Total de Horas
                 </label>
                 <input
@@ -439,12 +439,12 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                   value={form.totalHours}
                   onChange={(e) => setForm({ ...form, totalHours: e.target.value })}
                   placeholder="40"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-indigo-500"
+                  className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1">
+                <label className="text-[9px] font-black text-stone-500 uppercase tracking-widest ml-1 flex items-center gap-1">
                   <MapPin size={10} /> Obra / Proyecto
                 </label>
                 <input
@@ -453,12 +453,12 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                   value={form.siteName}
                   onChange={(e) => setForm({ ...form, siteName: e.target.value })}
                   placeholder="Nombre de la obra"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-indigo-500"
+                  className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1">
+                <label className="text-[9px] font-black text-stone-500 uppercase tracking-widest ml-1 flex items-center gap-1">
                   <ClipboardList size={10} /> Tareas Realizadas
                 </label>
                 <textarea
@@ -467,18 +467,18 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                   onChange={(e) => setForm({ ...form, tasks: e.target.value })}
                   rows={4}
                   placeholder="Resumen de las tareas..."
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-indigo-500 resize-none"
+                  className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 resize-none"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Notas (opcional)</label>
+                <label className="text-[9px] font-black text-stone-500 uppercase tracking-widest ml-1">Notas (opcional)</label>
                 <textarea
                   data-testid="notes-input"
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   rows={2}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white outline-none focus:border-indigo-500 resize-none"
+                  className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-sm text-white outline-none focus:border-amber-500 resize-none"
                 />
               </div>
 
@@ -488,8 +488,8 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                 onClick={submitReport}
                 className={`w-full py-4 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center justify-center gap-3 shadow-lg transition ${
                   submitting || !imageBase64
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-500 active:scale-[0.98]'
+                    ? 'bg-stone-800 text-stone-500 cursor-not-allowed'
+                    : 'bg-amber-600 text-white hover:bg-amber-500 active:scale-[0.98]'
                 }`}
               >
                 {submitting ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
@@ -499,7 +499,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
               {!imageBase64 && (
                 <button
                   onClick={() => setPhase('CAPTURE')}
-                  className="w-full text-indigo-400 hover:text-indigo-300 text-[10px] font-black uppercase tracking-[0.2em] py-2 flex items-center justify-center gap-2"
+                  className="w-full text-amber-400 hover:text-amber-300 text-[10px] font-black uppercase tracking-[0.2em] py-2 flex items-center justify-center gap-2"
                 >
                   <ChevronLeft size={12} /> Adjuntar una foto
                 </button>
@@ -515,12 +515,12 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
               </div>
               <div>
                 <h3 className="text-xl font-black text-white uppercase tracking-tighter">¡Parte enviado!</h3>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-2">Tu parte semanal ha sido guardado correctamente</p>
+                <p className="text-stone-500 text-xs font-bold uppercase tracking-widest mt-2">Tu parte semanal ha sido guardado correctamente</p>
               </div>
               <button
                 data-testid="weekly-success-close-btn"
                 onClick={onClose}
-                className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-3 rounded-xl font-black border border-slate-700 uppercase tracking-widest text-[11px] shadow-lg"
+                className="bg-stone-800 hover:bg-stone-700 text-white px-8 py-3 rounded-xl font-black border border-stone-700 uppercase tracking-widest text-[11px] shadow-lg"
               >
                 Cerrar
               </button>

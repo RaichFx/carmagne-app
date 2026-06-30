@@ -120,3 +120,18 @@ export interface WeeklyReport {
   dateStr: string;
   timeStr: string;
 }
+
+export interface Payroll {
+  id: string;
+  workerId: string;
+  workerName: string;
+  month: number;  // 0-11
+  year: number;
+  fileBase64: string;   // data URL of PDF / image
+  fileName: string;
+  mimeType: string;
+  notes?: string;
+  uploadedAt: number;
+  uploadedBy: string;   // admin username
+  dateStr: string;
+}

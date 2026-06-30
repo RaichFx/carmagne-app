@@ -1,0 +1,34 @@
+{
+  "summary": "Frontend testing of iteration 4 (rediseño stone+amber + Nóminas feature). Verified: login serif title 'Carmagne Instal' (Instrument Serif), amber Entrar button with stone-950 text, admin sidebar with new 'Nóminas' tab (ScrollText icon) between Comparativa and Obras, full upload flow (modal opens with all testids, validation works, base64 file persisted, green success flash 'Nómina subida correctamente', modal auto-closes, list refreshes), filters (search/worker/month/year), super-admin download+delete buttons, worker dashboard 'Mis Nóminas' card, WorkerPayrollsView (serif header, year/month filters, my-payroll cards, back button), and per-worker isolation (worker only sees own payrolls via workerId filter). All required data-testids present. No critical issues found.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Worker dashboard 'Sin Obra' / 'Tiempo de trabajo' hero card", "issues": ["Uses a residual blue→orange gradient (from-blue-500 / to-orange-500 likely) that is the only remaining indigo/blue accent in the redesign — visually clashes with the otherwise pure stone+amber palette. Consider migrating to amber-only or stone+amber gradient for consistency."]},
+      {"screen": "Worker dashboard 'Equipos' card", "issues": ["Wrench icon uses amber-500 OK, but small button next to 'Parte Semanal' card shows 'MIS PARTES' label in stone-500 which has acceptable contrast yet the small card itself is empty visually (no icon)."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Consider replacing the blue→orange gradient on the worker 'Sin Obra' status hero card with a stone+amber palette to align with the new minimalist design.",
+    "(Optional) Add data-testid attributes to AdminPanel sidebar buttons (sidebar-tab-payrolls etc.) for more robust Playwright targeting — current tests rely on exact text match which worked fine.",
+    "(Optional) The Subir Nómina button visually overlays the page header on small viewports (1440px shows it slightly overlapping 'Nóminas' h2). Acceptable but could use more padding-right on the header container."
+  ],
+  "critical_code_review_comments": [
+    "PayrollAdminPanel.tsx — handleDownload uses anchor.click() with a base64 data URL; works in Chromium but Safari may block. Consider using URL.createObjectURL(blob) after decoding base64 for cross-browser safety.",
+    "PayrollAdminPanel.tsx — file size check uses 10*1024*1024 (10MB) on the raw File.size, but the base64 representation stored in Firestore will be ~33% larger. Firestore documents are limited to 1 MiB; a 10MB PDF/image will EXCEED Firestore's 1 MiB document limit and fail to sync (localStorage will still work). Recommend: enforce ~700KB raw file limit OR upload binary to Firebase Storage and store only the URL in Firestore.",
+    "PayrollAdminPanel.tsx + WorkerPayrollsView.tsx — duplicate MONTH_NAMES array and duplicate handleDownload logic; extract into shared util (e.g. utils/payrollUtils.ts).",
+    "AdminPanel.tsx now has 11 tabs and ~1500 lines. Strongly recommend extracting each tab renderer into its own component (PayrollTab is already extracted — do the same for ComparisonTab, HoursTab, ReportsTab).",
+    "PayrollAdminPanel.tsx — deletePayroll has no error handling in the catch (just resets pendingDelete); a failed Firestore delete leaves the UI in an inconsistent state. Add try/catch with error toast.",
+    "WorkerPayrollsView.tsx — payrolls list does not sort by date; consider sorting newest first (year desc, month desc) for better UX when a worker has many nóminas."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "N/A (not tested per request)", "frontend": "100%" },
+  "test_credentials": "Admin: admin / admin via 'ADMIN PANEL' link → 'ACCEDER AL PANEL' button. Worker: phone 600999888 (Test Usuario), no PIN required for this worker.",
+  "seed_data_creation": "Uploaded 1 new test payroll (PAY-{ts}) for worker Test Usuario (W1781627706415), month=Enero(0), year=2026, file=/tmp/nomina_test.pdf (~12KB PDF), notes='Nómina Test Enero 2026 auto'. Persisted to localStorage + Firestore (carmagne_payrolls / payrolls collection). A second pre-existing payroll 'Nómina mensual estándar' was already present from previous sessions; both visible in Mis Nóminas as worker.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All payroll flows verified end-to-end. Test Usuario worker phone is 600999888 (no PIN). Admin sidebar tabs all exist: Panel/Personal/Horas/Partes/Comparativa/Nóminas/Obras/Registros/Equipos/Admins/Ajustes. Stone+amber palette applied everywhere except the worker 'Sin Obra' hero card (still has blue→orange gradient). Subir Nómina submit button is correctly disabled until worker+file selected. Success flash uses emerald-300 text on emerald-500/10 bg. Super admin (admin) sees delete buttons; non-super admins won't. Two payrolls now exist for Test Usuario in Firestore; clean before next iteration if needed.",
+  "rca of the issue": "No bugs found. Implementation matches spec exactly: data-testids all present (admin-payrolls-tab, open-upload-payroll-btn, payrolls-search-input, payrolls-filter-worker/month/year, payroll-worker-select, payroll-month-select, payroll-year-select, payroll-file-input, payroll-notes-input, submit-payroll-btn, download-payroll-{id}, delete-payroll-{id}, worker-payrolls-btn, my-payrolls-filter-year, my-payrolls-filter-month, my-payroll-{id}, back-from-payrolls). Serif typography (Instrument Serif) applied to all required headers. Amber-500 (rgb 245,158,11) background with stone-950 (rgb 12,10,9) text on primary CTAs. Worker isolation via workerId filter works."
+}

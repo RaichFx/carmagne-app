@@ -1,5 +1,5 @@
 
-import { Worker, Site, WorkLog, AppConfig, LogType, AdminUser, ToolRecord, WeeklyReport } from '../types';
+import { Worker, Site, WorkLog, AppConfig, LogType, AdminUser, ToolRecord, WeeklyReport, Payroll } from '../types';
 import { db } from './firebase';
 import { collection, doc, setDoc, updateDoc, onSnapshot, deleteDoc, getDoc, getDocs, writeBatch } from 'firebase/firestore';
 
@@ -11,6 +11,7 @@ const KEYS = {
   ADMINS: 'carmagne_admins',
   TOOLS: 'carmagne_tools',
   WEEKLY_REPORTS: 'carmagne_weekly_reports',
+  PAYROLLS: 'carmagne_payrolls',
 };
 
 export const ELECTRICAL_TOOLS_LIST = [
@@ -250,6 +251,27 @@ export const StorageService = {
       const reports = snapshot.docs.map(d => d.data() as WeeklyReport);
       const sorted = [...reports].sort((a, b) => b.createdAt - a.createdAt);
       saveLocal(KEYS.WEEKLY_REPORTS, sorted);
+      callback(sorted);
+    });
+  },
+
+  getPayrolls: (): Payroll[] => loadLocal(KEYS.PAYROLLS, []),
+  addPayroll: async (payroll: Payroll) => {
+    const items = loadLocal<Payroll[]>(KEYS.PAYROLLS, []);
+    saveLocal(KEYS.PAYROLLS, [payroll, ...items]);
+    try { await setDoc(doc(db, "payrolls", payroll.id), safeClone(payroll)); } catch (e) { console.error("Error saving payroll", e); }
+  },
+  deletePayroll: async (id: string) => {
+    const items = loadLocal<Payroll[]>(KEYS.PAYROLLS, []);
+    saveLocal(KEYS.PAYROLLS, items.filter(p => p.id !== id));
+    try { await deleteDoc(doc(db, "payrolls", id)); } catch (e) { }
+  },
+  subscribeToPayrolls: (callback: (payrolls: Payroll[]) => void) => {
+    callback(loadLocal(KEYS.PAYROLLS, []));
+    return onSnapshot(collection(db, "payrolls"), (snapshot) => {
+      const items = snapshot.docs.map(d => d.data() as Payroll);
+      const sorted = [...items].sort((a, b) => b.uploadedAt - a.uploadedAt);
+      saveLocal(KEYS.PAYROLLS, sorted);
       callback(sorted);
     });
   }

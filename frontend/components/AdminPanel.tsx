@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { StorageService, ELECTRICAL_TOOLS_LIST, ELECTRICAL_BRANDS_LIST } from '../services/storageService';
-import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType, AdminUser, ToolRecord, WeeklyReport } from '../types';
+import { Worker, Site, WorkLog, AppConfig, WorkMode, LogType, AdminUser, ToolRecord, WeeklyReport, Payroll } from '../types';
+import { PayrollAdminPanel } from './PayrollAdminPanel';
 import { 
   Users, MapPin, Download, Settings, FileText, 
-  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap, Wrench, ChevronDown, ArrowLeft, BarChart3, LogOut, CalendarDays, CheckCircle2, AlertCircle, AlertTriangle, Map as MapIcon, ExternalLink, Coffee, Package, KeyRound, ChevronRight, ListFilter, RotateCcw, Image as ImageIcon, Upload, Layout, Maximize2, Smartphone, Check, Timer, History, Sparkles, FileImage
+  Trash2, Plus, Save, Lock, Database, ClipboardList, Calendar, X, UserPlus, Phone, Filter, Search, Clock, Shield, Pencil, Eye, EyeOff, Zap, Wrench, ChevronDown, ArrowLeft, BarChart3, LogOut, CalendarDays, CheckCircle2, AlertCircle, AlertTriangle, Map as MapIcon, ExternalLink, Coffee, Package, KeyRound, ChevronRight, ListFilter, RotateCcw, Image as ImageIcon, Upload, Layout, Maximize2, Smartphone, Check, Timer, History, Sparkles, FileImage, ScrollText
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { jsPDF } from 'jspdf';
@@ -87,9 +88,9 @@ const LogIcon = ({ type, size = 18 }: { type: LogType, size?: number }) => {
     case LogType.INICIO_DESCANSO:
       return <Coffee size={size} className="text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" />;
     case LogType.FIN_DESCANSO:
-      return <Timer size={size} className="text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />;
+      return <Timer size={size} className="text-sky-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />;
     default:
-      return <ClipboardList size={size} className="text-slate-400" />;
+      return <ClipboardList size={size} className="text-stone-400" />;
   }
 };
 
@@ -111,7 +112,7 @@ const AppLogo = ({ className, size = "md", logoUrl, scale = 1.0 }: { className?:
   }
 
   return (
-    <div className={`relative flex items-center justify-center ${className} text-blue-500`}>
+    <div className={`relative flex items-center justify-center ${className} text-amber-500`}>
       <Zap 
         size={iconSize} 
         className="drop-shadow-[0_0_20px_rgba(59,130,246,0.6)] fill-blue-500/20" 
@@ -125,13 +126,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   const isSuperAdmin = currentUser === null;
   const logoInputRef = useRef<HTMLInputElement>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'workers' | 'sites' | 'logs' | 'tools' | 'hours' | 'reports' | 'comparison' | 'admins' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'workers' | 'sites' | 'logs' | 'tools' | 'hours' | 'reports' | 'comparison' | 'payrolls' | 'admins' | 'settings'>('dashboard');
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [logs, setLogs] = useState<WorkLog[]>([]);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [tools, setTools] = useState<ToolRecord[]>([]);
   const [weeklyReports, setWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [config, setConfig] = useState<AppConfig>(StorageService.getConfig());
   
   const [isSaving, setIsSaving] = useState(false);
@@ -194,6 +196,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     setTools(StorageService.getTools());
     setConfig(StorageService.getConfig());
     setWeeklyReports(StorageService.getWeeklyReports());
+    setPayrolls(StorageService.getPayrolls());
 
     const unsubWorkers = StorageService.subscribeToWorkers(setWorkers);
     const unsubSites = StorageService.subscribeToSites(setSites);
@@ -202,9 +205,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     const unsubTools = StorageService.subscribeToTools(setTools);
     const unsubConfig = StorageService.subscribeToConfig(setConfig);
     const unsubReports = StorageService.subscribeToWeeklyReports(setWeeklyReports);
+    const unsubPayrolls = StorageService.subscribeToPayrolls(setPayrolls);
 
     return () => {
-      unsubWorkers(); unsubSites(); unsubLogs(); unsubAdmins(); unsubTools(); unsubConfig(); unsubReports();
+      unsubWorkers(); unsubSites(); unsubLogs(); unsubAdmins(); unsubTools(); unsubConfig(); unsubReports(); unsubPayrolls();
     };
   }, []);
 
@@ -587,16 +591,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         <div>
           <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
             Comparativa Mensual
-            <BarChart3 className="text-indigo-400" size={18} />
+            <BarChart3 className="text-amber-400" size={18} />
           </h2>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Totales por trabajador</p>
+          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Totales por trabajador</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <select
             data-testid="comparison-month-select"
             value={comparisonMonth}
             onChange={(e) => setComparisonMonth(parseInt(e.target.value))}
-            className="bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-bold text-white outline-none focus:border-indigo-500"
+            className="bg-stone-900 border border-stone-800 rounded-xl py-2 px-3 text-xs font-bold text-white outline-none focus:border-amber-500"
           >
             {MONTH_NAMES.map((m, i) => <option key={m} value={i}>{m}</option>)}
           </select>
@@ -604,7 +608,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             data-testid="comparison-year-select"
             value={comparisonYear}
             onChange={(e) => setComparisonYear(parseInt(e.target.value))}
-            className="bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs font-bold text-white outline-none focus:border-indigo-500"
+            className="bg-stone-900 border border-stone-800 rounded-xl py-2 px-3 text-xs font-bold text-white outline-none focus:border-amber-500"
           >
             {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -618,51 +622,51 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total Partes</p>
+        <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
+          <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Total Partes</p>
           <p className="text-2xl font-mono font-black text-white mt-1" data-testid="comparison-total-reports">{monthlyComparison.totals.reportCount}</p>
         </div>
-        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Horas Reporte</p>
-          <p className="text-2xl font-mono font-black text-indigo-400 mt-1">{monthlyComparison.totals.reportHours.toFixed(1)}<span className="text-sm text-slate-600 ml-1">h</span></p>
+        <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
+          <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Horas Reporte</p>
+          <p className="text-2xl font-mono font-black text-amber-400 mt-1">{monthlyComparison.totals.reportHours.toFixed(1)}<span className="text-sm text-stone-600 ml-1">h</span></p>
         </div>
-        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Horas Fichaje</p>
-          <p className="text-2xl font-mono font-black text-blue-400 mt-1">{formatMsToTime(monthlyComparison.totals.fichajeHoursMs)}</p>
+        <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
+          <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Horas Fichaje</p>
+          <p className="text-2xl font-mono font-black text-sky-400 mt-1">{formatMsToTime(monthlyComparison.totals.fichajeHoursMs)}</p>
         </div>
-        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800">
-          <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Trabajadores Activos</p>
-          <p className="text-2xl font-mono font-black text-emerald-400 mt-1">{monthlyComparison.totals.activeWorkers}<span className="text-sm text-slate-600 ml-1">/ {workers.length}</span></p>
+        <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
+          <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Trabajadores Activos</p>
+          <p className="text-2xl font-mono font-black text-emerald-400 mt-1">{monthlyComparison.totals.activeWorkers}<span className="text-sm text-stone-600 ml-1">/ {workers.length}</span></p>
         </div>
       </div>
 
-      <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-slate-800">
+      <div className="bg-stone-900 rounded-3xl border border-stone-800 overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-stone-800">
           <h3 className="text-sm font-black text-white uppercase tracking-tighter">Detalle por trabajador</h3>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Ordenar:</span>
+            <span className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Ordenar:</span>
             {(['hours', 'reports', 'name'] as const).map(s => (
               <button
                 key={s}
                 data-testid={`comparison-sort-${s}`}
                 onClick={() => setComparisonSortBy(s)}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${comparisonSortBy === s ? 'bg-indigo-600 text-white' : 'bg-slate-950 text-slate-500 border border-slate-800 hover:border-slate-700'}`}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${comparisonSortBy === s ? 'bg-amber-600 text-white' : 'bg-stone-950 text-stone-500 border border-stone-800 hover:border-stone-700'}`}
               >
                 {s === 'hours' ? 'Horas' : s === 'reports' ? 'Partes' : 'Nombre'}
               </button>
             ))}
           </div>
         </div>
-        <div className="divide-y divide-slate-800">
+        <div className="divide-y divide-stone-800">
           {monthlyComparison.stats.length === 0 && (
-            <div className="text-center py-12 text-slate-500 text-xs font-bold uppercase tracking-widest">No hay trabajadores</div>
+            <div className="text-center py-12 text-stone-500 text-xs font-bold uppercase tracking-widest">No hay trabajadores</div>
           )}
           {monthlyComparison.stats.map((s, idx) => {
             const pct = (s.reportHours / monthlyComparison.maxHours) * 100;
             const isInactive = s.reportCount === 0;
             return (
-              <div key={s.worker.id} data-testid={`comparison-row-${s.worker.id}`} className={`p-4 flex items-center gap-4 ${isInactive ? 'opacity-50' : ''} hover:bg-slate-800/30 transition`}>
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${idx === 0 && !isInactive ? 'bg-amber-500/20 text-amber-400' : idx === 1 && !isInactive ? 'bg-slate-400/20 text-slate-300' : idx === 2 && !isInactive ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-800 text-slate-500'}`}>
+              <div key={s.worker.id} data-testid={`comparison-row-${s.worker.id}`} className={`p-4 flex items-center gap-4 ${isInactive ? 'opacity-50' : ''} hover:bg-stone-800/30 transition`}>
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-black shrink-0 ${idx === 0 && !isInactive ? 'bg-amber-500/20 text-amber-400' : idx === 1 && !isInactive ? 'bg-stone-400/20 text-stone-300' : idx === 2 && !isInactive ? 'bg-orange-500/20 text-orange-400' : 'bg-stone-800 text-stone-500'}`}>
                   {idx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -670,28 +674,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                     <p className="text-sm font-black text-white uppercase truncate">{s.worker.name}</p>
                     <div className="flex items-center gap-3 shrink-0 text-right">
                       <div>
-                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Partes</p>
+                        <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Partes</p>
                         <p className="text-sm font-mono font-black text-white">{s.reportCount}</p>
                       </div>
                       <div>
-                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Horas</p>
-                        <p className="text-sm font-mono font-black text-indigo-400">{s.reportHours.toFixed(1)}h</p>
+                        <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Horas</p>
+                        <p className="text-sm font-mono font-black text-amber-400">{s.reportHours.toFixed(1)}h</p>
                       </div>
                       <div>
-                        <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Fichaje</p>
-                        <p className="text-sm font-mono font-black text-blue-400">{formatMsToTime(s.fichajeHoursMs)}</p>
+                        <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Fichaje</p>
+                        <p className="text-sm font-mono font-black text-sky-400">{formatMsToTime(s.fichajeHoursMs)}</p>
                       </div>
                     </div>
                   </div>
-                  <div className="h-1.5 bg-slate-950 rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-stone-950 rounded-full overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${isInactive ? 'bg-slate-700' : 'bg-gradient-to-r from-indigo-500 to-purple-500'}`}
+                      className={`h-full rounded-full transition-all ${isInactive ? 'bg-stone-700' : 'bg-gradient-to-r from-amber-500 to-orange-500'}`}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
                   {s.sites.length > 0 && (
-                    <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1.5 truncate">
-                      <span className="text-indigo-400">Obras:</span> {s.sites.join(' • ')}
+                    <p className="text-[9px] text-stone-500 font-bold uppercase tracking-widest mt-1.5 truncate">
+                      <span className="text-amber-400">Obras:</span> {s.sites.join(' • ')}
                     </p>
                   )}
                 </div>
@@ -709,18 +713,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         <div>
           <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
             Partes Semanales
-            <span className="px-2 py-0.5 bg-indigo-500/20 border border-indigo-400/30 rounded-md text-[9px] font-black text-indigo-300 uppercase tracking-widest flex items-center gap-1">
+            <span className="px-2 py-0.5 bg-amber-500/20 border border-amber-400/30 rounded-md text-[9px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1">
               <Sparkles size={9} /> IA
             </span>
           </h2>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Partes enviados por los trabajadores</p>
+          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Partes enviados por los trabajadores</p>
         </div>
         <div className="flex items-center gap-2">
           <button
             data-testid="export-reports-pdf-btn"
             onClick={handleExportReportsPDF}
             disabled={filteredWeeklyReports.length === 0}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition active:scale-95 ${filteredWeeklyReports.length === 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-rose-600/10 text-rose-400 border border-rose-500/20 hover:bg-rose-600/20'}`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition active:scale-95 ${filteredWeeklyReports.length === 0 ? 'bg-stone-800 text-stone-600 cursor-not-allowed' : 'bg-rose-600/10 text-rose-400 border border-rose-500/20 hover:bg-rose-600/20'}`}
           >
             <FileText size={14} /> PDF
           </button>
@@ -728,7 +732,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             data-testid="export-reports-csv-btn"
             onClick={handleExportReportsCSV}
             disabled={filteredWeeklyReports.length === 0}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition active:scale-95 ${filteredWeeklyReports.length === 0 ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20'}`}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black uppercase text-[10px] tracking-widest transition active:scale-95 ${filteredWeeklyReports.length === 0 ? 'bg-stone-800 text-stone-600 cursor-not-allowed' : 'bg-emerald-600/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/20'}`}
           >
             <Download size={14} /> Excel
           </button>
@@ -736,15 +740,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       </div>
 
       {/* Current week worker status grid */}
-      <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800">
+      <div className="bg-stone-900 p-5 rounded-3xl border border-stone-800">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-black text-white uppercase tracking-tighter">Esta Semana</h3>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{currentWeekRange.start} → {currentWeekRange.end}</p>
+            <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">{currentWeekRange.start} → {currentWeekRange.end}</p>
           </div>
           <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest">
             <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 size={12} /> Enviado</span>
-            <span className="flex items-center gap-1 text-slate-500"><AlertCircle size={12} /> Pendiente</span>
+            <span className="flex items-center gap-1 text-stone-500"><AlertCircle size={12} /> Pendiente</span>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -753,13 +757,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               key={w.id}
               data-testid={`worker-week-status-${w.id}`}
               onClick={() => { setReportsFilterWorker(w.id); }}
-              className={`p-3 rounded-2xl border text-left transition-all active:scale-95 ${w.currentWeekSubmitted ? 'bg-emerald-500/10 border-emerald-500/30 hover:border-emerald-500/60' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}
+              className={`p-3 rounded-2xl border text-left transition-all active:scale-95 ${w.currentWeekSubmitted ? 'bg-emerald-500/10 border-emerald-500/30 hover:border-emerald-500/60' : 'bg-stone-950 border-stone-800 hover:border-stone-700'}`}
             >
               <div className="flex items-center justify-between mb-1">
                 <p className="text-[11px] font-black text-white uppercase truncate">{w.name}</p>
-                {w.currentWeekSubmitted ? <CheckCircle2 size={14} className="text-emerald-400 shrink-0" /> : <AlertCircle size={14} className="text-slate-500 shrink-0" />}
+                {w.currentWeekSubmitted ? <CheckCircle2 size={14} className="text-emerald-400 shrink-0" /> : <AlertCircle size={14} className="text-stone-500 shrink-0" />}
               </div>
-              <p className={`text-[8px] font-black uppercase tracking-widest ${w.currentWeekSubmitted ? 'text-emerald-400' : 'text-slate-500'}`}>
+              <p className={`text-[8px] font-black uppercase tracking-widest ${w.currentWeekSubmitted ? 'text-emerald-400' : 'text-stone-500'}`}>
                 {w.currentWeekSubmitted ? 'Parte Enviado' : 'Sin Parte'}
               </p>
             </button>
@@ -768,23 +772,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       </div>
 
       {/* Filters */}
-      <div className="bg-slate-900 p-4 rounded-3xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="bg-stone-900 p-4 rounded-3xl border border-stone-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={14} className="absolute left-3 top-1/2 -transtone-y-1/2 text-stone-500" />
           <input
             data-testid="reports-search-input"
             type="text"
             placeholder="Buscar trabajador, obra o tareas..."
             value={reportsSearch}
             onChange={(e) => setReportsSearch(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-indigo-500"
+            className="w-full bg-stone-950 border border-stone-800 rounded-xl py-2.5 pl-9 pr-3 text-xs text-white outline-none focus:border-amber-500"
           />
         </div>
         <select
           data-testid="reports-filter-worker"
           value={reportsFilterWorker}
           onChange={(e) => setReportsFilterWorker(e.target.value)}
-          className="bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:border-indigo-500"
+          className="bg-stone-950 border border-stone-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:border-amber-500"
         >
           <option value="">Todos los trabajadores</option>
           {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -795,30 +799,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           value={reportsFilterWeek}
           onChange={(e) => setReportsFilterWeek(e.target.value)}
           placeholder="Filtrar por semana"
-          className="bg-slate-950 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:border-indigo-500 [color-scheme:dark]"
+          className="bg-stone-950 border border-stone-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none focus:border-amber-500 [color-scheme:dark]"
         />
       </div>
 
       {/* Reports list */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {filteredWeeklyReports.length === 0 ? (
-          <div className="col-span-full text-center py-16 bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-800">
-            <FileText size={32} className="text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No hay partes que coincidan con los filtros</p>
+          <div className="col-span-full text-center py-16 bg-stone-900/30 rounded-[3rem] border border-dashed border-stone-800">
+            <FileText size={32} className="text-stone-700 mx-auto mb-3" />
+            <p className="text-stone-500 text-xs font-bold uppercase tracking-widest">No hay partes que coincidan con los filtros</p>
           </div>
         ) : filteredWeeklyReports.map(report => (
-          <div key={report.id} data-testid={`weekly-report-card-${report.id}`} className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden flex flex-col hover:border-indigo-500/40 transition group">
-            <div className="relative h-40 bg-slate-950 overflow-hidden cursor-pointer" onClick={() => setViewingReport(report)}>
+          <div key={report.id} data-testid={`weekly-report-card-${report.id}`} className="bg-stone-900 rounded-3xl border border-stone-800 overflow-hidden flex flex-col hover:border-amber-500/40 transition group">
+            <div className="relative h-40 bg-stone-950 overflow-hidden cursor-pointer" onClick={() => setViewingReport(report)}>
               {report.photoBase64 ? (
                 <img src={report.photoBase64} alt="Parte" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-slate-700"><FileImage size={32} /></div>
+                <div className="w-full h-full flex items-center justify-center text-stone-700"><FileImage size={32} /></div>
               )}
               <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-full text-[9px] font-black text-white uppercase tracking-widest flex items-center gap-1">
                 <Calendar size={9} /> {report.weekStart} → {report.weekEnd}
               </div>
               {report.extracted?.totalHours != null && (
-                <div className="absolute top-2 right-2 px-2 py-1 bg-indigo-500/80 backdrop-blur-md rounded-full text-[9px] font-black text-white uppercase tracking-widest flex items-center gap-1">
+                <div className="absolute top-2 right-2 px-2 py-1 bg-amber-500/80 backdrop-blur-md rounded-full text-[9px] font-black text-white uppercase tracking-widest flex items-center gap-1">
                   <Sparkles size={9} /> IA
                 </div>
               )}
@@ -827,20 +831,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               <div className="flex justify-between items-start">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-black text-white uppercase truncate">{report.workerName}</p>
-                  <p className="text-[10px] text-indigo-400 font-bold uppercase truncate">{report.siteName || '—'}</p>
+                  <p className="text-[10px] text-amber-400 font-bold uppercase truncate">{report.siteName || '—'}</p>
                 </div>
                 <div className="text-right shrink-0 ml-2">
                   <p className="text-base font-mono font-black text-white">{report.totalHours.toFixed(1)}h</p>
-                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">horas</p>
+                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">horas</p>
                 </div>
               </div>
               {report.tasks && (
-                <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">{report.tasks}</p>
+                <p className="text-[10px] text-stone-400 line-clamp-2 leading-relaxed">{report.tasks}</p>
               )}
-              <div className="flex items-center justify-between gap-2 pt-2 mt-auto border-t border-slate-800">
-                <span className="text-[8px] text-slate-600 font-black uppercase tracking-widest">{report.dateStr} • {report.timeStr}</span>
+              <div className="flex items-center justify-between gap-2 pt-2 mt-auto border-t border-stone-800">
+                <span className="text-[8px] text-stone-600 font-black uppercase tracking-widest">{report.dateStr} • {report.timeStr}</span>
                 <div className="flex gap-1">
-                  <button data-testid={`view-report-${report.id}`} onClick={() => setViewingReport(report)} className="p-1.5 text-indigo-400 hover:text-indigo-300 transition" title="Ver detalle"><Eye size={14} /></button>
+                  <button data-testid={`view-report-${report.id}`} onClick={() => setViewingReport(report)} className="p-1.5 text-amber-400 hover:text-amber-300 transition" title="Ver detalle"><Eye size={14} /></button>
                   <button data-testid={`download-report-${report.id}`} onClick={() => handleExportSingleReportPDF(report)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition" title="Descargar PDF"><Download size={14} /></button>
                   {isSuperAdmin && (
                     <button data-testid={`delete-report-${report.id}`} onClick={() => setReportToDelete(report.id)} className="p-1.5 text-rose-500 hover:text-rose-400 transition"><Trash2 size={14} /></button>
@@ -883,6 +887,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       { id: 'hours', icon: History, label: 'Horas' },
       { id: 'reports', icon: FileText, label: 'Partes' },
       { id: 'comparison', icon: BarChart3, label: 'Comparativa' },
+      { id: 'payrolls', icon: ScrollText, label: 'Nóminas' },
       { id: 'sites', icon: MapPin, label: 'Obras' },
       { id: 'logs', icon: ClipboardList, label: 'Registros' },
       { id: 'tools', icon: Wrench, label: 'Equipos' },
@@ -893,9 +898,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
   const renderDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-fadeIn">
-      <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl"><Users className="text-blue-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{workers.length}</h4><p className="text-[10px] text-slate-500 font-bold uppercase">Personal</p></div>
-      <div className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl"><MapPin className="text-emerald-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{sites.length}</h4><p className="text-[10px] text-slate-500 font-bold uppercase">Obras</p></div>
-      <div className="col-span-2 md:col-span-1 bg-slate-900 p-6 rounded-[2rem] border border-slate-800 shadow-xl"><Zap className="text-amber-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{logs.filter(l => l.dateStr === new Date().toLocaleDateString('es-ES')).length}</h4><p className="text-[10px] text-slate-500 font-bold uppercase">Fichajes Hoy</p></div>
+      <div className="bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><Users className="text-amber-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{workers.length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Personal</p></div>
+      <div className="bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><MapPin className="text-emerald-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{sites.length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Obras</p></div>
+      <div className="col-span-2 md:col-span-1 bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><Zap className="text-amber-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{logs.filter(l => l.dateStr === new Date().toLocaleDateString('es-ES')).length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Fichajes Hoy</p></div>
     </div>
   );
 
@@ -904,28 +909,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-white uppercase">Reporte de Horas</h2>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Cálculo de tiempos por jornada</p>
+          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Cálculo de tiempos por jornada</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-            <input type="text" placeholder="Buscar operario..." className="bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none w-full sm:w-48" value={hoursSearchQuery} onChange={(e) => setHoursSearchQuery(e.target.value)} />
+            <Search className="absolute left-3 top-1/2 -transtone-y-1/2 text-stone-500" size={14} />
+            <input type="text" placeholder="Buscar operario..." className="bg-stone-900 border border-stone-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none w-full sm:w-48" value={hoursSearchQuery} onChange={(e) => setHoursSearchQuery(e.target.value)} />
           </div>
-          <input type="date" className="bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white [color-scheme:dark]" value={hoursFilterDate} onChange={(e) => setHoursFilterDate(e.target.value)} />
+          <input type="date" className="bg-stone-900 border border-stone-800 rounded-xl py-2.5 px-3 text-xs text-white [color-scheme:dark]" value={hoursFilterDate} onChange={(e) => setHoursFilterDate(e.target.value)} />
         </div>
       </div>
 
       <div className="grid gap-3">
         {dailyHoursStats.length > 0 ? (
           dailyHoursStats.map(stat => (
-            <div key={stat.key} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div key={stat.key} className="bg-stone-900 p-4 rounded-3xl border border-stone-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
                   <Users size={18} />
                 </div>
                 <div>
                   <p className="font-black text-white text-sm uppercase leading-tight">{stat.workerName}</p>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{stat.dateStr}</p>
+                  <p className="text-[9px] text-stone-500 font-bold uppercase tracking-widest">{stat.dateStr}</p>
                 </div>
               </div>
               
@@ -934,27 +939,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                   <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Trabajo</span>
                   <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.workMs)}</span>
                 </div>
-                <div className="flex flex-col border-x border-slate-800 px-2 sm:px-6">
+                <div className="flex flex-col border-x border-stone-800 px-2 sm:px-6">
                   <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Descanso</span>
                   <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.breakMs)}</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Total</span>
+                  <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">Total</span>
                   <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.totalMs)}</span>
                 </div>
               </div>
 
               {stat.isCurrentlyActive && (
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full shrink-0">
-                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                  <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Activo</span>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full shrink-0">
+                  <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                  <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Activo</span>
                 </div>
               )}
             </div>
           ))
         ) : (
-          <div className="text-center py-20 bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-800">
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No hay registros para este día</p>
+          <div className="text-center py-20 bg-stone-900/30 rounded-[3rem] border border-dashed border-stone-800">
+            <p className="text-stone-500 text-xs font-bold uppercase tracking-widest">No hay registros para este día</p>
           </div>
         )}
       </div>
@@ -966,7 +971,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-white uppercase">Registros de Actividad</h2>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Historial completo con verificación GPS</p>
+          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Historial completo con verificación GPS</p>
         </div>
         <div className="flex gap-2">
           {isSuperAdmin && (
@@ -974,7 +979,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               <RotateCcw size={14} /> Vaciar Historial
             </button>
           )}
-          <button onClick={() => setShowLogFilters(!showLogFilters)} className={`p-3 rounded-xl transition ${showLogFilters ? 'bg-blue-600 text-white' : 'bg-slate-900 text-slate-400'}`}>
+          <button onClick={() => setShowLogFilters(!showLogFilters)} className={`p-3 rounded-xl transition ${showLogFilters ? 'bg-amber-500 text-white' : 'bg-stone-900 text-stone-400'}`}>
             <ListFilter size={20} />
           </button>
           <button onClick={handleExportPDF} className="bg-emerald-600 p-3 rounded-xl text-white">
@@ -984,54 +989,54 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       </div>
 
       {showLogFilters && (
-        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-slideDown">
+        <div className="bg-stone-900 p-6 rounded-3xl border border-stone-800 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 animate-slideDown">
           <div className="space-y-1.5">
-            <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Buscar</label>
-            <input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none" value={logSearchQuery} onChange={(e) => setLogSearchQuery(e.target.value)} placeholder="Operario o obra..." />
+            <label className="text-[8px] font-black text-stone-500 uppercase ml-1">Buscar</label>
+            <input type="text" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white outline-none" value={logSearchQuery} onChange={(e) => setLogSearchQuery(e.target.value)} placeholder="Operario o obra..." />
           </div>
           <div className="space-y-1.5">
-            <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Operario</label>
-            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none" value={logFilterWorker} onChange={(e) => setLogFilterWorker(e.target.value)}>
+            <label className="text-[8px] font-black text-stone-500 uppercase ml-1">Operario</label>
+            <select className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white outline-none" value={logFilterWorker} onChange={(e) => setLogFilterWorker(e.target.value)}>
               <option value="">Todos</option>
               {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Obra</label>
-            <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white outline-none" value={logFilterSite} onChange={(e) => setLogFilterSite(e.target.value)}>
+            <label className="text-[8px] font-black text-stone-500 uppercase ml-1">Obra</label>
+            <select className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white outline-none" value={logFilterSite} onChange={(e) => setLogFilterSite(e.target.value)}>
               <option value="">Todas</option>
               {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-[8px] font-black text-slate-500 uppercase ml-1">Fecha</label>
-            <input type="date" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white [color-scheme:dark] outline-none" value={logFilterDate} onChange={(e) => setLogFilterDate(e.target.value)} />
+            <label className="text-[8px] font-black text-stone-500 uppercase ml-1">Fecha</label>
+            <input type="date" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white [color-scheme:dark] outline-none" value={logFilterDate} onChange={(e) => setLogFilterDate(e.target.value)} />
           </div>
         </div>
       )}
 
-      <div className="overflow-x-auto bg-slate-900 rounded-3xl border border-slate-800">
+      <div className="overflow-x-auto bg-stone-900 rounded-3xl border border-stone-800">
         <table className="w-full text-left text-xs">
-          <thead className="bg-slate-950 border-b border-slate-800">
+          <thead className="bg-stone-950 border-b border-stone-800">
             <tr>
-              <th className="p-4 font-black uppercase text-slate-500">Fecha/Hora</th>
-              <th className="p-4 font-black uppercase text-slate-500">Operario</th>
-              <th className="p-4 font-black uppercase text-slate-500">Obra</th>
-              <th className="p-4 font-black uppercase text-slate-500">Tipo</th>
-              <th className="p-4 font-black uppercase text-slate-500">Reporte</th>
-              <th className="p-4 font-black uppercase text-slate-500">Ubicación GPS</th>
-              {isSuperAdmin && <th className="p-4 font-black uppercase text-slate-500 text-right">Acciones</th>}
+              <th className="p-4 font-black uppercase text-stone-500">Fecha/Hora</th>
+              <th className="p-4 font-black uppercase text-stone-500">Operario</th>
+              <th className="p-4 font-black uppercase text-stone-500">Obra</th>
+              <th className="p-4 font-black uppercase text-stone-500">Tipo</th>
+              <th className="p-4 font-black uppercase text-stone-500">Reporte</th>
+              <th className="p-4 font-black uppercase text-stone-500">Ubicación GPS</th>
+              {isSuperAdmin && <th className="p-4 font-black uppercase text-stone-500 text-right">Acciones</th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-stone-800">
             {filteredLogs.map(log => (
-              <tr key={log.id} className="hover:bg-slate-800/50 transition">
+              <tr key={log.id} className="hover:bg-stone-800/50 transition">
                 <td className="p-4">
                   <div className="font-bold text-white">{log.dateStr}</div>
-                  <div className="text-[10px] text-slate-500">{log.timeStr}</div>
+                  <div className="text-[10px] text-stone-500">{log.timeStr}</div>
                 </td>
                 <td className="p-4 font-bold text-white uppercase">{log.workerName}</td>
-                <td className="p-4 font-bold text-blue-400 uppercase">{log.siteName}</td>
+                <td className="p-4 font-bold text-sky-400 uppercase">{log.siteName}</td>
                 <td className="p-4">
                   <div className="flex items-center gap-2">
                     <LogIcon type={log.type} size={14} />
@@ -1039,7 +1044,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                   </div>
                 </td>
                 <td className="p-4">
-                  <p className="max-w-[150px] truncate text-slate-400">{log.workReport || '-'}</p>
+                  <p className="max-w-[150px] truncate text-stone-400">{log.workReport || '-'}</p>
                 </td>
                 <td className="p-4">
                    <div className="flex flex-col gap-1.5">
@@ -1058,7 +1063,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                         href={`https://www.google.com/maps?q=${log.location.latitude},${log.location.longitude}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors group"
+                        className="flex items-center gap-1 text-sky-400 hover:text-sky-300 transition-colors group"
                       >
                          <MapIcon size={12} className="group-hover:scale-110 transition-transform" />
                          <span className="font-bold text-[8px] uppercase tracking-widest border-b border-blue-400/30">Ver en Mapa</span>
@@ -1089,7 +1094,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-black text-white uppercase">Inventario de Equipos</h2>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gestión de herramientas por operario</p>
+          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Gestión de herramientas por operario</p>
         </div>
         <button onClick={() => handleOpenToolModal()} className="bg-amber-600 p-3 rounded-xl text-white self-end md:self-auto">
           <Plus size={20} />
@@ -1098,14 +1103,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-          <input type="text" placeholder="Buscar herramienta o marca..." className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none" value={toolSearchQuery} onChange={(e) => setToolSearchQuery(e.target.value)} />
+          <Search className="absolute left-3 top-1/2 -transtone-y-1/2 text-stone-500" size={14} />
+          <input type="text" placeholder="Buscar herramienta o marca..." className="w-full bg-stone-900 border border-stone-800 rounded-xl py-2.5 pl-9 pr-4 text-xs text-white outline-none" value={toolSearchQuery} onChange={(e) => setToolSearchQuery(e.target.value)} />
         </div>
-        <select className="bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none" value={toolFilterWorker} onChange={(e) => setToolFilterWorker(e.target.value)}>
+        <select className="bg-stone-900 border border-stone-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none" value={toolFilterWorker} onChange={(e) => setToolFilterWorker(e.target.value)}>
           <option value="">Responsables...</option>
           {workers.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
-        <select className="bg-slate-900 border border-slate-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none" value={toolFilterSite} onChange={(e) => setToolFilterSite(e.target.value)}>
+        <select className="bg-stone-900 border border-stone-800 rounded-xl py-2.5 px-3 text-xs text-white outline-none" value={toolFilterSite} onChange={(e) => setToolFilterSite(e.target.value)}>
           <option value="">Obras...</option>
           {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
@@ -1114,13 +1119,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredTools.length > 0 ? (
           filteredTools.map(tool => (
-            <div key={tool.id} className="bg-slate-900 p-5 rounded-[2rem] border border-slate-800 flex flex-col justify-between group hover:border-amber-500/50 transition-colors shadow-xl">
+            <div key={tool.id} className="bg-stone-900 p-5 rounded-[2rem] border border-stone-800 flex flex-col justify-between group hover:border-amber-500/50 transition-colors shadow-xl">
               <div className="flex justify-between items-start mb-4">
                 <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl">
                   <Wrench size={24} />
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => handleOpenToolModal(tool)} className="p-2 text-slate-400 hover:text-white transition"><Pencil size={18} /></button>
+                  <button onClick={() => handleOpenToolModal(tool)} className="p-2 text-stone-400 hover:text-white transition"><Pencil size={18} /></button>
                   <button onClick={() => StorageService.deleteTool(tool.id)} className="p-2 text-rose-500 hover:text-rose-400 transition"><Trash2 size={18} /></button>
                 </div>
               </div>
@@ -1130,19 +1135,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                 <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">{tool.brand} {tool.model}</p>
               </div>
 
-              <div className="space-y-3 pt-4 border-t border-slate-800">
+              <div className="space-y-3 pt-4 border-t border-stone-800">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400"><Users size={14} /></div>
+                  <div className="w-8 h-8 rounded-lg bg-stone-800 flex items-center justify-center text-stone-400"><Users size={14} /></div>
                   <div>
-                    <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Operario</p>
+                    <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Operario</p>
                     <p className="text-[11px] font-bold text-white uppercase">{tool.workerName}</p>
                   </div>
                 </div>
                 {tool.siteName && (
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400"><MapPin size={14} /></div>
+                    <div className="w-8 h-8 rounded-lg bg-stone-800 flex items-center justify-center text-stone-400"><MapPin size={14} /></div>
                     <div>
-                      <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Obra</p>
+                      <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Obra</p>
                       <p className="text-[11px] font-bold text-white uppercase truncate max-w-[150px]">{tool.siteName}</p>
                     </div>
                   </div>
@@ -1151,8 +1156,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             </div>
           ))
         ) : (
-          <div className="col-span-full text-center py-20 bg-slate-900/30 rounded-[3rem] border border-dashed border-slate-800">
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">No hay herramientas registradas</p>
+          <div className="col-span-full text-center py-20 bg-stone-900/30 rounded-[3rem] border border-dashed border-stone-800">
+            <p className="text-stone-500 text-xs font-bold uppercase tracking-widest">No hay herramientas registradas</p>
           </div>
         )}
       </div>
@@ -1164,32 +1169,32 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-xl font-black text-white uppercase tracking-tighter">Configuración General</h2>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Personalización de CARMAGNE INSTAL SL</p>
+          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Personalización de CARMAGNE INSTAL SL</p>
         </div>
       </div>
 
-      <div className="bg-slate-900 p-6 rounded-[2.5rem] border border-slate-800 shadow-xl space-y-8">
+      <div className="bg-stone-900 p-6 rounded-[2.5rem] border border-stone-800 shadow-xl space-y-8">
         <div className="space-y-4">
           <div className="flex items-center gap-3">
-            <ImageIcon className="text-blue-500" size={24} />
+            <ImageIcon className="text-amber-500" size={24} />
             <h3 className="text-sm font-black text-white uppercase tracking-widest">Identidad Visual (Logo)</h3>
           </div>
           
-          <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-slate-950/50 rounded-3xl border border-slate-800">
-            <div className="w-32 h-32 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+          <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-stone-950/50 rounded-3xl border border-stone-800">
+            <div className="w-32 h-32 bg-stone-900 border border-stone-800 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
               {config.logoUrl ? (
                 <img src={config.logoUrl} className="w-full h-full object-contain p-2" alt="Logo preview" />
               ) : (
-                <Zap size={32} className="text-slate-800" />
+                <Zap size={32} className="text-stone-800" />
               )}
             </div>
             <div className="flex-1 space-y-3">
-              <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
-                <span className="text-blue-500 font-black uppercase">Guía:</span> Se recomienda un logo en formato PNG o SVG con fondo transparente. Aparecerá en el login y en el panel superior.
+              <p className="text-[10px] text-stone-500 font-bold leading-relaxed">
+                <span className="text-amber-500 font-black uppercase">Guía:</span> Se recomienda un logo en formato PNG o SVG con fondo transparente. Aparecerá en el login y en el panel superior.
               </p>
               <div className="flex gap-2">
                 <input ref={logoInputRef} type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                <button onClick={() => logoInputRef.current?.click()} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg">
+                <button onClick={() => logoInputRef.current?.click()} className="flex-1 bg-amber-500 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 shadow-lg">
                   <Upload size={14} /> Subir Logo
                 </button>
                 {config.logoUrl && (
@@ -1208,16 +1213,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             <h3 className="text-sm font-black text-white uppercase tracking-widest">Icono PWA / Favicon</h3>
           </div>
           
-          <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-slate-950/50 rounded-3xl border border-slate-800">
-            <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+          <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-stone-950/50 rounded-3xl border border-stone-800">
+            <div className="w-20 h-20 bg-stone-900 border border-stone-800 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
               {config.faviconUrl ? (
                 <img src={config.faviconUrl} className="w-full h-full object-contain p-1" alt="Favicon preview" />
               ) : (
-                <Smartphone size={24} className="text-slate-800" />
+                <Smartphone size={24} className="text-stone-800" />
               )}
             </div>
             <div className="flex-1 space-y-3">
-              <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+              <p className="text-[10px] text-stone-500 font-bold leading-relaxed">
                 <span className="text-emerald-500 font-black uppercase">Guía:</span> Tamaño recomendado <span className="text-white">512x512 px</span>. Este icono se mostrará al instalar la aplicación en el móvil y en la pestaña del navegador.
               </p>
               <div className="flex gap-2">
@@ -1235,23 +1240,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           </div>
         </div>
 
-        <div className="space-y-4 pt-4 border-t border-slate-800">
+        <div className="space-y-4 pt-4 border-t border-stone-800">
           <div className="flex items-center gap-3">
-            <Database className="text-indigo-500" size={24} />
+            <Database className="text-amber-500" size={24} />
             <h3 className="text-sm font-black text-white uppercase tracking-widest">Datos del Sistema</h3>
           </div>
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">URL de Sincronización (Google Sheets)</label>
-              <input type="text" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-blue-400 outline-none focus:border-blue-500" value={config.googleSheetUrl} onChange={(e)=>setConfig({...config, googleSheetUrl: e.target.value})} placeholder="https://script.google.com/..."/>
+              <label className="text-[9px] font-black text-stone-500 uppercase tracking-widest ml-1">URL de Sincronización (Google Sheets)</label>
+              <input type="text" className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 text-xs text-sky-400 outline-none focus:border-amber-500" value={config.googleSheetUrl} onChange={(e)=>setConfig({...config, googleSheetUrl: e.target.value})} placeholder="https://script.google.com/..."/>
             </div>
             <div className="space-y-2">
-              <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Contraseña Administrador Principal</label>
+              <label className="text-[9px] font-black text-stone-500 uppercase tracking-widest ml-1">Contraseña Administrador Principal</label>
               <div className="relative">
                 <input
                   type={showAdminConfigPwd ? 'text' : 'password'}
                   data-testid="admin-config-password-input"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 pr-20 text-xs text-indigo-400 outline-none focus:border-indigo-500"
+                  className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 pr-20 text-xs text-amber-400 outline-none focus:border-amber-500"
                   value={config.adminPassword}
                   onChange={(e)=>setConfig({...config, adminPassword: e.target.value})}
                 />
@@ -1259,18 +1264,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                   type="button"
                   data-testid="admin-config-password-toggle"
                   onClick={() => setShowAdminConfigPwd(v => !v)}
-                  className="absolute right-12 top-1/2 -translate-y-1/2 text-slate-500 hover:text-indigo-400 transition"
+                  className="absolute right-12 top-1/2 -transtone-y-1/2 text-stone-500 hover:text-amber-400 transition"
                   aria-label={showAdminConfigPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showAdminConfigPwd ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
-                <Lock className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-700" size={16}/>
+                <Lock className="absolute right-4 top-1/2 -transtone-y-1/2 text-stone-700" size={16}/>
               </div>
             </div>
           </div>
         </div>
 
-        <button onClick={handleSaveConfig} disabled={isSaving} className={`w-full ${isSaving ? 'bg-slate-800 cursor-wait' : 'bg-blue-600 hover:bg-blue-500 active:scale-[0.98]'} text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3`}>
+        <button onClick={handleSaveConfig} disabled={isSaving} className={`w-full ${isSaving ? 'bg-stone-800 cursor-wait' : 'bg-amber-500 hover:bg-amber-400 active:scale-[0.98]'} text-white py-5 rounded-2xl font-black uppercase text-xs tracking-widest shadow-2xl transition-all flex items-center justify-center gap-3`}>
           {isSaving ? <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <Save size={18} />}
           {isSaving ? 'Guardando Cambios...' : 'Guardar Toda la Configuración'}
         </button>
@@ -1279,9 +1284,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
   );
 
   return (
-    <div className="flex h-screen bg-slate-950 text-white overflow-hidden">
+    <div className="flex h-screen bg-stone-950 text-white overflow-hidden">
       {showSaveSuccess && (
-        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[200] animate-fadeIn">
+        <div className="fixed top-8 left-1/2 -transtone-x-1/2 z-[200] animate-fadeIn">
           <div className="bg-emerald-600 text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl border border-emerald-500/30">
             <Check size={18} strokeWidth={3} />
             <span className="text-xs font-black uppercase tracking-widest">Configuración Guardada</span>
@@ -1289,14 +1294,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         </div>
       )}
 
-      <aside className="hidden md:flex flex-col w-64 border-r border-slate-900 p-6 gap-8 bg-slate-950">
+      <aside className="hidden md:flex flex-col w-64 border-r border-stone-900 p-6 gap-8 bg-stone-950">
         <div className="flex items-center gap-3">
           <AppLogo size="sm" logoUrl={config.logoUrl} scale={config.logoScaleDashboard} />
           <h1 className="text-xs font-black tracking-tighter uppercase leading-tight">CARMAGNE<br/>INSTAL SL</h1>
         </div>
         <nav className="flex flex-col gap-2">
           {sidebarItems.map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition ${activeTab === item.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-slate-900'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition ${activeTab === item.id ? 'bg-amber-500 text-white shadow-lg' : 'text-stone-500 hover:text-white hover:bg-stone-900'}`}>
               <item.icon size={20} />{item.label}
             </button>
           ))}
@@ -1307,20 +1312,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-14 border-b border-slate-900 flex items-center justify-between px-6 bg-slate-950/50 backdrop-blur-md shrink-0">
+        <header className="h-14 border-b border-stone-900 flex items-center justify-between px-6 bg-stone-950/50 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            <button onClick={() => setIsLogoutConfirmOpen(true)} className="md:hidden p-2 bg-slate-900 rounded-xl text-slate-400"><ArrowLeft size={18}/></button>
+            <button onClick={() => setIsLogoutConfirmOpen(true)} className="md:hidden p-2 bg-stone-900 rounded-xl text-stone-400"><ArrowLeft size={18}/></button>
             <span className="text-xs font-black text-white uppercase tracking-widest leading-none">{activeTab}</span>
           </div>
           <div className="flex items-center gap-3">
              <div className="flex items-center gap-4">
                 <div className="hidden sm:flex flex-col items-end">
-                   <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none">Conectado como</span>
-                   <span className="text-[10px] font-black text-blue-400 uppercase tracking-tighter">
+                   <span className="text-[8px] font-black text-stone-500 uppercase tracking-widest leading-none">Conectado como</span>
+                   <span className="text-[10px] font-black text-sky-400 uppercase tracking-tighter">
                      {isSuperAdmin ? 'Admin Principal' : `Hola, ${currentUser?.username}`}
                    </span>
                 </div>
-                <div className="w-8 h-8 rounded-lg bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-500">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
                   <Shield size={16}/>
                 </div>
              </div>
@@ -1331,30 +1336,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'workers' && (
             <div className="space-y-4 animate-fadeIn pb-32">
-              <div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Personal</h2><button className="bg-blue-600 p-3 rounded-xl text-white"><UserPlus size={20}/></button></div>
-              <div className="grid gap-2">{filteredWorkers.map(w=>(<div key={w.id} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between items-center"><div><p className="font-black text-white text-sm uppercase">{w.name}</p><p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{w.dni || 'S/DNI'}</p></div><div className="flex gap-1"><button onClick={()=>setReportModal({...reportModal, isOpen:true, worker:w})} className="p-2 text-emerald-500"><FileText size={20}/></button><button onClick={()=>StorageService.deleteWorker(w.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
+              <div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Personal</h2><button className="bg-amber-500 p-3 rounded-xl text-white"><UserPlus size={20}/></button></div>
+              <div className="grid gap-2">{filteredWorkers.map(w=>(<div key={w.id} className="bg-stone-900 p-4 rounded-2xl border border-stone-800 flex justify-between items-center"><div><p className="font-black text-white text-sm uppercase">{w.name}</p><p className="text-[9px] text-stone-500 font-bold uppercase tracking-widest">{w.dni || 'S/DNI'}</p></div><div className="flex gap-1"><button onClick={()=>setReportModal({...reportModal, isOpen:true, worker:w})} className="p-2 text-emerald-500"><FileText size={20}/></button><button onClick={()=>StorageService.deleteWorker(w.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
             </div>
           )}
           {activeTab === 'hours' && renderHoursReport()}
           {activeTab === 'sites' && (
             <div className="space-y-4 animate-fadeIn pb-32">
               <div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Obras</h2><button onClick={() => handleOpenSiteModal()} className="bg-emerald-600 p-3 rounded-xl text-white"><Plus size={20}/></button></div>
-              <div className="grid gap-3">{filteredSites.map(s=>(<div key={s.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center active:bg-slate-800"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><MapPin size={18}/></div><div className="max-w-[150px]"><p className="font-black text-white text-sm truncate uppercase leading-tight">{s.name}</p><p className="text-[9px] text-slate-500 font-bold uppercase truncate">{s.address}</p></div></div><div className="flex gap-1"><button onClick={()=>handleOpenSiteModal(s)} className="p-2 text-slate-400"><Pencil size={20}/></button><button onClick={()=>StorageService.deleteSite(s.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
+              <div className="grid gap-3">{filteredSites.map(s=>(<div key={s.id} className="bg-stone-900 p-4 rounded-3xl border border-stone-800 flex justify-between items-center active:bg-stone-800"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><MapPin size={18}/></div><div className="max-w-[150px]"><p className="font-black text-white text-sm truncate uppercase leading-tight">{s.name}</p><p className="text-[9px] text-stone-500 font-bold uppercase truncate">{s.address}</p></div></div><div className="flex gap-1"><button onClick={()=>handleOpenSiteModal(s)} className="p-2 text-stone-400"><Pencil size={20}/></button><button onClick={()=>StorageService.deleteSite(s.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
             </div>
           )}
           {activeTab === 'logs' && renderLogs()}
           {activeTab === 'tools' && renderTools()}
           {activeTab === 'reports' && renderWeeklyReports()}
           {activeTab === 'comparison' && renderComparison()}
+          {activeTab === 'payrolls' && <PayrollAdminPanel workers={workers} payrolls={payrolls} isSuperAdmin={isSuperAdmin} adminUsername={currentUser?.username || 'admin'} />}
           {activeTab === 'admins' && isSuperAdmin && (
-             <div className="space-y-6 animate-fadeIn pb-32"><div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Cuentas Admin</h2><button onClick={() => setIsAdminModalOpen(true)} className="bg-indigo-600 p-3 rounded-xl text-white"><UserPlus size={20} /></button></div><div className="grid gap-3">{admins.map(admin => (<div key={admin.id} className="bg-slate-900 p-4 rounded-3xl border border-slate-800 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 border border-slate-700"><KeyRound size={20} /></div><div><h3 className="text-sm font-black text-white">{admin.username}</h3><p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Gestor</p></div></div><button onClick={() => StorageService.deleteAdmin(admin.id)} className="p-2 text-rose-500"><Trash2 size={20} /></button></div>))}</div></div>
+             <div className="space-y-6 animate-fadeIn pb-32"><div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Cuentas Admin</h2><button onClick={() => setIsAdminModalOpen(true)} className="bg-amber-600 p-3 rounded-xl text-white"><UserPlus size={20} /></button></div><div className="grid gap-3">{admins.map(admin => (<div key={admin.id} className="bg-stone-900 p-4 rounded-3xl border border-stone-800 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-stone-800 rounded-2xl flex items-center justify-center text-stone-400 border border-stone-700"><KeyRound size={20} /></div><div><h3 className="text-sm font-black text-white">{admin.username}</h3><p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Gestor</p></div></div><button onClick={() => StorageService.deleteAdmin(admin.id)} className="p-2 text-rose-500"><Trash2 size={20} /></button></div>))}</div></div>
           )}
           {activeTab === 'settings' && isSuperAdmin && renderSettings()}
         </div>
 
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-2xl border-t border-white/10 flex items-center justify-around py-3 px-4 z-50 shadow-2xl">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-stone-950/95 backdrop-blur-2xl border-t border-white/10 flex items-center justify-around py-3 px-4 z-50 shadow-2xl">
           {sidebarItems.map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-blue-500' : 'text-slate-500'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-amber-500' : 'text-stone-500'}`}>
               <item.icon size={20} className={activeTab === item.id ? 'drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]' : ''} />
               <span className="text-[7px] font-black uppercase tracking-tighter">{item.label}</span>
             </button>
@@ -1364,13 +1370,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
       {isToolModalOpen && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
-          <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative">
-            <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingTool ? 'Editar Equipo' : 'Nuevo Equipo'}</h3><p className="text-amber-500 text-[10px] font-bold uppercase">Gestión Inventario</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-slate-500 p-2"><X size={20}/></button></div>
+          <div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative">
+            <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingTool ? 'Editar Equipo' : 'Nuevo Equipo'}</h3><p className="text-amber-500 text-[10px] font-bold uppercase">Gestión Inventario</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-stone-500 p-2"><X size={20}/></button></div>
             <div className="space-y-4">
-              <input type="text" placeholder="Nombre de Herramienta" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.toolName} onChange={(e)=>setToolForm({...toolForm, toolName: e.target.value})}/>
-              <input type="text" placeholder="Marca" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.brand} onChange={(e)=>setToolForm({...toolForm, brand: e.target.value})}/>
-              <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.workerId} onChange={(e)=>setToolForm({...toolForm, workerId: e.target.value})}><option value="">Responsable...</option>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
-              <select className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.siteId} onChange={(e)=>setToolForm({...toolForm, siteId: e.target.value})}><option value="">Obra (Opcional)...</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
+              <input type="text" placeholder="Nombre de Herramienta" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.toolName} onChange={(e)=>setToolForm({...toolForm, toolName: e.target.value})}/>
+              <input type="text" placeholder="Marca" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.brand} onChange={(e)=>setToolForm({...toolForm, brand: e.target.value})}/>
+              <select className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.workerId} onChange={(e)=>setToolForm({...toolForm, workerId: e.target.value})}><option value="">Responsable...</option>{workers.map(w=><option key={w.id} value={w.id}>{w.name}</option>)}</select>
+              <select className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.siteId} onChange={(e)=>setToolForm({...toolForm, siteId: e.target.value})}><option value="">Obra (Opcional)...</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
               {toolModalError && <p className="text-rose-500 text-[10px] font-bold text-center uppercase">{toolModalError}</p>}
               <button onClick={handleSaveTool} className="w-full bg-amber-600 text-white py-4 rounded-xl font-black uppercase text-xs shadow-lg active:scale-95 transition">Guardar Equipo</button>
             </div>
@@ -1378,17 +1384,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         </div>
       )}
 
-      {isSiteModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingSite ? 'Editar Obra' : 'Nueva Obra'}</h3><p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Ubicación</p></div><button onClick={() => setIsSiteModalOpen(false)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input type="text" placeholder="Obra" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white" value={siteForm.name} onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}/><textarea placeholder="Dirección" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm text-white h-20 resize-none" value={siteForm.address} onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })}/><button onClick={handleSaveSite} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-xs mt-2">{editingSite ? 'Guardar' : 'Crear'}</button></div></div></div>)}
+      {isSiteModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingSite ? 'Editar Obra' : 'Nueva Obra'}</h3><p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Ubicación</p></div><button onClick={() => setIsSiteModalOpen(false)} className="text-stone-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input type="text" placeholder="Obra" className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 text-sm text-white" value={siteForm.name} onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}/><textarea placeholder="Dirección" className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 text-sm text-white h-20 resize-none" value={siteForm.address} onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })}/><button onClick={handleSaveSite} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-xs mt-2">{editingSite ? 'Guardar' : 'Crear'}</button></div></div></div>)}
 
       {reportModal.isOpen && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
-          <div className="bg-slate-900 w-full max-w-sm rounded-[2.5rem] border border-slate-800 p-8 shadow-2xl relative">
+          <div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative">
              <h3 className="text-lg font-black text-white uppercase mb-6 leading-none tracking-tighter">Generar Informe PDF</h3>
              <div className="space-y-4">
-                <div className="flex gap-2"><button onClick={()=>setReportModal({...reportModal, type:'WEEK'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition ${reportModal.type==='WEEK'?'bg-blue-600 text-white shadow-lg':'bg-slate-950 text-slate-500'}`}>Semanal</button><button onClick={()=>setReportModal({...reportModal, type:'MONTH'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition ${reportModal.type==='MONTH'?'bg-blue-600 text-white shadow-lg':'bg-slate-950 text-slate-500'}`}>Mensual</button></div>
-                {reportModal.type==='WEEK'?(<input type="date" value={reportModal.selectedDate} onChange={(e)=>setReportModal({...reportModal, selectedDate: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white [color-scheme:dark]"/>):(<select value={reportModal.selectedMonth} onChange={(e)=>setReportModal({...reportModal, selectedMonth: parseInt(e.target.value)})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white appearance-none">{MONTH_NAMES.map((m,i)=>(<option key={m} value={i}>{m}</option>))}</select>)}
+                <div className="flex gap-2"><button onClick={()=>setReportModal({...reportModal, type:'WEEK'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition ${reportModal.type==='WEEK'?'bg-amber-500 text-white shadow-lg':'bg-stone-950 text-stone-500'}`}>Semanal</button><button onClick={()=>setReportModal({...reportModal, type:'MONTH'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition ${reportModal.type==='MONTH'?'bg-amber-500 text-white shadow-lg':'bg-stone-950 text-stone-500'}`}>Mensual</button></div>
+                {reportModal.type==='WEEK'?(<input type="date" value={reportModal.selectedDate} onChange={(e)=>setReportModal({...reportModal, selectedDate: e.target.value})} className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white [color-scheme:dark]"/>):(<select value={reportModal.selectedMonth} onChange={(e)=>setReportModal({...reportModal, selectedMonth: parseInt(e.target.value)})} className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white appearance-none">{MONTH_NAMES.map((m,i)=>(<option key={m} value={i}>{m}</option>))}</select>)}
                 <button onClick={handleGenerateWorkerReport} className="w-full bg-emerald-600 text-white py-4 rounded-xl font-black uppercase text-xs flex items-center justify-center gap-2 active:scale-95 shadow-xl transition"><Download size={18}/> Descargar Informe</button>
-                <button onClick={()=>setReportModal({...reportModal, isOpen: false})} className="w-full text-slate-500 text-[10px] font-black uppercase mt-2">Cancelar</button>
+                <button onClick={()=>setReportModal({...reportModal, isOpen: false})} className="w-full text-stone-500 text-[10px] font-black uppercase mt-2">Cancelar</button>
              </div>
           </div>
         </div>
@@ -1418,16 +1424,16 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
       {viewingReport && (
         <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fadeIn" data-testid="view-report-modal">
-          <div className="bg-slate-900 w-full max-w-2xl rounded-[2rem] border border-slate-800 shadow-2xl relative overflow-hidden max-h-[95vh] flex flex-col">
-            <div className="flex justify-between items-center p-5 border-b border-slate-800 shrink-0">
+          <div className="bg-stone-900 w-full max-w-2xl rounded-[2rem] border border-stone-800 shadow-2xl relative overflow-hidden max-h-[95vh] flex flex-col">
+            <div className="flex justify-between items-center p-5 border-b border-stone-800 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 bg-indigo-600/10 rounded-xl text-indigo-400 shrink-0"><FileText size={20} /></div>
+                <div className="p-2 bg-amber-600/10 rounded-xl text-amber-400 shrink-0"><FileText size={20} /></div>
                 <div className="min-w-0">
                   <h3 className="text-base font-black text-white uppercase tracking-tighter truncate">{viewingReport.workerName}</h3>
-                  <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">{viewingReport.weekStart} → {viewingReport.weekEnd}</p>
+                  <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest">{viewingReport.weekStart} → {viewingReport.weekEnd}</p>
                 </div>
               </div>
-              <button onClick={() => setViewingReport(null)} className="text-slate-500 hover:text-white p-2"><X size={20} /></button>
+              <button onClick={() => setViewingReport(null)} className="text-stone-500 hover:text-white p-2"><X size={20} /></button>
             </div>
             <div className="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-5">
               <div className="flex gap-2">
@@ -1440,47 +1446,47 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                 </button>
               </div>
               {viewingReport.photoBase64 && (
-                <div className="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+                <div className="rounded-2xl overflow-hidden border border-stone-800 bg-stone-950">
                   <img src={viewingReport.photoBase64} alt="Parte" className="w-full max-h-[60vh] object-contain" />
                 </div>
               )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
-                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Total Horas</p>
+                <div className="bg-stone-950 border border-stone-800 rounded-2xl p-3">
+                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Total Horas</p>
                   <p className="text-lg font-mono font-black text-white mt-1">{viewingReport.totalHours.toFixed(1)}</p>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
-                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Obra</p>
+                <div className="bg-stone-950 border border-stone-800 rounded-2xl p-3">
+                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Obra</p>
                   <p className="text-xs font-black text-white mt-1 truncate uppercase">{viewingReport.siteName || '—'}</p>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
-                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Enviado</p>
+                <div className="bg-stone-950 border border-stone-800 rounded-2xl p-3">
+                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Enviado</p>
                   <p className="text-[11px] font-black text-white mt-1">{viewingReport.dateStr}</p>
-                  <p className="text-[9px] text-slate-500 font-bold">{viewingReport.timeStr}</p>
+                  <p className="text-[9px] text-stone-500 font-bold">{viewingReport.timeStr}</p>
                 </div>
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-3">
-                  <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Estado</p>
+                <div className="bg-stone-950 border border-stone-800 rounded-2xl p-3">
+                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Estado</p>
                   <p className="text-[11px] font-black mt-1 flex items-center gap-1 text-emerald-400"><CheckCircle2 size={12} /> {viewingReport.status}</p>
                 </div>
               </div>
               {viewingReport.tasks && (
                 <div>
-                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-2">Tareas Realizadas</p>
-                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">{viewingReport.tasks}</div>
+                  <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest mb-2">Tareas Realizadas</p>
+                  <div className="bg-stone-950 border border-stone-800 rounded-2xl p-4 text-xs text-stone-200 whitespace-pre-wrap leading-relaxed">{viewingReport.tasks}</div>
                 </div>
               )}
               {viewingReport.notes && (
                 <div>
-                  <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mb-2">Notas</p>
-                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">{viewingReport.notes}</div>
+                  <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest mb-2">Notas</p>
+                  <div className="bg-stone-950 border border-stone-800 rounded-2xl p-4 text-xs text-stone-200 whitespace-pre-wrap leading-relaxed">{viewingReport.notes}</div>
                 </div>
               )}
               {viewingReport.extracted && (viewingReport.extracted.rawText || viewingReport.extracted.daysWorked != null) && (
                 <div>
-                  <p className="text-[9px] text-indigo-400 font-black uppercase tracking-widest mb-2 flex items-center gap-1"><Sparkles size={10} /> Datos extraídos por IA</p>
-                  <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-4 space-y-2 text-[11px] text-slate-300">
-                    {viewingReport.extracted.daysWorked != null && (<p><span className="font-black text-indigo-400">Días trabajados:</span> {viewingReport.extracted.daysWorked}</p>)}
-                    {viewingReport.extracted.rawText && (<p className="leading-relaxed"><span className="font-black text-indigo-400">Texto detectado:</span> {viewingReport.extracted.rawText}</p>)}
+                  <p className="text-[9px] text-amber-400 font-black uppercase tracking-widest mb-2 flex items-center gap-1"><Sparkles size={10} /> Datos extraídos por IA</p>
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 space-y-2 text-[11px] text-stone-300">
+                    {viewingReport.extracted.daysWorked != null && (<p><span className="font-black text-amber-400">Días trabajados:</span> {viewingReport.extracted.daysWorked}</p>)}
+                    {viewingReport.extracted.rawText && (<p className="leading-relaxed"><span className="font-black text-amber-400">Texto detectado:</span> {viewingReport.extracted.rawText}</p>)}
                   </div>
                 </div>
               )}
