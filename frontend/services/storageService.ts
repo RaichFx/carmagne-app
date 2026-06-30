@@ -84,6 +84,15 @@ const saveLocal = <T>(key: string, data: T): void => {
   } catch (e) { console.error("Error saving to local", e); }
 };
 
+const normalizeSpanishPhone = (phone?: string): string => {
+  if (!phone) return '';
+  let cleaned = phone.trim().replace(/\s/g, '');
+  if (cleaned.startsWith('0034')) cleaned = '+34' + cleaned.slice(4);
+  if (cleaned.length === 9 && /^[6789]/.test(cleaned)) cleaned = '+34' + cleaned;
+  if (cleaned.startsWith('34') && cleaned.length === 11) cleaned = '+' + cleaned;
+  return cleaned;
+};
+
 export const StorageService = {
   getTools: (): ToolRecord[] => loadLocal(KEYS.TOOLS, []),
   addTool: async (tool: ToolRecord) => {
@@ -107,7 +116,21 @@ export const StorageService = {
   },
 
   getWorkers: (): Worker[] => loadLocal(KEYS.WORKERS, INITIAL_WORKERS),
-  registerNewWorker: async (worker: Worker) => {
+    findWorkerByPhone: async (phone: string): Promise<Worker | undefined> => {
+    const targetPhone = normalizeSpanishPhone(phone);
+    const localWorkers = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
+    const localMatch = localWorkers.find(w => normalizeSpanishPhone(w.phone) === targetPhone);
+    if (localMatch) return localMatch;
+    try {
+      const snapshot = await getDocs(collection(db, "workers"));
+      const remoteWorkers = snapshot.docs.map(doc => doc.data() as Worker);
+      if (remoteWorkers.length > 0) saveLocal(KEYS.WORKERS, remoteWorkers);
+      return remoteWorkers.find(w => normalizeSpanishPhone(w.phone) === targetPhone);
+    } catch (e) {
+      return undefined;
+    }
+  },
+registerNewWorker: async (worker: Worker) => {
     const current = loadLocal<Worker[]>(KEYS.WORKERS, INITIAL_WORKERS);
     saveLocal(KEYS.WORKERS, [...current, worker]);
     try { await setDoc(doc(db, "workers", worker.id), safeClone(worker)); } catch (e) { }
