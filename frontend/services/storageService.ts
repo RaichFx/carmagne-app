@@ -124,7 +124,10 @@ export const StorageService = {
   subscribeToWorkers: (callback: (workers: Worker[]) => void) => {
     callback(loadLocal(KEYS.WORKERS, INITIAL_WORKERS));
     return onSnapshot(collection(db, "workers"), (snapshot) => {
-      const workers = snapshot.docs.map(doc => doc.data() as Worker);
+      const workers = snapshot.empty ? INITIAL_WORKERS : snapshot.docs.map(doc => doc.data() as Worker);
+      if (snapshot.empty) {
+        Promise.all(INITIAL_WORKERS.map(w => setDoc(doc(db, "workers", w.id), safeClone(w)))).catch(() => {});
+      }
       saveLocal(KEYS.WORKERS, workers);
       callback(workers);
     });
@@ -148,7 +151,10 @@ export const StorageService = {
   subscribeToSites: (callback: (sites: Site[]) => void) => {
     callback(loadLocal(KEYS.SITES, INITIAL_SITES));
     return onSnapshot(collection(db, "sites"), (snapshot) => {
-      const sites = snapshot.docs.map(doc => doc.data() as Site);
+      const sites = snapshot.empty ? INITIAL_SITES : snapshot.docs.map(doc => doc.data() as Site);
+      if (snapshot.empty) {
+        Promise.all(INITIAL_SITES.map(s => setDoc(doc(db, "sites", s.id), safeClone(s)))).catch(() => {});
+      }
       saveLocal(KEYS.SITES, sites);
       callback(sites);
     });
