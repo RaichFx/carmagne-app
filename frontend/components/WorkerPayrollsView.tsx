@@ -44,7 +44,7 @@ export const WorkerPayrollsView: React.FC<WorkerPayrollsViewProps> = ({ worker, 
           </button>
           <div className="min-w-0">
             <h2 className="font-serif-display text-3xl text-white leading-none">Mis Nóminas</h2>
-            <p className="text-[9px] text-amber-500/80 font-mono font-bold uppercase tracking-widest mt-1">
+            <p className="text-[9px] text-amber-500/80 font-mono font-medium uppercase tracking-[0.18em] mt-1">
               {myPayrolls.length} disponible{myPayrolls.length === 1 ? '' : 's'}
             </p>
           </div>

@@ -242,8 +242,8 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
               <FileText size={20} />
             </div>
             <div>
-              <h3 className="text-base font-black text-white uppercase tracking-tighter leading-none">Parte Semanal</h3>
-              <p className="text-[9px] text-stone-500 font-bold uppercase tracking-widest mt-1">
+              <h3 className="text-base font-semibold text-white tracking-tight leading-none">Parte Semanal</h3>
+              <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em] mt-1">
                 {phase === 'CAPTURE' && 'Subir / Hacer Foto'}
                 {phase === 'PREVIEW' && 'Vista Previa'}
                 {phase === 'EXTRACTING' && 'Analizando con IA...'}
@@ -311,7 +311,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
               <div className="relative rounded-2xl overflow-hidden bg-black border border-amber-500/40">
                 <video ref={videoRef} autoPlay playsInline className="w-full h-72 object-cover" />
                 <canvas ref={canvasRef} className="hidden" />
-                <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 rounded-full text-[9px] font-black text-white uppercase tracking-widest">EN VIVO</div>
+                <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 rounded-full text-[9px] font-semibold text-white uppercase tracking-widest">EN VIVO</div>
               </div>
               <div className="flex gap-3">
                 <button data-testid="cancel-camera-btn" onClick={stopCamera} className="flex-1 bg-stone-800 text-stone-300 py-3 rounded-2xl font-black uppercase text-xs tracking-widest">Cancelar</button>
@@ -329,7 +329,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                 <img src={imageBase64} alt="Parte semanal" className="w-full max-h-80 object-contain" />
                 {fileName && (
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                    <p className="text-[10px] text-white font-bold uppercase tracking-widest truncate flex items-center gap-2">
+                    <p className="text-[10px] text-white font-medium uppercase tracking-[0.18em] truncate flex items-center gap-2">
                       <ImageIcon size={12} /> {fileName}
                     </p>
                   </div>
@@ -369,8 +369,8 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                 <Sparkles size={20} className="absolute inset-0 m-auto text-amber-400" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-black text-white uppercase tracking-widest">Analizando imagen</p>
-                <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest mt-1">Esto puede tardar unos segundos</p>
+                <p className="text-sm font-semibold text-white uppercase tracking-widest">Analizando imagen</p>
+                <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em] mt-1">Esto puede tardar unos segundos</p>
               </div>
             </div>
           )}
@@ -382,7 +382,7 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                 <div className="flex items-center gap-3 p-3 bg-stone-950 border border-stone-800 rounded-2xl">
                   <img src={imageBase64} alt="thumb" className="w-14 h-14 object-cover rounded-lg" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-stone-500 font-black uppercase tracking-widest">Adjunto</p>
+                    <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">Adjunto</p>
                     <p className="text-xs text-white font-bold truncate">{fileName || 'Imagen'}</p>
                   </div>
                   {extracted.totalHours != null && (
@@ -514,8 +514,8 @@ export const WeeklyReportModal: React.FC<WeeklyReportModalProps> = ({ worker, on
                 <CheckCircle2 size={40} className="text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-black text-white uppercase tracking-tighter">¡Parte enviado!</h3>
-                <p className="text-stone-500 text-xs font-bold uppercase tracking-widest mt-2">Tu parte semanal ha sido guardado correctamente</p>
+                <h3 className="text-xl font-semibold text-white tracking-tight">¡Parte enviado!</h3>
+                <p className="text-stone-500 text-xs font-medium uppercase tracking-[0.18em] mt-2">Tu parte semanal ha sido guardado correctamente</p>
               </div>
               <button
                 data-testid="weekly-success-close-btn"

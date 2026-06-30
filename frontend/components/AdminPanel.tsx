@@ -589,11 +589,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     <div className="space-y-4 animate-fadeIn pb-32" data-testid="admin-comparison-tab">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-white uppercase flex items-center gap-2">
             Comparativa Mensual
             <BarChart3 className="text-amber-400" size={18} />
           </h2>
-          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Totales por trabajador</p>
+          <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">Totales por trabajador</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <select
@@ -623,34 +623,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
-          <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Total Partes</p>
-          <p className="text-2xl font-mono font-black text-white mt-1" data-testid="comparison-total-reports">{monthlyComparison.totals.reportCount}</p>
+          <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em]">Total Partes</p>
+          <p className="text-2xl font-mono font-semibold text-white mt-1" data-testid="comparison-total-reports">{monthlyComparison.totals.reportCount}</p>
         </div>
         <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
-          <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Horas Reporte</p>
+          <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em]">Horas Reporte</p>
           <p className="text-2xl font-mono font-black text-amber-400 mt-1">{monthlyComparison.totals.reportHours.toFixed(1)}<span className="text-sm text-stone-600 ml-1">h</span></p>
         </div>
         <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
-          <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Horas Fichaje</p>
+          <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em]">Horas Fichaje</p>
           <p className="text-2xl font-mono font-black text-sky-400 mt-1">{formatMsToTime(monthlyComparison.totals.fichajeHoursMs)}</p>
         </div>
         <div className="bg-stone-900 p-4 rounded-2xl border border-stone-800">
-          <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Trabajadores Activos</p>
+          <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em]">Trabajadores Activos</p>
           <p className="text-2xl font-mono font-black text-emerald-400 mt-1">{monthlyComparison.totals.activeWorkers}<span className="text-sm text-stone-600 ml-1">/ {workers.length}</span></p>
         </div>
       </div>
 
       <div className="bg-stone-900 rounded-3xl border border-stone-800 overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-stone-800">
-          <h3 className="text-sm font-black text-white uppercase tracking-tighter">Detalle por trabajador</h3>
+          <h3 className="text-sm font-semibold text-white tracking-tight">Detalle por trabajador</h3>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-stone-500 font-black uppercase tracking-widest">Ordenar:</span>
+            <span className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em]">Ordenar:</span>
             {(['hours', 'reports', 'name'] as const).map(s => (
               <button
                 key={s}
                 data-testid={`comparison-sort-${s}`}
                 onClick={() => setComparisonSortBy(s)}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${comparisonSortBy === s ? 'bg-amber-600 text-white' : 'bg-stone-950 text-stone-500 border border-stone-800 hover:border-stone-700'}`}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-medium uppercase tracking-[0.18em] transition ${comparisonSortBy === s ? 'bg-amber-600 text-white' : 'bg-stone-950 text-stone-500 border border-stone-800 hover:border-stone-700'}`}
               >
                 {s === 'hours' ? 'Horas' : s === 'reports' ? 'Partes' : 'Nombre'}
               </button>
@@ -659,7 +659,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         </div>
         <div className="divide-y divide-stone-800">
           {monthlyComparison.stats.length === 0 && (
-            <div className="text-center py-12 text-stone-500 text-xs font-bold uppercase tracking-widest">No hay trabajadores</div>
+            <div className="text-center py-12 text-stone-500 text-xs font-medium uppercase tracking-[0.18em]">No hay trabajadores</div>
           )}
           {monthlyComparison.stats.map((s, idx) => {
             const pct = (s.reportHours / monthlyComparison.maxHours) * 100;
@@ -671,18 +671,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <p className="text-sm font-black text-white uppercase truncate">{s.worker.name}</p>
+                    <p className="text-sm font-semibold text-white uppercase truncate">{s.worker.name}</p>
                     <div className="flex items-center gap-3 shrink-0 text-right">
                       <div>
-                        <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Partes</p>
-                        <p className="text-sm font-mono font-black text-white">{s.reportCount}</p>
+                        <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Partes</p>
+                        <p className="text-sm font-mono font-semibold text-white">{s.reportCount}</p>
                       </div>
                       <div>
-                        <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Horas</p>
+                        <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Horas</p>
                         <p className="text-sm font-mono font-black text-amber-400">{s.reportHours.toFixed(1)}h</p>
                       </div>
                       <div>
-                        <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Fichaje</p>
+                        <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Fichaje</p>
                         <p className="text-sm font-mono font-black text-sky-400">{formatMsToTime(s.fichajeHoursMs)}</p>
                       </div>
                     </div>
@@ -694,7 +694,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                     />
                   </div>
                   {s.sites.length > 0 && (
-                    <p className="text-[9px] text-stone-500 font-bold uppercase tracking-widest mt-1.5 truncate">
+                    <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em] mt-1.5 truncate">
                       <span className="text-amber-400">Obras:</span> {s.sites.join(' • ')}
                     </p>
                   )}
@@ -711,13 +711,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     <div className="space-y-4 animate-fadeIn pb-32" data-testid="admin-weekly-reports-tab">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-white uppercase flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-white uppercase flex items-center gap-2">
             Partes Semanales
             <span className="px-2 py-0.5 bg-amber-500/20 border border-amber-400/30 rounded-md text-[9px] font-black text-amber-300 uppercase tracking-widest flex items-center gap-1">
               <Sparkles size={9} /> IA
             </span>
           </h2>
-          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Partes enviados por los trabajadores</p>
+          <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">Partes enviados por los trabajadores</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -743,10 +743,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       <div className="bg-stone-900 p-5 rounded-3xl border border-stone-800">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-black text-white uppercase tracking-tighter">Esta Semana</h3>
-            <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">{currentWeekRange.start} → {currentWeekRange.end}</p>
+            <h3 className="text-sm font-semibold text-white tracking-tight">Esta Semana</h3>
+            <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">{currentWeekRange.start} → {currentWeekRange.end}</p>
           </div>
-          <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest">
+          <div className="flex items-center gap-3 text-[10px] font-medium uppercase tracking-[0.18em]">
             <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 size={12} /> Enviado</span>
             <span className="flex items-center gap-1 text-stone-500"><AlertCircle size={12} /> Pendiente</span>
           </div>
@@ -760,10 +760,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               className={`p-3 rounded-2xl border text-left transition-all active:scale-95 ${w.currentWeekSubmitted ? 'bg-emerald-500/10 border-emerald-500/30 hover:border-emerald-500/60' : 'bg-stone-950 border-stone-800 hover:border-stone-700'}`}
             >
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[11px] font-black text-white uppercase truncate">{w.name}</p>
+                <p className="text-[11px] font-semibold text-white uppercase truncate">{w.name}</p>
                 {w.currentWeekSubmitted ? <CheckCircle2 size={14} className="text-emerald-400 shrink-0" /> : <AlertCircle size={14} className="text-stone-500 shrink-0" />}
               </div>
-              <p className={`text-[8px] font-black uppercase tracking-widest ${w.currentWeekSubmitted ? 'text-emerald-400' : 'text-stone-500'}`}>
+              <p className={`text-[8px] font-medium uppercase tracking-[0.18em] ${w.currentWeekSubmitted ? 'text-emerald-400' : 'text-stone-500'}`}>
                 {w.currentWeekSubmitted ? 'Parte Enviado' : 'Sin Parte'}
               </p>
             </button>
@@ -808,7 +808,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         {filteredWeeklyReports.length === 0 ? (
           <div className="col-span-full text-center py-16 bg-stone-900/30 rounded-[3rem] border border-dashed border-stone-800">
             <FileText size={32} className="text-stone-700 mx-auto mb-3" />
-            <p className="text-stone-500 text-xs font-bold uppercase tracking-widest">No hay partes que coincidan con los filtros</p>
+            <p className="text-stone-500 text-xs font-medium uppercase tracking-[0.18em]">No hay partes que coincidan con los filtros</p>
           </div>
         ) : filteredWeeklyReports.map(report => (
           <div key={report.id} data-testid={`weekly-report-card-${report.id}`} className="bg-stone-900 rounded-3xl border border-stone-800 overflow-hidden flex flex-col hover:border-amber-500/40 transition group">
@@ -818,11 +818,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-stone-700"><FileImage size={32} /></div>
               )}
-              <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-full text-[9px] font-black text-white uppercase tracking-widest flex items-center gap-1">
+              <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-full text-[9px] font-semibold text-white uppercase tracking-widest flex items-center gap-1">
                 <Calendar size={9} /> {report.weekStart} → {report.weekEnd}
               </div>
               {report.extracted?.totalHours != null && (
-                <div className="absolute top-2 right-2 px-2 py-1 bg-amber-500/80 backdrop-blur-md rounded-full text-[9px] font-black text-white uppercase tracking-widest flex items-center gap-1">
+                <div className="absolute top-2 right-2 px-2 py-1 bg-amber-500/80 backdrop-blur-md rounded-full text-[9px] font-semibold text-white uppercase tracking-widest flex items-center gap-1">
                   <Sparkles size={9} /> IA
                 </div>
               )}
@@ -830,19 +830,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
             <div className="p-4 flex flex-col gap-2 flex-1">
               <div className="flex justify-between items-start">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-black text-white uppercase truncate">{report.workerName}</p>
+                  <p className="text-sm font-semibold text-white uppercase truncate">{report.workerName}</p>
                   <p className="text-[10px] text-amber-400 font-bold uppercase truncate">{report.siteName || '—'}</p>
                 </div>
                 <div className="text-right shrink-0 ml-2">
-                  <p className="text-base font-mono font-black text-white">{report.totalHours.toFixed(1)}h</p>
-                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">horas</p>
+                  <p className="text-base font-mono font-semibold text-white">{report.totalHours.toFixed(1)}h</p>
+                  <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">horas</p>
                 </div>
               </div>
               {report.tasks && (
                 <p className="text-[10px] text-stone-400 line-clamp-2 leading-relaxed">{report.tasks}</p>
               )}
               <div className="flex items-center justify-between gap-2 pt-2 mt-auto border-t border-stone-800">
-                <span className="text-[8px] text-stone-600 font-black uppercase tracking-widest">{report.dateStr} • {report.timeStr}</span>
+                <span className="text-[8px] text-stone-600 font-medium uppercase tracking-[0.18em]">{report.dateStr} • {report.timeStr}</span>
                 <div className="flex gap-1">
                   <button data-testid={`view-report-${report.id}`} onClick={() => setViewingReport(report)} className="p-1.5 text-amber-400 hover:text-amber-300 transition" title="Ver detalle"><Eye size={14} /></button>
                   <button data-testid={`download-report-${report.id}`} onClick={() => handleExportSingleReportPDF(report)} className="p-1.5 text-emerald-400 hover:text-emerald-300 transition" title="Descargar PDF"><Download size={14} /></button>
@@ -898,9 +898,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
 
   const renderDashboard = () => (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 animate-fadeIn">
-      <div className="bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><Users className="text-amber-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{workers.length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Personal</p></div>
-      <div className="bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><MapPin className="text-emerald-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{sites.length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Obras</p></div>
-      <div className="col-span-2 md:col-span-1 bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><Zap className="text-amber-500 mb-2" size={32} /><h4 className="text-2xl font-black text-white">{logs.filter(l => l.dateStr === new Date().toLocaleDateString('es-ES')).length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Fichajes Hoy</p></div>
+      <div className="bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><Users className="text-amber-500 mb-2" size={32} /><h4 className="text-2xl font-semibold text-white">{workers.length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Personal</p></div>
+      <div className="bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><MapPin className="text-emerald-500 mb-2" size={32} /><h4 className="text-2xl font-semibold text-white">{sites.length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Obras</p></div>
+      <div className="col-span-2 md:col-span-1 bg-stone-900 p-6 rounded-[2rem] border border-stone-800 shadow-xl"><Zap className="text-amber-500 mb-2" size={32} /><h4 className="text-2xl font-semibold text-white">{logs.filter(l => l.dateStr === new Date().toLocaleDateString('es-ES')).length}</h4><p className="text-[10px] text-stone-500 font-bold uppercase">Fichajes Hoy</p></div>
     </div>
   );
 
@@ -908,8 +908,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     <div className="space-y-4 animate-fadeIn pb-32">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-white uppercase">Reporte de Horas</h2>
-          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Cálculo de tiempos por jornada</p>
+          <h2 className="text-xl font-semibold text-white uppercase">Reporte de Horas</h2>
+          <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">Cálculo de tiempos por jornada</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative">
@@ -929,23 +929,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                   <Users size={18} />
                 </div>
                 <div>
-                  <p className="font-black text-white text-sm uppercase leading-tight">{stat.workerName}</p>
-                  <p className="text-[9px] text-stone-500 font-bold uppercase tracking-widest">{stat.dateStr}</p>
+                  <p className="font-semibold text-white text-sm uppercase leading-tight">{stat.workerName}</p>
+                  <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em]">{stat.dateStr}</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-3 gap-2 sm:gap-6">
                 <div className="flex flex-col">
                   <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Trabajo</span>
-                  <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.workMs)}</span>
+                  <span className="text-xs font-mono font-semibold text-white">{formatMsToTime(stat.workMs)}</span>
                 </div>
                 <div className="flex flex-col border-x border-stone-800 px-2 sm:px-6">
                   <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Descanso</span>
-                  <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.breakMs)}</span>
+                  <span className="text-xs font-mono font-semibold text-white">{formatMsToTime(stat.breakMs)}</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">Total</span>
-                  <span className="text-xs font-mono font-black text-white">{formatMsToTime(stat.totalMs)}</span>
+                  <span className="text-xs font-mono font-semibold text-white">{formatMsToTime(stat.totalMs)}</span>
                 </div>
               </div>
 
@@ -959,7 +959,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           ))
         ) : (
           <div className="text-center py-20 bg-stone-900/30 rounded-[3rem] border border-dashed border-stone-800">
-            <p className="text-stone-500 text-xs font-bold uppercase tracking-widest">No hay registros para este día</p>
+            <p className="text-stone-500 text-xs font-medium uppercase tracking-[0.18em]">No hay registros para este día</p>
           </div>
         )}
       </div>
@@ -970,12 +970,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     <div className="space-y-4 animate-fadeIn pb-32">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-white uppercase">Registros de Actividad</h2>
-          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Historial completo con verificación GPS</p>
+          <h2 className="text-xl font-semibold text-white uppercase">Registros de Actividad</h2>
+          <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">Historial completo con verificación GPS</p>
         </div>
         <div className="flex gap-2">
           {isSuperAdmin && (
-            <button onClick={() => setIsClearLogsConfirmOpen(true)} className="bg-rose-600/10 border border-rose-500/30 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-rose-600 hover:text-white transition-all">
+            <button onClick={() => setIsClearLogsConfirmOpen(true)} className="bg-rose-600/10 border border-rose-500/30 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-medium uppercase tracking-[0.18em] flex items-center gap-2 hover:bg-rose-600 hover:text-white transition-all">
               <RotateCcw size={14} /> Vaciar Historial
             </button>
           )}
@@ -1040,7 +1040,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                 <td className="p-4">
                   <div className="flex items-center gap-2">
                     <LogIcon type={log.type} size={14} />
-                    <span className="font-black uppercase tracking-tighter">{log.type}</span>
+                    <span className="font-black tracking-tight">{log.type}</span>
                   </div>
                 </td>
                 <td className="p-4">
@@ -1093,8 +1093,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     <div className="space-y-4 animate-fadeIn pb-32">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-black text-white uppercase">Inventario de Equipos</h2>
-          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Gestión de herramientas por operario</p>
+          <h2 className="text-xl font-semibold text-white uppercase">Inventario de Equipos</h2>
+          <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">Gestión de herramientas por operario</p>
         </div>
         <button onClick={() => handleOpenToolModal()} className="bg-amber-600 p-3 rounded-xl text-white self-end md:self-auto">
           <Plus size={20} />
@@ -1131,15 +1131,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               </div>
               
               <div className="space-y-1 mb-4">
-                <h3 className="font-black text-white text-base uppercase leading-tight truncate">{tool.toolName}</h3>
-                <p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">{tool.brand} {tool.model}</p>
+                <h3 className="font-semibold text-white text-base uppercase leading-tight truncate">{tool.toolName}</h3>
+                <p className="text-[10px] text-amber-500 font-medium uppercase tracking-[0.18em]">{tool.brand} {tool.model}</p>
               </div>
 
               <div className="space-y-3 pt-4 border-t border-stone-800">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-stone-800 flex items-center justify-center text-stone-400"><Users size={14} /></div>
                   <div>
-                    <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Operario</p>
+                    <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Operario</p>
                     <p className="text-[11px] font-bold text-white uppercase">{tool.workerName}</p>
                   </div>
                 </div>
@@ -1147,7 +1147,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-stone-800 flex items-center justify-center text-stone-400"><MapPin size={14} /></div>
                     <div>
-                      <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Obra</p>
+                      <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Obra</p>
                       <p className="text-[11px] font-bold text-white uppercase truncate max-w-[150px]">{tool.siteName}</p>
                     </div>
                   </div>
@@ -1157,7 +1157,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           ))
         ) : (
           <div className="col-span-full text-center py-20 bg-stone-900/30 rounded-[3rem] border border-dashed border-stone-800">
-            <p className="text-stone-500 text-xs font-bold uppercase tracking-widest">No hay herramientas registradas</p>
+            <p className="text-stone-500 text-xs font-medium uppercase tracking-[0.18em]">No hay herramientas registradas</p>
           </div>
         )}
       </div>
@@ -1168,8 +1168,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
     <div className="max-w-2xl space-y-6 animate-fadeIn pb-32">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-black text-white uppercase tracking-tighter">Configuración General</h2>
-          <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Personalización de CARMAGNE INSTAL SL</p>
+          <h2 className="text-xl font-semibold text-white tracking-tight">Configuración General</h2>
+          <p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">Personalización de CARMAGNE INSTAL SL</p>
         </div>
       </div>
 
@@ -1177,7 +1177,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <ImageIcon className="text-amber-500" size={24} />
-            <h3 className="text-sm font-black text-white uppercase tracking-widest">Identidad Visual (Logo)</h3>
+            <h3 className="text-sm font-semibold text-white uppercase tracking-widest">Identidad Visual (Logo)</h3>
           </div>
           
           <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-stone-950/50 rounded-3xl border border-stone-800">
@@ -1210,7 +1210,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <Smartphone className="text-emerald-500" size={24} />
-            <h3 className="text-sm font-black text-white uppercase tracking-widest">Icono PWA / Favicon</h3>
+            <h3 className="text-sm font-semibold text-white uppercase tracking-widest">Icono PWA / Favicon</h3>
           </div>
           
           <div className="flex flex-col md:flex-row items-center gap-6 p-6 bg-stone-950/50 rounded-3xl border border-stone-800">
@@ -1243,7 +1243,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         <div className="space-y-4 pt-4 border-t border-stone-800">
           <div className="flex items-center gap-3">
             <Database className="text-amber-500" size={24} />
-            <h3 className="text-sm font-black text-white uppercase tracking-widest">Datos del Sistema</h3>
+            <h3 className="text-sm font-semibold text-white uppercase tracking-widest">Datos del Sistema</h3>
           </div>
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
@@ -1289,7 +1289,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         <div className="fixed top-8 left-1/2 -transtone-x-1/2 z-[200] animate-fadeIn">
           <div className="bg-emerald-600 text-white px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl border border-emerald-500/30">
             <Check size={18} strokeWidth={3} />
-            <span className="text-xs font-black uppercase tracking-widest">Configuración Guardada</span>
+            <span className="text-xs font-medium uppercase tracking-[0.18em]">Configuración Guardada</span>
           </div>
         </div>
       )}
@@ -1315,13 +1315,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         <header className="h-14 border-b border-stone-900 flex items-center justify-between px-6 bg-stone-950/50 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
             <button onClick={() => setIsLogoutConfirmOpen(true)} className="md:hidden p-2 bg-stone-900 rounded-xl text-stone-400"><ArrowLeft size={18}/></button>
-            <span className="text-xs font-black text-white uppercase tracking-widest leading-none">{activeTab}</span>
+            <span className="text-xs font-semibold text-white uppercase tracking-widest leading-none">{activeTab}</span>
           </div>
           <div className="flex items-center gap-3">
              <div className="flex items-center gap-4">
                 <div className="hidden sm:flex flex-col items-end">
                    <span className="text-[8px] font-black text-stone-500 uppercase tracking-widest leading-none">Conectado como</span>
-                   <span className="text-[10px] font-black text-sky-400 uppercase tracking-tighter">
+                   <span className="text-[10px] font-black text-sky-400 tracking-tight">
                      {isSuperAdmin ? 'Admin Principal' : `Hola, ${currentUser?.username}`}
                    </span>
                 </div>
@@ -1336,15 +1336,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           {activeTab === 'dashboard' && renderDashboard()}
           {activeTab === 'workers' && (
             <div className="space-y-4 animate-fadeIn pb-32">
-              <div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Personal</h2><button className="bg-amber-500 p-3 rounded-xl text-white"><UserPlus size={20}/></button></div>
-              <div className="grid gap-2">{filteredWorkers.map(w=>(<div key={w.id} className="bg-stone-900 p-4 rounded-2xl border border-stone-800 flex justify-between items-center"><div><p className="font-black text-white text-sm uppercase">{w.name}</p><p className="text-[9px] text-stone-500 font-bold uppercase tracking-widest">{w.dni || 'S/DNI'}</p></div><div className="flex gap-1"><button onClick={()=>setReportModal({...reportModal, isOpen:true, worker:w})} className="p-2 text-emerald-500"><FileText size={20}/></button><button onClick={()=>StorageService.deleteWorker(w.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
+              <div className="flex justify-between items-center"><h2 className="text-xl font-semibold text-white uppercase">Personal</h2><button className="bg-amber-500 p-3 rounded-xl text-white"><UserPlus size={20}/></button></div>
+              <div className="grid gap-2">{filteredWorkers.map(w=>(<div key={w.id} className="bg-stone-900 p-4 rounded-2xl border border-stone-800 flex justify-between items-center"><div><p className="font-semibold text-white text-sm uppercase">{w.name}</p><p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em]">{w.dni || 'S/DNI'}</p></div><div className="flex gap-1"><button onClick={()=>setReportModal({...reportModal, isOpen:true, worker:w})} className="p-2 text-emerald-500"><FileText size={20}/></button><button onClick={()=>StorageService.deleteWorker(w.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
             </div>
           )}
           {activeTab === 'hours' && renderHoursReport()}
           {activeTab === 'sites' && (
             <div className="space-y-4 animate-fadeIn pb-32">
-              <div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Obras</h2><button onClick={() => handleOpenSiteModal()} className="bg-emerald-600 p-3 rounded-xl text-white"><Plus size={20}/></button></div>
-              <div className="grid gap-3">{filteredSites.map(s=>(<div key={s.id} className="bg-stone-900 p-4 rounded-3xl border border-stone-800 flex justify-between items-center active:bg-stone-800"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><MapPin size={18}/></div><div className="max-w-[150px]"><p className="font-black text-white text-sm truncate uppercase leading-tight">{s.name}</p><p className="text-[9px] text-stone-500 font-bold uppercase truncate">{s.address}</p></div></div><div className="flex gap-1"><button onClick={()=>handleOpenSiteModal(s)} className="p-2 text-stone-400"><Pencil size={20}/></button><button onClick={()=>StorageService.deleteSite(s.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
+              <div className="flex justify-between items-center"><h2 className="text-xl font-semibold text-white uppercase">Obras</h2><button onClick={() => handleOpenSiteModal()} className="bg-emerald-600 p-3 rounded-xl text-white"><Plus size={20}/></button></div>
+              <div className="grid gap-3">{filteredSites.map(s=>(<div key={s.id} className="bg-stone-900 p-4 rounded-3xl border border-stone-800 flex justify-between items-center active:bg-stone-800"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center"><MapPin size={18}/></div><div className="max-w-[150px]"><p className="font-semibold text-white text-sm truncate uppercase leading-tight">{s.name}</p><p className="text-[9px] text-stone-500 font-bold uppercase truncate">{s.address}</p></div></div><div className="flex gap-1"><button onClick={()=>handleOpenSiteModal(s)} className="p-2 text-stone-400"><Pencil size={20}/></button><button onClick={()=>StorageService.deleteSite(s.id)} className="p-2 text-rose-500"><Trash2 size={20}/></button></div></div>))}</div>
             </div>
           )}
           {activeTab === 'logs' && renderLogs()}
@@ -1353,7 +1353,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           {activeTab === 'comparison' && renderComparison()}
           {activeTab === 'payrolls' && <PayrollAdminPanel workers={workers} payrolls={payrolls} isSuperAdmin={isSuperAdmin} adminUsername={currentUser?.username || 'admin'} />}
           {activeTab === 'admins' && isSuperAdmin && (
-             <div className="space-y-6 animate-fadeIn pb-32"><div className="flex justify-between items-center"><h2 className="text-xl font-black text-white uppercase">Cuentas Admin</h2><button onClick={() => setIsAdminModalOpen(true)} className="bg-amber-600 p-3 rounded-xl text-white"><UserPlus size={20} /></button></div><div className="grid gap-3">{admins.map(admin => (<div key={admin.id} className="bg-stone-900 p-4 rounded-3xl border border-stone-800 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-stone-800 rounded-2xl flex items-center justify-center text-stone-400 border border-stone-700"><KeyRound size={20} /></div><div><h3 className="text-sm font-black text-white">{admin.username}</h3><p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest">Gestor</p></div></div><button onClick={() => StorageService.deleteAdmin(admin.id)} className="p-2 text-rose-500"><Trash2 size={20} /></button></div>))}</div></div>
+             <div className="space-y-6 animate-fadeIn pb-32"><div className="flex justify-between items-center"><h2 className="text-xl font-semibold text-white uppercase">Cuentas Admin</h2><button onClick={() => setIsAdminModalOpen(true)} className="bg-amber-600 p-3 rounded-xl text-white"><UserPlus size={20} /></button></div><div className="grid gap-3">{admins.map(admin => (<div key={admin.id} className="bg-stone-900 p-4 rounded-3xl border border-stone-800 flex justify-between items-center"><div className="flex items-center gap-4"><div className="w-10 h-10 bg-stone-800 rounded-2xl flex items-center justify-center text-stone-400 border border-stone-700"><KeyRound size={20} /></div><div><h3 className="text-sm font-semibold text-white">{admin.username}</h3><p className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em]">Gestor</p></div></div><button onClick={() => StorageService.deleteAdmin(admin.id)} className="p-2 text-rose-500"><Trash2 size={20} /></button></div>))}</div></div>
           )}
           {activeTab === 'settings' && isSuperAdmin && renderSettings()}
         </div>
@@ -1362,7 +1362,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
           {sidebarItems.map(item => (
             <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-amber-500' : 'text-stone-500'}`}>
               <item.icon size={20} className={activeTab === item.id ? 'drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]' : ''} />
-              <span className="text-[7px] font-black uppercase tracking-tighter">{item.label}</span>
+              <span className="text-[7px] font-black tracking-tight">{item.label}</span>
             </button>
           ))}
         </nav>
@@ -1371,7 +1371,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
       {isToolModalOpen && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
           <div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative">
-            <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingTool ? 'Editar Equipo' : 'Nuevo Equipo'}</h3><p className="text-amber-500 text-[10px] font-bold uppercase">Gestión Inventario</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-stone-500 p-2"><X size={20}/></button></div>
+            <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-semibold text-white tracking-tight">{editingTool ? 'Editar Equipo' : 'Nuevo Equipo'}</h3><p className="text-amber-500 text-[10px] font-bold uppercase">Gestión Inventario</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-stone-500 p-2"><X size={20}/></button></div>
             <div className="space-y-4">
               <input type="text" placeholder="Nombre de Herramienta" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.toolName} onChange={(e)=>setToolForm({...toolForm, toolName: e.target.value})}/>
               <input type="text" placeholder="Marca" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white outline-none focus:border-amber-500" value={toolForm.brand} onChange={(e)=>setToolForm({...toolForm, brand: e.target.value})}/>
@@ -1384,12 +1384,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
         </div>
       )}
 
-      {isSiteModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">{editingSite ? 'Editar Obra' : 'Nueva Obra'}</h3><p className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest">Ubicación</p></div><button onClick={() => setIsSiteModalOpen(false)} className="text-stone-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input type="text" placeholder="Obra" className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 text-sm text-white" value={siteForm.name} onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}/><textarea placeholder="Dirección" className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 text-sm text-white h-20 resize-none" value={siteForm.address} onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })}/><button onClick={handleSaveSite} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-xs mt-2">{editingSite ? 'Guardar' : 'Crear'}</button></div></div></div>)}
+      {isSiteModalOpen && (<div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn"><div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative overflow-hidden"><div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-semibold text-white tracking-tight">{editingSite ? 'Editar Obra' : 'Nueva Obra'}</h3><p className="text-emerald-500 text-[10px] font-medium uppercase tracking-[0.18em]">Ubicación</p></div><button onClick={() => setIsSiteModalOpen(false)} className="text-stone-500 hover:text-white p-2"><X size={20} /></button></div><div className="space-y-4"><input type="text" placeholder="Obra" className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 text-sm text-white" value={siteForm.name} onChange={(e) => setSiteForm({ ...siteForm, name: e.target.value })}/><textarea placeholder="Dirección" className="w-full bg-stone-950 border border-stone-800 rounded-2xl p-4 text-sm text-white h-20 resize-none" value={siteForm.address} onChange={(e) => setSiteForm({ ...siteForm, address: e.target.value })}/><button onClick={handleSaveSite} className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black uppercase text-xs mt-2">{editingSite ? 'Guardar' : 'Crear'}</button></div></div></div>)}
 
       {reportModal.isOpen && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
           <div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative">
-             <h3 className="text-lg font-black text-white uppercase mb-6 leading-none tracking-tighter">Generar Informe PDF</h3>
+             <h3 className="text-lg font-semibold text-white uppercase mb-6 leading-none tracking-tighter">Generar Informe PDF</h3>
              <div className="space-y-4">
                 <div className="flex gap-2"><button onClick={()=>setReportModal({...reportModal, type:'WEEK'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition ${reportModal.type==='WEEK'?'bg-amber-500 text-white shadow-lg':'bg-stone-950 text-stone-500'}`}>Semanal</button><button onClick={()=>setReportModal({...reportModal, type:'MONTH'})} className={`flex-1 py-3 rounded-xl text-xs font-black uppercase transition ${reportModal.type==='MONTH'?'bg-amber-500 text-white shadow-lg':'bg-stone-950 text-stone-500'}`}>Mensual</button></div>
                 {reportModal.type==='WEEK'?(<input type="date" value={reportModal.selectedDate} onChange={(e)=>setReportModal({...reportModal, selectedDate: e.target.value})} className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white [color-scheme:dark]"/>):(<select value={reportModal.selectedMonth} onChange={(e)=>setReportModal({...reportModal, selectedMonth: parseInt(e.target.value)})} className="w-full bg-stone-950 border border-stone-800 rounded-xl p-3 text-xs text-white appearance-none">{MONTH_NAMES.map((m,i)=>(<option key={m} value={i}>{m}</option>))}</select>)}
@@ -1429,8 +1429,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               <div className="flex items-center gap-3 min-w-0">
                 <div className="p-2 bg-amber-600/10 rounded-xl text-amber-400 shrink-0"><FileText size={20} /></div>
                 <div className="min-w-0">
-                  <h3 className="text-base font-black text-white uppercase tracking-tighter truncate">{viewingReport.workerName}</h3>
-                  <p className="text-[10px] text-amber-400 font-bold uppercase tracking-widest">{viewingReport.weekStart} → {viewingReport.weekEnd}</p>
+                  <h3 className="text-base font-semibold text-white tracking-tight truncate">{viewingReport.workerName}</h3>
+                  <p className="text-[10px] text-amber-400 font-medium uppercase tracking-[0.18em]">{viewingReport.weekStart} → {viewingReport.weekEnd}</p>
                 </div>
               </div>
               <button onClick={() => setViewingReport(null)} className="text-stone-500 hover:text-white p-2"><X size={20} /></button>
@@ -1452,38 +1452,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onBack, currentUser }) =
               )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-stone-950 border border-stone-800 rounded-2xl p-3">
-                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Total Horas</p>
-                  <p className="text-lg font-mono font-black text-white mt-1">{viewingReport.totalHours.toFixed(1)}</p>
+                  <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Total Horas</p>
+                  <p className="text-lg font-mono font-semibold text-white mt-1">{viewingReport.totalHours.toFixed(1)}</p>
                 </div>
                 <div className="bg-stone-950 border border-stone-800 rounded-2xl p-3">
-                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Obra</p>
-                  <p className="text-xs font-black text-white mt-1 truncate uppercase">{viewingReport.siteName || '—'}</p>
+                  <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Obra</p>
+                  <p className="text-xs font-semibold text-white mt-1 truncate uppercase">{viewingReport.siteName || '—'}</p>
                 </div>
                 <div className="bg-stone-950 border border-stone-800 rounded-2xl p-3">
-                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Enviado</p>
-                  <p className="text-[11px] font-black text-white mt-1">{viewingReport.dateStr}</p>
+                  <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Enviado</p>
+                  <p className="text-[11px] font-semibold text-white mt-1">{viewingReport.dateStr}</p>
                   <p className="text-[9px] text-stone-500 font-bold">{viewingReport.timeStr}</p>
                 </div>
                 <div className="bg-stone-950 border border-stone-800 rounded-2xl p-3">
-                  <p className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Estado</p>
+                  <p className="text-[8px] text-stone-500 font-medium uppercase tracking-[0.18em]">Estado</p>
                   <p className="text-[11px] font-black mt-1 flex items-center gap-1 text-emerald-400"><CheckCircle2 size={12} /> {viewingReport.status}</p>
                 </div>
               </div>
               {viewingReport.tasks && (
                 <div>
-                  <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest mb-2">Tareas Realizadas</p>
+                  <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em] mb-2">Tareas Realizadas</p>
                   <div className="bg-stone-950 border border-stone-800 rounded-2xl p-4 text-xs text-stone-200 whitespace-pre-wrap leading-relaxed">{viewingReport.tasks}</div>
                 </div>
               )}
               {viewingReport.notes && (
                 <div>
-                  <p className="text-[9px] text-stone-500 font-black uppercase tracking-widest mb-2">Notas</p>
+                  <p className="text-[9px] text-stone-500 font-medium uppercase tracking-[0.18em] mb-2">Notas</p>
                   <div className="bg-stone-950 border border-stone-800 rounded-2xl p-4 text-xs text-stone-200 whitespace-pre-wrap leading-relaxed">{viewingReport.notes}</div>
                 </div>
               )}
               {viewingReport.extracted && (viewingReport.extracted.rawText || viewingReport.extracted.daysWorked != null) && (
                 <div>
-                  <p className="text-[9px] text-amber-400 font-black uppercase tracking-widest mb-2 flex items-center gap-1"><Sparkles size={10} /> Datos extraídos por IA</p>
+                  <p className="text-[9px] text-amber-400 font-medium uppercase tracking-[0.18em] mb-2 flex items-center gap-1"><Sparkles size={10} /> Datos extraídos por IA</p>
                   <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 space-y-2 text-[11px] text-stone-300">
                     {viewingReport.extracted.daysWorked != null && (<p><span className="font-black text-amber-400">Días trabajados:</span> {viewingReport.extracted.daysWorked}</p>)}
                     {viewingReport.extracted.rawText && (<p className="leading-relaxed"><span className="font-black text-amber-400">Texto detectado:</span> {viewingReport.extracted.rawText}</p>)}

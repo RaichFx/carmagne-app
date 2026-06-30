@@ -485,7 +485,7 @@ export const App: React.FC = () => {
   const renderWorkerDashboard = () => (
     <div className="flex flex-col gap-4 animate-fadeIn h-full overflow-hidden">
       <div className="flex justify-between items-center h-12 shrink-0">
-        <div className="flex flex-col"><span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Trabajador</span><span className="text-lg font-black text-white leading-none">{selectedWorker?.name}</span></div>
+        <div className="flex flex-col"><span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">Trabajador</span><span className="text-lg font-semibold text-white leading-none">{selectedWorker?.name}</span></div>
         <button onClick={resetApp} className="text-stone-400 p-2.5 bg-stone-900 rounded-xl border border-stone-800"><LogOut size={18} /></button>
       </div>
       <div className={`rounded-3xl p-5 relative flex flex-col gap-4 transition-colors duration-500 ${workerStatus?.type === 'TRABAJANDO' ? 'liquid-mirror !border-emerald-500/40' : workerStatus?.type === 'DESCANSO' ? 'liquid-mirror !border-amber-500/40' : 'liquid-mirror'}`}>
@@ -513,7 +513,7 @@ export const App: React.FC = () => {
             )}
          </div>
       </div>
-      <div className="grid grid-cols-1 gap-3 flex-1 overflow-hidden">
+      <div className="grid grid-cols-1 gap-4 flex-1 overflow-hidden">
          {(() => {
            const range = WeeklyReportService.getWeekRange(new Date());
            const submitted = weeklyReports.some(r => r.workerId === selectedWorker?.id && r.weekStart === range.start);
@@ -525,58 +525,58 @@ export const App: React.FC = () => {
                <div className="p-2 bg-amber-500/20 rounded-xl text-amber-400 shrink-0"><AlertTriangle size={16} /></div>
                <div className="flex-1 min-w-0">
                  <p className="text-[11px] font-black text-amber-200 uppercase tracking-tight leading-tight">No has enviado tu parte semanal</p>
-                 <p className="text-[9px] text-amber-400/80 font-bold uppercase tracking-widest mt-0.5">Recuerda enviarlo antes del lunes</p>
+                 <p className="text-[9px] text-amber-400/80 font-medium uppercase tracking-[0.18em] mt-0.5">Recuerda enviarlo antes del lunes</p>
                </div>
-               <button onClick={() => setShowWeeklyReportModal(true)} className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-xl text-[10px] font-black uppercase tracking-widest shrink-0 active:scale-95 transition" data-testid="reminder-enviar-btn">Enviar</button>
+               <button onClick={() => setShowWeeklyReportModal(true)} className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 rounded-xl text-[10px] font-medium uppercase tracking-[0.18em] shrink-0 active:scale-95 transition" data-testid="reminder-enviar-btn">Enviar</button>
              </div>
            );
          })()}
-         <button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="group liquid-glass liquid-hover p-5 rounded-[2rem] flex items-center justify-between active:scale-95 transition-all">
-           <div><span className="block text-xl font-black text-white">Nuevo Fichaje</span><span className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">Registrar Movimiento</span></div>
-           <div className="bg-amber-500/10 p-4 rounded-2xl text-amber-500"><Timer size={28} /></div>
+         <button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="group liquid-glass liquid-hover p-6 rounded-[2rem] flex items-center justify-between active:scale-95 transition-all">
+           <div><span className="block text-2xl font-semibold text-white leading-none">Nuevo Fichaje</span><span className="block text-stone-400/80 text-[11px] font-medium tracking-wide mt-2.5">Registrar movimiento</span></div>
+           <div className="bg-amber-500/10 p-4 rounded-2xl text-amber-500"><Timer size={24} strokeWidth={1.5} /></div>
          </button>
-         <div className="grid grid-cols-[1fr_auto] gap-2">
+         <div className="grid grid-cols-[1fr_auto] gap-3">
            <button
              data-testid="weekly-report-btn"
              onClick={() => setShowWeeklyReportModal(true)}
-             className="group liquid-glass-strong liquid-hover p-5 rounded-[2rem] flex items-center justify-between active:scale-95 transition-all"
+             className="group liquid-glass-strong liquid-hover p-6 rounded-[2rem] flex items-center justify-between active:scale-95 transition-all"
            >
              <div className="text-left">
-               <span className="block text-xl font-black text-white flex items-center gap-2">
+               <span className="block text-2xl font-semibold text-white flex items-center gap-2.5 leading-none">
                  Parte Semanal
-                 <span className="px-1.5 py-0.5 bg-amber-500/20 border border-amber-400/30 rounded-md text-[8px] font-black text-amber-300 uppercase tracking-widest">IA</span>
+                 <span className="px-2 py-0.5 bg-amber-500/15 border border-amber-400/30 rounded-md text-[9px] font-semibold text-amber-300 tracking-[0.18em]">IA</span>
                </span>
-               <span className="text-amber-300/70 text-[10px] font-bold uppercase tracking-widest">Foto o archivo → extracción auto</span>
+               <span className="block text-stone-400/80 text-[11px] font-medium tracking-wide mt-2.5">Foto o archivo → extracción auto</span>
              </div>
-             <div className="bg-amber-500/10 p-4 rounded-2xl text-amber-400"><FileText size={28} /></div>
+             <div className="bg-amber-500/10 p-4 rounded-2xl text-amber-400"><FileText size={24} strokeWidth={1.5} /></div>
            </button>
            <button
              data-testid="my-weekly-reports-btn"
              onClick={() => setCurrentStep(Step.WORKER_WEEKLY_HISTORY)}
              title="Mis partes anteriores"
-             className="liquid-glass liquid-hover rounded-[2rem] flex flex-col items-center justify-center gap-1 px-4 active:scale-95 transition-all text-stone-400 hover:text-amber-400"
+             className="liquid-glass liquid-hover rounded-[2rem] flex flex-col items-center justify-center gap-2 px-5 active:scale-95 transition-all text-stone-400 hover:text-amber-400"
            >
-             <History size={20} />
-             <span className="text-[8px] font-black uppercase tracking-widest">Mis Partes</span>
+             <History size={20} strokeWidth={1.5} />
+             <span className="text-[9px] font-medium tracking-[0.18em] uppercase">Mis Partes</span>
            </button>
          </div>
          <div className="grid grid-cols-2 gap-3">
-           <button onClick={() => setCurrentStep(Step.WORKER_HISTORY)} className="liquid-glass liquid-hover p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:scale-95"><div className="text-emerald-400"><History size={24} /></div><span className="text-xs font-medium text-white uppercase tracking-[0.2em]">Historial</span></button>
-           <button onClick={() => setCurrentStep(Step.WORKER_TOOLS)} className="liquid-glass liquid-hover p-4 rounded-2xl flex flex-col items-center justify-center gap-2 active:scale-95"><div className="text-amber-400"><Wrench size={24} /></div><span className="text-xs font-medium text-white uppercase tracking-[0.2em]">Equipos</span></button>
+           <button onClick={() => setCurrentStep(Step.WORKER_HISTORY)} className="liquid-glass liquid-hover p-5 rounded-2xl flex flex-col items-center justify-center gap-2.5 active:scale-95"><div className="text-emerald-400"><History size={22} strokeWidth={1.5} /></div><span className="text-xs font-medium text-white tracking-wide">Historial</span></button>
+           <button onClick={() => setCurrentStep(Step.WORKER_TOOLS)} className="liquid-glass liquid-hover p-5 rounded-2xl flex flex-col items-center justify-center gap-2.5 active:scale-95"><div className="text-amber-400"><Wrench size={22} strokeWidth={1.5} /></div><span className="text-xs font-medium text-white tracking-wide">Equipos</span></button>
          </div>
          <button
            data-testid="worker-payrolls-btn"
            onClick={() => setCurrentStep(Step.WORKER_PAYROLLS)}
-           className="liquid-glass liquid-hover p-4 rounded-2xl flex items-center justify-between gap-3 active:scale-95 transition group"
+           className="liquid-glass liquid-hover p-5 rounded-2xl flex items-center justify-between gap-3 active:scale-95 transition group"
          >
-           <div className="flex items-center gap-3 min-w-0">
-             <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-500 shrink-0"><ScrollText size={20} /></div>
+           <div className="flex items-center gap-4 min-w-0">
+             <div className="p-3 bg-amber-500/10 rounded-xl text-amber-400 shrink-0"><ScrollText size={20} strokeWidth={1.5} /></div>
              <div className="text-left min-w-0">
-               <span className="block font-serif-display text-xl text-white leading-none">Mis Nóminas</span>
-               <span className="text-stone-500 text-[10px] font-medium uppercase tracking-[0.2em] mt-1">Descarga tus nóminas mensuales</span>
+               <span className="block font-serif-display text-2xl text-white leading-none">Mis Nóminas</span>
+               <span className="block text-stone-400/80 text-[11px] font-medium tracking-wide mt-1.5">Descarga tus nóminas mensuales</span>
              </div>
            </div>
-           <ChevronRight size={18} className="text-stone-500 group-hover:text-amber-500 transition shrink-0" />
+           <ChevronRight size={18} strokeWidth={1.5} className="text-stone-500 group-hover:text-amber-400 transition shrink-0" />
          </button>
       </div>
     </div>
@@ -586,32 +586,32 @@ export const App: React.FC = () => {
     switch(currentStep) {
       case Step.LOGIN_PHONE: return (
         <div className="flex flex-col h-full animate-fadeIn justify-center gap-8 py-4">
-          <div className="text-center"><div className="inline-flex mb-8"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="font-serif-display text-5xl text-white tracking-tight">Carmagne Instal</h2><p className="text-stone-500 text-[10px] font-medium uppercase tracking-[0.3em] mt-3">Acceso Operario</p></div>
-          <div className="liquid-mirror p-6 rounded-[2.5rem]"><div className="liquid-shimmer-bg"></div><input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-stone-950/70 border border-stone-800 text-white rounded-2xl p-5 text-2xl font-bold focus:border-amber-500 outline-none text-center tracking-widest backdrop-blur-md" placeholder="600000000"/><button onClick={handlePhoneLogin} className="w-full bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold py-5 rounded-2xl shadow-xl shadow-amber-500/30 mt-6 flex items-center justify-center gap-3 active:scale-95 uppercase text-xs tracking-[0.3em] transition">Entrar <ArrowRight size={16} /></button></div>
+          <div className="text-center"><div className="inline-flex mb-10"><AppLogo size="lg" logoUrl={appConfig.logoUrl} scale={appConfig.logoScaleLogin} /></div><h2 className="font-serif-display text-6xl text-white tracking-tight">Carmagne Instal</h2><p className="text-stone-500 text-xs font-medium tracking-[0.32em] mt-4">ACCESO OPERARIO</p></div>
+          <div className="liquid-mirror p-6 rounded-[2.5rem]"><div className="liquid-shimmer-bg"></div><input type="tel" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} className="w-full bg-stone-950/70 border border-stone-800 text-white rounded-2xl p-5 text-2xl font-bold focus:border-amber-500 outline-none text-center tracking-widest backdrop-blur-md" placeholder="600000000"/><button onClick={handlePhoneLogin} className="w-full bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold py-5 rounded-2xl shadow-xl shadow-amber-500/25 mt-6 flex items-center justify-center gap-3 active:scale-95 text-base tracking-tight transition">Entrar <ArrowRight size={18} strokeWidth={1.75} /></button></div>
           <button onClick={() => setShowAdminLogin(true)} className="text-stone-800 text-[10px] font-black uppercase tracking-[0.4em] text-center">Admin Panel</button>
         </div>
       );
       case Step.WORKER_DASHBOARD: return renderWorkerDashboard();
       case Step.SELECT_SITE: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-           <div className="flex items-center gap-4 mb-4 shrink-0"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Selecciona Obra</h2></div>
-           <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">{sites.map(site => { const isActiveSite = workerStatus?.siteId === site.id; const isLocked = workerStatus?.type !== 'INACTIVO' && !isActiveSite; return (<button key={site.id} disabled={isLocked} onClick={() => { if (isLocked) return; setSelectedSite(site); setCurrentStep(Step.SELECT_ACTION); }} className={`w-full p-4 rounded-[1.5rem] border text-left transition-all ${isActiveSite ? 'bg-amber-500/20 border-amber-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : isLocked ? 'bg-stone-900/30 border-stone-900 opacity-40 grayscale' : 'bg-stone-900 border-stone-800 hover:border-amber-500 active:scale-95'}`}><div className="flex justify-between items-start"><div className="max-w-[75%]"><h3 className="font-black text-white text-sm uppercase tracking-tight">{site.name}</h3><p className="text-[9px] text-stone-500 truncate uppercase font-bold mt-1">{site.address}</p></div>{isActiveSite && (<span className="bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Sesión Activa</span>)}</div></button>); })}</div>
+           <div className="flex items-center gap-4 mb-4 shrink-0"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-semibold text-white">Selecciona Obra</h2></div>
+           <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">{sites.map(site => { const isActiveSite = workerStatus?.siteId === site.id; const isLocked = workerStatus?.type !== 'INACTIVO' && !isActiveSite; return (<button key={site.id} disabled={isLocked} onClick={() => { if (isLocked) return; setSelectedSite(site); setCurrentStep(Step.SELECT_ACTION); }} className={`w-full p-4 rounded-[1.5rem] border text-left transition-all ${isActiveSite ? 'bg-amber-500/20 border-amber-500 shadow-[0_0_15px_rgba(59,130,246,0.2)]' : isLocked ? 'bg-stone-900/30 border-stone-900 opacity-40 grayscale' : 'bg-stone-900 border-stone-800 hover:border-amber-500 active:scale-95'}`}><div className="flex justify-between items-start"><div className="max-w-[75%]"><h3 className="font-semibold text-white text-sm uppercase tracking-tight">{site.name}</h3><p className="text-[9px] text-stone-500 truncate uppercase font-bold mt-1">{site.address}</p></div>{isActiveSite && (<span className="bg-amber-500 text-white text-[8px] font-black px-2 py-1 rounded-full uppercase tracking-widest shadow-lg">Sesión Activa</span>)}</div></button>); })}</div>
         </div>
       );
       case Step.SELECT_ACTION: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-           <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Acción en Obra</h2><p className="text-[10px] text-amber-500 font-bold uppercase tracking-widest">{selectedSite?.name || workerStatus?.site}</p></div></div>
+           <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_SITE)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-semibold text-white">Acción en Obra</h2><p className="text-[10px] text-amber-500 font-medium uppercase tracking-[0.18em]">{selectedSite?.name || workerStatus?.site}</p></div></div>
            <div className="grid grid-cols-2 gap-3 flex-1 pb-4">
              <button disabled={workerStatus?.type !== 'INACTIVO'} onClick={() => handleActionSelect(LogType.ENTRADA)} className={`bg-emerald-600/10 border border-emerald-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-emerald-500 active:bg-emerald-600 active:text-white transition-all ${(workerStatus?.type !== 'INACTIVO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Zap size={32} /> <span className="text-sm font-black uppercase">Entrada</span></button>
              <button disabled={workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO'} onClick={() => handleActionSelect(LogType.SALIDA)} className={`bg-rose-600/10 border border-rose-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-rose-500 active:bg-rose-600 active:text-white transition-all ${(workerStatus?.type === 'INACTIVO' || workerStatus?.type === 'DESCANSO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><LogOut size={32} /> <span className="text-sm font-black uppercase">Salida</span></button>
-             <button disabled={workerStatus?.type !== 'TRABAJANDO'} onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${(workerStatus?.type !== 'TRABAJANDO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Coffee size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Ini Descanso</span></button>
-             <button disabled={workerStatus?.type !== 'DESCANSO'} onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} className={`bg-amber-500/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-500 active:text-white transition-all ${(workerStatus?.type !== 'DESCANSO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Timer size={32} /> <span className="text-sm font-black uppercase tracking-tighter">Fin Descanso</span></button>
+             <button disabled={workerStatus?.type !== 'TRABAJANDO'} onClick={() => handleActionSelect(LogType.INICIO_DESCANSO)} className={`bg-amber-600/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-600 active:text-white transition-all ${(workerStatus?.type !== 'TRABAJANDO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Coffee size={32} /> <span className="text-sm font-black tracking-tight">Ini Descanso</span></button>
+             <button disabled={workerStatus?.type !== 'DESCANSO'} onClick={() => handleActionSelect(LogType.FIN_DESCANSO)} className={`bg-amber-500/10 border border-amber-500/20 rounded-[2rem] flex flex-col items-center justify-center gap-3 text-amber-500 active:bg-amber-500 active:text-white transition-all ${(workerStatus?.type !== 'DESCANSO') ? 'opacity-40 grayscale pointer-events-none' : ''}`}><Timer size={32} /> <span className="text-sm font-black tracking-tight">Fin Descanso</span></button>
            </div>
         </div>
       );
       case Step.REPORT_EXIT: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
-           <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_ACTION)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-black text-white">Finalizar Jornada</h2><p className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">{workerStatus?.site}</p></div></div>
+           <div className="flex items-center gap-4 mb-6 shrink-0"><button onClick={() => setCurrentStep(Step.SELECT_ACTION)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400"><ChevronLeft size={20}/></button><div><h2 className="text-xl font-semibold text-white">Finalizar Jornada</h2><p className="text-[10px] text-rose-500 font-medium uppercase tracking-[0.18em]">{workerStatus?.site}</p></div></div>
            <div className="flex-1 bg-stone-900 border border-stone-800 rounded-[2.5rem] p-6 shadow-xl space-y-6 overflow-y-auto custom-scrollbar">
               <div className="space-y-3">
                  <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest ml-1">Modo de Trabajo</label>
@@ -627,7 +627,7 @@ export const App: React.FC = () => {
               </div>
               <div className="bg-stone-950/50 p-4 rounded-2xl border border-stone-800 flex items-center justify-between">
                  <div className="flex items-center gap-2"><Clock size={16} className="text-stone-500" /><span className="text-[10px] font-black text-stone-500 uppercase">Tiempo hoy</span></div>
-                 <span className="text-lg font-mono font-black text-white">{formatMsToTime(getEffectiveWorkTime())}</span>
+                 <span className="text-lg font-mono font-semibold text-white">{formatMsToTime(getEffectiveWorkTime())}</span>
               </div>
               <button 
                 disabled={!exitReportText.trim()}
@@ -641,23 +641,23 @@ export const App: React.FC = () => {
       );
       case Step.WORKER_HISTORY: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden">
-           <div className="flex items-center justify-between gap-4 mb-4 shrink-0"><div className="flex items-center gap-4"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-black text-white">Mi Actividad</h2></div><button onClick={handleDownloadPDF} className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl border border-emerald-500/20 active:bg-emerald-600 active:text-white"><Download size={20}/></button></div>
+           <div className="flex items-center justify-between gap-4 mb-4 shrink-0"><div className="flex items-center gap-4"><button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400"><ChevronLeft size={20}/></button><h2 className="text-xl font-semibold text-white">Mi Actividad</h2></div><button onClick={handleDownloadPDF} className="p-2.5 bg-emerald-600/10 text-emerald-500 rounded-xl border border-emerald-500/20 active:bg-emerald-600 active:text-white"><Download size={20}/></button></div>
            <div className="bg-stone-900/50 p-4 rounded-3xl border border-stone-800 mb-4 shrink-0 space-y-4">
               <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div><span className="text-[10px] font-black text-stone-500 uppercase tracking-[0.2em]">Resumen del periodo</span></div>
               <div className="grid grid-cols-3 gap-2">
-                 <div className="flex flex-col items-center gap-1"><span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Trabajo Neto</span><span className="text-sm font-mono font-black text-white">{formatMsToTime(historyTotals.totalWork)}</span></div>
-                 <div className="flex flex-col items-center gap-1 border-x border-stone-800"><span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Descanso</span><span className="text-sm font-mono font-black text-white">{formatMsToTime(historyTotals.totalBreak)}</span></div>
-                 <div className="flex flex-col items-center gap-1"><span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">Total Bruto</span><span className="text-sm font-mono font-black text-white">{formatMsToTime(historyTotals.totalWork + historyTotals.totalBreak)}</span></div>
+                 <div className="flex flex-col items-center gap-1"><span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Trabajo Neto</span><span className="text-sm font-mono font-semibold text-white">{formatMsToTime(historyTotals.totalWork)}</span></div>
+                 <div className="flex flex-col items-center gap-1 border-x border-stone-800"><span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Descanso</span><span className="text-sm font-mono font-semibold text-white">{formatMsToTime(historyTotals.totalBreak)}</span></div>
+                 <div className="flex flex-col items-center gap-1"><span className="text-[8px] font-black text-sky-400 uppercase tracking-widest">Total Bruto</span><span className="text-sm font-mono font-semibold text-white">{formatMsToTime(historyTotals.totalWork + historyTotals.totalBreak)}</span></div>
               </div>
            </div>
            <div className="space-y-3 mb-4 shrink-0">
              <div className="relative"><Search size={16} className="absolute left-4 top-1/2 -transtone-y-1/2 text-stone-500" /><input type="text" placeholder="Buscar obra..." className="w-full bg-stone-900 border border-stone-800 rounded-2xl py-3 pl-11 pr-4 text-xs text-white outline-none focus:border-amber-500" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)}/></div>
-             <div className="flex gap-2">{(['ALL', 'DAY', 'WEEK', 'MONTH'] as const).map(p => (<button key={p} onClick={() => setHistoryPeriod(p)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${historyPeriod === p ? 'bg-amber-500 border-amber-500 text-white' : 'bg-stone-900 border-stone-800 text-stone-500'}`}>{p === 'ALL' ? 'Todo' : p === 'DAY' ? 'Día' : p === 'WEEK' ? 'Semana' : 'Mes'}</button>))}</div>
+             <div className="flex gap-2">{(['ALL', 'DAY', 'WEEK', 'MONTH'] as const).map(p => (<button key={p} onClick={() => setHistoryPeriod(p)} className={`flex-1 py-2.5 rounded-xl text-[10px] font-medium uppercase tracking-[0.18em] transition-all border ${historyPeriod === p ? 'bg-amber-500 border-amber-500 text-white' : 'bg-stone-900 border-stone-800 text-stone-500'}`}>{p === 'ALL' ? 'Todo' : p === 'DAY' ? 'Día' : p === 'WEEK' ? 'Semana' : 'Mes'}</button>))}</div>
              {historyPeriod === 'MONTH' && (<div className="animate-slideDown relative"><select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="w-full bg-stone-900 border border-stone-800 rounded-2xl py-3 px-4 text-xs font-bold text-sky-400 outline-none appearance-none">{MONTH_NAMES.map((name, idx) => (<option key={name} value={idx}>{name}</option>))}</select><ChevronDown className="absolute right-4 top-1/2 -transtone-y-1/2 text-stone-500 pointer-events-none" size={16} /></div>)}
-             {(historyPeriod === 'WEEK' || historyPeriod === 'DAY') && (<div className="animate-slideDown flex flex-col gap-1"><span className="text-[10px] text-stone-500 font-black uppercase tracking-widest ml-1">{historyPeriod === 'DAY' ? 'Elegir día:' : 'Elegir día de la semana:'}</span><div className="relative"><CalendarDays size={16} className="absolute left-4 top-1/2 -transtone-y-1/2 text-amber-500" /><input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-stone-900 border border-stone-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-white outline-none [color-scheme:dark]"/></div></div>)}
+             {(historyPeriod === 'WEEK' || historyPeriod === 'DAY') && (<div className="animate-slideDown flex flex-col gap-1"><span className="text-[10px] text-stone-500 font-medium uppercase tracking-[0.18em] ml-1">{historyPeriod === 'DAY' ? 'Elegir día:' : 'Elegir día de la semana:'}</span><div className="relative"><CalendarDays size={16} className="absolute left-4 top-1/2 -transtone-y-1/2 text-amber-500" /><input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="w-full bg-stone-900 border border-stone-800 rounded-2xl py-3 pl-11 pr-4 text-xs font-bold text-white outline-none [color-scheme:dark]"/></div></div>)}
            </div>
            <div className="flex-1 overflow-y-auto space-y-3 pb-4 custom-scrollbar">
-             {filteredHistory.map(log => (<div key={log.id} className="bg-stone-900 p-4 rounded-2xl border border-stone-800"><div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-black uppercase tracking-widest ${log.type === LogType.ENTRADA ? 'text-emerald-400' : log.type === LogType.SALIDA ? 'text-rose-400' : 'text-sky-400'}`}>{log.type}</span><span className="text-[9px] text-stone-600 font-bold">{log.dateStr} • {log.timeStr}</span></div><p className="text-xs font-black text-white uppercase tracking-tight truncate">{log.siteName}</p></div>))}
+             {filteredHistory.map(log => (<div key={log.id} className="bg-stone-900 p-4 rounded-2xl border border-stone-800"><div className="flex justify-between items-start mb-2"><span className={`text-[10px] font-medium uppercase tracking-[0.18em] ${log.type === LogType.ENTRADA ? 'text-emerald-400' : log.type === LogType.SALIDA ? 'text-rose-400' : 'text-sky-400'}`}>{log.type}</span><span className="text-[9px] text-stone-600 font-bold">{log.dateStr} • {log.timeStr}</span></div><p className="text-xs font-semibold text-white uppercase tracking-tight truncate">{log.siteName}</p></div>))}
            </div>
         </div>
       );
@@ -671,8 +671,8 @@ export const App: React.FC = () => {
               <div className="flex items-center gap-4 min-w-0">
                 <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400 shrink-0"><ChevronLeft size={20}/></button>
                 <div className="min-w-0">
-                  <h2 className="text-xl font-black text-white uppercase tracking-tighter truncate">Mis Partes</h2>
-                  <p className="text-[9px] text-amber-400 font-bold uppercase tracking-widest">{myReports.length} parte{myReports.length === 1 ? '' : 's'} enviado{myReports.length === 1 ? '' : 's'}</p>
+                  <h2 className="text-xl font-semibold text-white tracking-tight truncate">Mis Partes</h2>
+                  <p className="text-[9px] text-amber-400 font-medium uppercase tracking-[0.18em]">{myReports.length} parte{myReports.length === 1 ? '' : 's'} enviado{myReports.length === 1 ? '' : 's'}</p>
                 </div>
               </div>
               <button onClick={() => setShowWeeklyReportModal(true)} className="p-2.5 bg-amber-600 text-white rounded-xl shadow-lg active:scale-95" data-testid="weekly-history-new-btn"><Plus size={20}/></button>
@@ -684,7 +684,7 @@ export const App: React.FC = () => {
                   {submittedThisWeek ? <CheckCircle2 size={18}/> : <AlertTriangle size={18}/>}
                 </div>
                 <div className="flex-1">
-                  <p className={`text-[10px] font-black uppercase tracking-widest ${submittedThisWeek ? 'text-emerald-200' : 'text-amber-200'}`}>Semana actual</p>
+                  <p className={`text-[10px] font-medium uppercase tracking-[0.18em] ${submittedThisWeek ? 'text-emerald-200' : 'text-amber-200'}`}>Semana actual</p>
                   <p className={`text-xs font-bold ${submittedThisWeek ? 'text-emerald-300' : 'text-amber-300'}`}>{submittedThisWeek ? '✓ Parte enviado' : 'Pendiente de envío'}</p>
                 </div>
                 <p className="text-[9px] text-stone-400 font-mono font-bold">{currentRange.start} → {currentRange.end}</p>
@@ -695,7 +695,7 @@ export const App: React.FC = () => {
               {myReports.length === 0 && (
                 <div className="text-center py-16 bg-stone-900/30 rounded-3xl border border-dashed border-stone-800">
                   <FileText size={36} className="text-stone-700 mx-auto mb-3" />
-                  <p className="text-stone-500 text-xs font-bold uppercase tracking-widest">Sin partes enviados</p>
+                  <p className="text-stone-500 text-xs font-medium uppercase tracking-[0.18em]">Sin partes enviados</p>
                   <p className="text-stone-600 text-[10px] mt-1">Pulsa + para enviar tu primer parte</p>
                 </div>
               )}
@@ -711,12 +711,12 @@ export const App: React.FC = () => {
                             <span className="px-1.5 py-0.5 bg-amber-500/20 border border-amber-400/30 rounded text-[7px] font-black text-amber-300 uppercase tracking-widest">IA</span>
                           )}
                         </div>
-                        <p className="text-sm font-black text-white uppercase truncate">{r.siteName || 'Sin obra'}</p>
+                        <p className="text-sm font-semibold text-white uppercase truncate">{r.siteName || 'Sin obra'}</p>
                         <p className="text-[10px] text-stone-500 line-clamp-2 leading-tight mt-1">{r.tasks || '—'}</p>
                       </div>
                       <div className="flex items-center justify-between mt-2 pt-2 border-t border-stone-800">
                         <span className="text-[8px] font-bold text-stone-600 uppercase tracking-widest">{r.dateStr} • {r.timeStr}</span>
-                        <span className="text-base font-mono font-black text-white">{r.totalHours.toFixed(1)}<span className="text-[10px] text-stone-500 ml-0.5">h</span></span>
+                        <span className="text-base font-mono font-semibold text-white">{r.totalHours.toFixed(1)}<span className="text-[10px] text-stone-500 ml-0.5">h</span></span>
                       </div>
                     </div>
                   </div>
@@ -742,7 +742,7 @@ export const App: React.FC = () => {
               <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="p-2.5 bg-stone-900 rounded-xl border border-stone-800 text-stone-400">
                 <ChevronLeft size={20}/>
               </button>
-              <h2 className="text-xl font-black text-white uppercase tracking-tighter">Mis Herramientas</h2>
+              <h2 className="text-xl font-semibold text-white tracking-tight">Mis Herramientas</h2>
             </div>
             <button onClick={() => setIsToolModalOpen(true)} className="p-2.5 bg-amber-600 text-white rounded-xl shadow-lg active:scale-95"><Plus size={20}/></button>
           </div>
@@ -751,7 +751,7 @@ export const App: React.FC = () => {
             {workerTools.map(tool => (
               <div key={tool.id} className="bg-stone-900 p-4 rounded-2xl border border-stone-800 flex items-center gap-4">
                 <div className="w-12 h-12 bg-amber-600/10 rounded-xl flex items-center justify-center text-amber-500 border border-amber-500/10 shrink-0"><Wrench size={24} /></div>
-                <div className="flex-1 min-w-0"><h4 className="font-black text-white uppercase text-sm truncate">{tool.toolName}</h4><p className="text-[10px] text-stone-500 font-bold uppercase truncate">{tool.brand} • {tool.model || 'S/M'}</p></div>
+                <div className="flex-1 min-w-0"><h4 className="font-semibold text-white uppercase text-sm truncate">{tool.toolName}</h4><p className="text-[10px] text-stone-500 font-bold uppercase truncate">{tool.brand} • {tool.model || 'S/M'}</p></div>
                 <button onClick={() => StorageService.deleteTool(tool.id)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition"><Trash2 size={18} /></button>
               </div>
             ))}
@@ -759,7 +759,7 @@ export const App: React.FC = () => {
           {isToolModalOpen && (
             <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
               <div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative">
-                <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-black text-white uppercase tracking-tighter">Añadir Herramienta</h3><p className="text-amber-500 text-[10px] font-bold uppercase tracking-widest">Nueva Ficha</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-stone-500 p-2"><X size={20}/></button></div>
+                <div className="flex justify-between items-center mb-6"><div><h3 className="text-lg font-semibold text-white tracking-tight">Añadir Herramienta</h3><p className="text-amber-500 text-[10px] font-medium uppercase tracking-[0.18em]">Nueva Ficha</p></div><button onClick={() => setIsToolModalOpen(false)} className="text-stone-500 p-2"><X size={20}/></button></div>
                 <div className="space-y-4">
                   <div className="space-y-1.5"><label className="text-[9px] font-black text-stone-500 uppercase ml-1">Nombre *</label><input list="worker-tools-list" type="text" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white outline-none" value={newToolForm.name} onChange={(e)=>setNewToolForm({...newToolForm, name: e.target.value})} /></div>
                   <div className="space-y-1.5"><label className="text-[9px] font-black text-stone-500 uppercase ml-1">Marca *</label><input list="worker-brands-list" type="text" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white outline-none" value={newToolForm.brand} onChange={(e)=>setNewToolForm({...newToolForm, brand: e.target.value})} /></div>
@@ -774,13 +774,13 @@ export const App: React.FC = () => {
       case Step.SUCCESS: return (
         <div className="flex flex-col items-center justify-center h-full gap-6 animate-fadeIn text-center">
            <div className="w-24 h-24 bg-emerald-600 rounded-[2rem] flex items-center justify-center shadow-2xl animate-bounce"><CheckCircle size={48} className="text-white" /></div>
-           <div><h2 className="text-3xl font-black text-white uppercase tracking-tighter">¡Operación con Éxito!</h2><p className="text-stone-500 text-sm mt-2 font-medium">Tu fichaje ha sido registrado en el sistema.</p></div>
+           <div><h2 className="text-3xl font-semibold text-white tracking-tight">¡Operación con Éxito!</h2><p className="text-stone-500 text-sm mt-2 font-medium">Tu fichaje ha sido registrado en el sistema.</p></div>
            <button onClick={() => setCurrentStep(Step.WORKER_DASHBOARD)} className="bg-stone-900 text-white px-8 py-4 rounded-2xl font-black border border-stone-800 uppercase tracking-widest text-xs shadow-lg active:scale-95">Regresar al Panel</button>
         </div>
       );
       case Step.REGISTER: return (
         <div className="flex flex-col h-full animate-fadeIn overflow-hidden pb-4">
-           <h2 className="text-2xl font-black text-white mb-4 shrink-0 tracking-tighter uppercase">Crear Cuenta</h2>
+           <h2 className="text-2xl font-semibold text-white mb-4 shrink-0 tracking-tighter uppercase">Crear Cuenta</h2>
            <div className="bg-stone-900 p-5 rounded-[2.5rem] border border-stone-800 space-y-3 shadow-xl overflow-y-auto custom-scrollbar flex-1">
              <input type="text" placeholder="Nombre completo" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white focus:border-amber-500 outline-none" value={regName} onChange={(e)=>setRegName(e.target.value)}/>
              <input type="text" placeholder="DNI / NIE" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-sm text-white focus:border-amber-500 outline-none" value={regDni} onChange={(e)=>setRegDni(e.target.value)}/>
@@ -804,7 +804,7 @@ export const App: React.FC = () => {
       {showAdminLogin && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 animate-fadeIn">
           <div className="bg-stone-900 w-full max-w-sm rounded-[2.5rem] border border-stone-800 p-8 shadow-2xl relative overflow-hidden">
-             <div className="flex justify-between items-center mb-6"><div className="flex items-center gap-3"><div className="p-2 bg-amber-500/10 rounded-xl text-amber-500"><Shield size={24}/></div><h2 className="text-xl font-black text-white uppercase tracking-tighter">Admin Login</h2></div><button onClick={() => setShowAdminLogin(false)} className="text-stone-500 hover:text-white"><X size={20}/></button></div>
+             <div className="flex justify-between items-center mb-6"><div className="flex items-center gap-3"><div className="p-2 bg-amber-500/10 rounded-xl text-amber-500"><Shield size={24}/></div><h2 className="text-xl font-semibold text-white tracking-tight">Admin Login</h2></div><button onClick={() => setShowAdminLogin(false)} className="text-stone-500 hover:text-white"><X size={20}/></button></div>
              <div className="space-y-4">
                 <input type="text" placeholder="Usuario" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-white outline-none focus:border-amber-500" value={adminUsernameInput} onChange={(e) => setAdminUsernameInput(e.target.value)}/>
                 <input type="password" placeholder="Contraseña" className="w-full bg-stone-950 border border-stone-800 rounded-xl p-4 text-white outline-none focus:border-amber-500" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)}/>

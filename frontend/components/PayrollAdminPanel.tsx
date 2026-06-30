@@ -187,7 +187,7 @@ export const PayrollAdminPanel: React.FC<PayrollAdminPanelProps> = ({ workers, p
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0 flex-1">
                   <p className="font-serif-display text-2xl text-white leading-none truncate">{MONTH_NAMES[p.month]}</p>
-                  <p className="text-[10px] text-amber-500/80 font-mono font-bold uppercase tracking-widest mt-1">{p.year}</p>
+                  <p className="text-[10px] text-amber-500/80 font-mono font-medium uppercase tracking-[0.18em] mt-1">{p.year}</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 shrink-0">
                   <FileText size={16} />
@@ -292,7 +292,7 @@ export const PayrollAdminPanel: React.FC<PayrollAdminPanelProps> = ({ workers, p
                 data-testid="submit-payroll-btn"
                 disabled={uploading || !selectedWorkerId || !fileBase64}
                 onClick={handleUpload}
-                className={`w-full py-4 rounded-2xl font-bold uppercase tracking-widest text-[11px] flex items-center justify-center gap-2 transition ${
+                className={`w-full py-4 rounded-2xl font-medium uppercase tracking-[0.18em] text-[11px] flex items-center justify-center gap-2 transition ${
                   uploading || !selectedWorkerId || !fileBase64
                     ? 'bg-stone-800 text-stone-600 cursor-not-allowed'
                     : 'bg-amber-500 hover:bg-amber-400 text-stone-950 shadow-lg shadow-amber-500/20 active:scale-[0.98]'
